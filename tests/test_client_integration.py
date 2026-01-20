@@ -17,12 +17,12 @@ from decimal import Decimal
 
 import pytest
 
-from backend.lib.pynfse_nacional import (
+from pynfse_nacional import (
     NFSeClient,
     NFSeAPIError,
     NFSeCertificateError,
 )
-from backend.lib.pynfse_nacional.models import (
+from pynfse_nacional.models import (
     DPS,
     Prestador,
     Tomador,
@@ -85,20 +85,19 @@ def sample_dps():
     )
 
     servico = Servico(
-        codigo_cnae="8630503",
-        codigo_lc116="403",
+        codigo_lc116="4.03.03",
         discriminacao="Consulta medica de teste para homologacao",
         valor_servicos=Decimal("100.00"),
         iss_retido=False,
         aliquota_iss=Decimal("2.00"),
+        aliquota_simples=Decimal("15.50"),
     )
 
     now = datetime.now(timezone.utc)
     competencia = now.strftime("%Y-%m")
 
     return DPS(
-        id_dps=f"11222333000181NF{int(now.timestamp()):010d}",
-        serie="NF",
+        serie="900",
         numero=int(now.timestamp()),
         competencia=competencia,
         data_emissao=now,

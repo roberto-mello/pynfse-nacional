@@ -8,8 +8,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from backend.lib.pynfse_nacional.exceptions import NFSeCertificateError
-from backend.lib.pynfse_nacional.xml_signer import (
+from pynfse_nacional.exceptions import NFSeCertificateError
+from pynfse_nacional.xml_signer import (
     CRYPTOGRAPHY_AVAILABLE,
     SIGNXML_AVAILABLE,
     XMLSignerService,
@@ -140,7 +140,7 @@ class TestXMLSignerServiceLoadCertificate:
         signer = XMLSignerService(cert_path="/path/to/cert.pfx", cert_password="secret")
 
         with patch(
-            "backend.lib.pynfse_nacional.xml_signer.CRYPTOGRAPHY_AVAILABLE", False
+            "pynfse_nacional.xml_signer.CRYPTOGRAPHY_AVAILABLE", False
         ):
             with pytest.raises(NFSeCertificateError) as exc_info:
                 signer._load_certificate()
@@ -171,7 +171,7 @@ class TestXMLSignerServiceSign:
         """sign should raise if signxml not available."""
         signer = XMLSignerService(cert_path="/path/to/cert.pfx", cert_password="secret")
 
-        with patch("backend.lib.pynfse_nacional.xml_signer.SIGNXML_AVAILABLE", False):
+        with patch("pynfse_nacional.xml_signer.SIGNXML_AVAILABLE", False):
             with pytest.raises(NFSeCertificateError) as exc_info:
                 signer.sign(SAMPLE_XML)
 
