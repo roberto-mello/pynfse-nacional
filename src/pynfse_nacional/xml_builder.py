@@ -1,3 +1,4 @@
+import warnings
 from decimal import Decimal
 from xml.etree import ElementTree as ET
 
@@ -14,11 +15,31 @@ class XMLBuilder:
     def __init__(self, ambiente: Ambiente = Ambiente.HOMOLOGACAO):
         self.ambiente = ambiente
 
+    def _build_dps_id(self, dps: DPS) -> str:
+        """Build DPS ID in the correct format.
+
+        Format: DPS + cLocEmi(7) + tpInsc(1) + CNPJ(14) + serie(5) + nDPS(15)
+        - cLocEmi: IBGE municipality code (7 digits)
+        - tpInsc: 1=CPF, 2=CNPJ
+        - CNPJ: 14 digits
+        - serie: 5 digits (zero-padded)
+        - nDPS: 15 digits (zero-padded)
+        """
+        c_loc_emi = str(dps.prestador.endereco.codigo_municipio).zfill(7)
+        tp_insc = "2"  # CNPJ
+        cnpj = dps.prestador.cnpj.zfill(14)
+        serie = dps.serie.zfill(5)
+        n_dps = str(dps.numero).zfill(15)
+
+        return f"DPS{c_loc_emi}{tp_insc}{cnpj}{serie}{n_dps}"
+
     def build_dps(self, dps: DPS) -> str:
         """Build DPS XML from model."""
         root = ET.Element("DPS", versao="1.01", xmlns=self.NAMESPACE)
 
-        infDPS = ET.SubElement(root, "infDPS", Id=dps.id_dps)
+        # Generate correct DPS ID if not provided or use provided one
+        dps_id = dps.id_dps if dps.id_dps else self._build_dps_id(dps)
+        infDPS = ET.SubElement(root, "infDPS", Id=dps_id)
 
         # NOTE: Based on real NFSe XML, tpAmb in DPS is always "1" for production data
         # even when submitting to homologacao environment (which uses ambGer in response)
@@ -102,13 +123,13 @@ class XMLBuilder:
         ET.SubElement(cServ, "cTribNac").text = codigo.zfill(6)
 
         # cTribMun - municipal code (optional but used in real NFSe)
-        if hasattr(dps.servico, 'codigo_tributacao_municipal') and dps.servico.codigo_tributacao_municipal:
+        if dps.servico.codigo_tributacao_municipal:
             ET.SubElement(cServ, "cTribMun").text = dps.servico.codigo_tributacao_municipal
 
         ET.SubElement(cServ, "xDescServ").text = dps.servico.discriminacao
 
         # cNBS - NBS code (optional but used in real NFSe)
-        if hasattr(dps.servico, 'codigo_nbs') and dps.servico.codigo_nbs:
+        if dps.servico.codigo_nbs:
             ET.SubElement(cServ, "cNBS").text = dps.servico.codigo_nbs
 
     def _add_valores(self, parent: ET.Element, dps: DPS) -> None:
@@ -129,8 +150,19 @@ class XMLBuilder:
 
         # For Simples Nacional, use pTotTribSN with estimated tax percentage
         if dps.optante_simples:
-            # Default to a reasonable Simples Nacional tax estimate
-            aliquota_sn = getattr(dps.servico, 'aliquota_simples', None) or Decimal("18.83")
+            # Use aliquota_simples from servico or default to 18.83%
+            if dps.servico.aliquota_simples:
+                aliquota_sn = dps.servico.aliquota_simples
+            else:
+                aliquota_sn = Decimal("18.83")
+
+                warnings.warn(
+                    "aliquota_simples not provided, using default 18.83%. "
+                    "Set servico.aliquota_simples to the correct rate for your business.",
+                    UserWarning,
+                    stacklevel=3,
+                )
+
             ET.SubElement(totTrib, "pTotTribSN").text = self._format_decimal(aliquota_sn)
         else:
             # For non-Simples, use percentage breakdown
