@@ -1,0 +1,10 @@
+# Ignore user's personal config (contains sensitive data)
+issuer.ini
+
+# Ignore generated PDFs
+*.pdf
+
+# Ignore any certificate files that might be placed here
+*.pfx
+*.p12
+*.pem
