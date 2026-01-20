@@ -51,12 +51,15 @@ class ValoresServico(BaseModel):
 
 
 class Servico(BaseModel):
-    codigo_cnae: str
-    codigo_lc116: str
+    codigo_cnae: Optional[str] = None
+    codigo_lc116: str = Field(..., description="Item da lista de servicos LC 116 (ex: 4.03.03)")
+    codigo_tributacao_municipal: Optional[str] = Field(None, description="Codigo tributacao municipal")
+    codigo_nbs: Optional[str] = Field(None, description="Codigo NBS do servico")
     discriminacao: str
     valor_servicos: Decimal
     iss_retido: bool = False
     aliquota_iss: Optional[Decimal] = None
+    aliquota_simples: Optional[Decimal] = Field(None, description="Aliquota Simples Nacional (ex: 18.83)")
     valor_deducoes: Decimal = Decimal("0.00")
     valor_pis: Decimal = Decimal("0.00")
     valor_cofins: Decimal = Decimal("0.00")
@@ -68,8 +71,8 @@ class Servico(BaseModel):
 class DPS(BaseModel):
     """Declaracao de Prestacao de Servicos."""
 
-    id_dps: str = Field(..., description="Unique DPS identifier: CNPJ + serie + numero")
-    serie: str = Field(default="NF")
+    id_dps: Optional[str] = Field(None, description="DPS ID (auto-generated if not provided)")
+    serie: str = Field(default="900")
     numero: int
     competencia: str = Field(..., description="YYYY-MM format")
     data_emissao: datetime
@@ -89,7 +92,8 @@ class NFSeResponse(BaseModel):
     success: bool
     chave_acesso: Optional[str] = None
     nfse_number: Optional[str] = None
-    xml_nfse: Optional[str] = None
+    nfse_xml_gzip_b64: Optional[str] = Field(None, description="Base64-encoded gzipped NFSe XML from API")
+    xml_nfse: Optional[str] = Field(None, description="Decoded NFSe XML")
     error_code: Optional[str] = None
     error_message: Optional[str] = None
 

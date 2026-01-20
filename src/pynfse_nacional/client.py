@@ -162,39 +162,40 @@ class NFSeClient:
 
     def _parse_dps_response(self, response: httpx.Response) -> NFSeResponse:
         """Parse API response for DPS submission."""
-        if response.status_code == 200:
-            data = response.json()
-
-            nfse_xml = None
-
-            if data.get("nfse"):
-                try:
-                    nfse_xml = decode_decompress(data["nfse"])
-                except Exception:
-                    nfse_xml = data.get("nfse")
-
-            return NFSeResponse(
-                success=True,
-                chave_acesso=data.get("chaveAcesso"),
-                nfse_number=data.get("nNFSe"),
-                xml_nfse=nfse_xml,
-            )
-
         try:
-            error_data = response.json()
-
-            return NFSeResponse(
-                success=False,
-                error_code=error_data.get("codigo") or str(response.status_code),
-                error_message=error_data.get("mensagem") or str(error_data),
-            )
-
+            data = response.json()
         except Exception:
             return NFSeResponse(
                 success=False,
                 error_code=str(response.status_code),
                 error_message=response.text or "Erro desconhecido",
             )
+
+        # Check for chaveAcesso to determine success (API may return success on non-200 status)
+        if data.get("chaveAcesso"):
+            nfse_xml = None
+            nfse_xml_b64 = data.get("nfseXmlGZipB64")
+
+            if nfse_xml_b64:
+                try:
+                    nfse_xml = decode_decompress(nfse_xml_b64)
+                except Exception:
+                    pass
+
+            return NFSeResponse(
+                success=True,
+                chave_acesso=data.get("chaveAcesso"),
+                nfse_number=data.get("nNFSe"),
+                nfse_xml_gzip_b64=nfse_xml_b64,
+                xml_nfse=nfse_xml,
+            )
+
+        # Error response
+        return NFSeResponse(
+            success=False,
+            error_code=data.get("codigo") or str(response.status_code),
+            error_message=data.get("mensagem") or str(data),
+        )
 
     def query_nfse(self, chave_acesso: str) -> NFSeQueryResult:
         """Query NFSe by access key."""
@@ -243,17 +244,40 @@ class NFSeClient:
             raise NFSeAPIError(f"Erro de comunicacao: {str(e)}", code="COMM_ERROR")
 
     def download_danfse(self, chave_acesso: str) -> bytes:
-        """Download DANFSe PDF."""
-        url = f"{self.base_url}{ENDPOINTS['download_danfse'].format(chave=chave_acesso)}"
+        """Download DANFSe PDF from official API.
+
+        Note: The official DANFSE API at adn.nfse.gov.br may not be available
+        or may return errors (501, 502, 429). As an alternative, use the local
+        PDF generator:
+
+            from pynfse_nacional.pdf_generator import generate_danfse_from_base64
+
+            # After submit_dps():
+            response = client.submit_dps(dps)
+            if response.success and response.nfse_xml_gzip_b64:
+                pdf_bytes = generate_danfse_from_base64(response.nfse_xml_gzip_b64)
+
+        The local generator requires optional dependencies:
+            pip install pynfse-nacional[pdf]
+        """
+        # DANFSE API is on a different domain than SEFIN
+        danfse_base_url = self.base_url.replace("sefin.", "adn.").replace("/SefinNacional", "")
+        url = f"{danfse_base_url}{ENDPOINTS['download_danfse'].format(chave=chave_acesso)}"
 
         try:
             with self._get_client() as client:
                 response = client.get(url)
 
                 if response.status_code != 200:
-                    error_data = response.json() if response.text else {}
+                    error_data = {}
+
+                    try:
+                        error_data = response.json()
+                    except Exception:
+                        pass
+
                     raise NFSeAPIError(
-                        error_data.get("mensagem", "Erro ao baixar DANFSe"),
+                        error_data.get("mensagem", f"Erro ao baixar DANFSe: HTTP {response.status_code}"),
                         code=error_data.get("codigo"),
                         status_code=response.status_code,
                     )
