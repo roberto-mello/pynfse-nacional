@@ -16,7 +16,7 @@ API_URLS = {
 }
 
 ENDPOINTS = {
-    "submit_dps": "/dps",
+    "submit_dps": "/nfse",
     "query_nfse": "/nfse/{chave}",
     "download_danfse": "/danfse/{chave}",
     "events": "/eventos",

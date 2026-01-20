@@ -45,6 +45,21 @@ from .utils import (
     clean_document,
 )
 
+# PDF generation (optional dependency)
+try:
+    from .pdf_generator import (
+        HeaderConfig,
+        NFSeData,
+        parse_nfse_xml,
+        generate_danfse_pdf,
+        generate_danfse_from_xml,
+        generate_danfse_from_base64,
+    )
+
+    _PDF_AVAILABLE = True
+except ImportError:
+    _PDF_AVAILABLE = False
+
 __version__ = "0.1.0"
 
 __all__ = [
@@ -85,3 +100,14 @@ __all__ = [
     "normalize_document",
     "clean_document",
 ]
+
+# Add PDF exports if available
+if _PDF_AVAILABLE:
+    __all__.extend([
+        "HeaderConfig",
+        "NFSeData",
+        "parse_nfse_xml",
+        "generate_danfse_pdf",
+        "generate_danfse_from_xml",
+        "generate_danfse_from_base64",
+    ])

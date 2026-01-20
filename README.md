@@ -90,6 +90,13 @@ Main client for NFSe Nacional API.
 
 - [NFSe Nacional Portal](https://www.gov.br/nfse)
 - [Technical Documentation](https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/)
+- [All Documentation](https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/documentacao-atual)
+- [XSD Schemas](https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/documentacao-atual/nfse-esquemas_xsd-v1-01-20260101.zip)
+- [API Docs](https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/apis-prod-restrita-e-producao)
+
+### Community Resources
+- Reference Implementation: https://github.com/nfe/poc-nfse-nacional
+- PHP Library: https://github.com/nfse-nacional/nfse-php
 
 ## License
 

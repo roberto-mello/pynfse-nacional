@@ -1,6 +1,8 @@
 import base64
 import gzip
 
+from lxml import etree
+
 from .exceptions import NFSeCertificateError
 
 try:
@@ -11,7 +13,7 @@ except ImportError:
     CRYPTOGRAPHY_AVAILABLE = False
 
 try:
-    from signxml import XMLSigner, methods
+    from signxml import XMLSigner, methods, namespaces as signxml_namespaces
 
     SIGNXML_AVAILABLE = True
 except ImportError:
@@ -58,29 +60,54 @@ class XMLSignerService:
             raise NFSeCertificateError(f"Erro ao carregar certificado: {str(e)}")
 
     def sign(self, xml: str) -> str:
-        """Sign XML document with certificate."""
+        """Sign XML document with certificate.
+
+        Signs the DPS element with the signature referencing the infDPS Id.
+        Per the XSD schema, the Signature element is a child of DPS, sibling of infDPS.
+        """
+
         if not SIGNXML_AVAILABLE:
             raise NFSeCertificateError("signxml library not installed")
 
         self._load_certificate()
 
         try:
+            xml_element = etree.fromstring(xml.encode("utf-8"))
+
+            infDPS = xml_element.find(".//{http://www.sped.fazenda.gov.br/nfse}infDPS")
+
+            if infDPS is None:
+                raise NFSeCertificateError("infDPS element not found in XML")
+
+            infDPS_id = infDPS.get("Id")
+
+            if not infDPS_id:
+                raise NFSeCertificateError("infDPS Id attribute not found")
+
+            # Use exclusive canonicalization with comments as seen in real NFSe
             signer = XMLSigner(
                 method=methods.enveloped,
                 signature_algorithm="rsa-sha256",
                 digest_algorithm="sha256",
+                c14n_algorithm="http://www.w3.org/2001/10/xml-exc-c14n#WithComments",
             )
+
+            # Remove ds: prefix from signature namespace (NFSe API requires unprefixed)
+            signer.namespaces = {None: signxml_namespaces.ds}
 
             signed_xml = signer.sign(
-                xml,
+                xml_element,
                 key=self._private_key,
-                cert=self._certificate,
+                cert=[self._certificate],
+                reference_uri=f"#{infDPS_id}",
             )
 
-            if isinstance(signed_xml, bytes):
-                return signed_xml.decode("utf-8")
+            xml_bytes = etree.tostring(signed_xml, encoding="utf-8", xml_declaration=True)
 
-            return signed_xml
+            return xml_bytes.decode("utf-8")
+
+        except NFSeCertificateError:
+            raise
 
         except Exception as e:
             raise NFSeCertificateError(f"Erro ao assinar XML: {str(e)}")
