@@ -144,7 +144,7 @@ class NFSeClient:
         encoded_content = compress_encode(signed_xml)
 
         payload = {
-            "dps": encoded_content,
+            "dpsXmlGZipB64": encoded_content,
         }
 
         url = f"{self.base_url}{ENDPOINTS['submit_dps']}"
@@ -182,10 +182,11 @@ class NFSeClient:
 
         try:
             error_data = response.json()
+
             return NFSeResponse(
                 success=False,
                 error_code=error_data.get("codigo") or str(response.status_code),
-                error_message=error_data.get("mensagem") or "Erro desconhecido",
+                error_message=error_data.get("mensagem") or str(error_data),
             )
 
         except Exception:
