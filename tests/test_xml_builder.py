@@ -1,14 +1,15 @@
 """Tests for XMLBuilder."""
 
+import warnings
 from datetime import datetime
 from decimal import Decimal
 from xml.etree import ElementTree as ET
 
 import pytest
 
-from backend.lib.pynfse_nacional.constants import Ambiente
-from backend.lib.pynfse_nacional.models import DPS, Endereco, Prestador, Servico, Tomador
-from backend.lib.pynfse_nacional.xml_builder import XMLBuilder
+from pynfse_nacional.constants import Ambiente
+from pynfse_nacional.models import DPS, Endereco, Prestador, Servico, Tomador
+from pynfse_nacional.xml_builder import XMLBuilder
 
 NS = {"nfse": "http://www.sped.fazenda.gov.br/nfse"}
 
@@ -42,13 +43,14 @@ def sample_prestador(sample_endereco):
 
 
 @pytest.fixture
-def sample_tomador():
+def sample_tomador(sample_endereco):
     """Sample service taker (patient) for testing."""
     return Tomador(
         cpf="12345678901",
         razao_social="Joao Silva",
         email="paciente@email.com",
         telefone="1988888888",
+        endereco=sample_endereco,
     )
 
 
@@ -57,11 +59,14 @@ def sample_servico():
     """Sample service for testing."""
     return Servico(
         codigo_cnae="8630503",
-        codigo_lc116="403",
+        codigo_lc116="4.03.03",
+        codigo_tributacao_municipal="123456",
+        codigo_nbs="1.0101.01.00",
         discriminacao="Consulta medica",
         valor_servicos=Decimal("500.00"),
         iss_retido=False,
         aliquota_iss=Decimal("2.00"),
+        aliquota_simples=Decimal("15.50"),
         valor_deducoes=Decimal("0.00"),
         valor_pis=Decimal("0.00"),
         valor_cofins=Decimal("0.00"),
@@ -75,8 +80,7 @@ def sample_servico():
 def sample_dps(sample_prestador, sample_tomador, sample_servico):
     """Sample DPS for testing."""
     return DPS(
-        id_dps="11222333000181NF0000000001",
-        serie="NF",
+        serie="900",
         numero=1,
         competencia="2026-01",
         data_emissao=datetime(2026, 1, 15, 10, 30, 0),
@@ -105,6 +109,38 @@ class TestXMLBuilderInit:
         assert builder.ambiente == Ambiente.PRODUCAO
 
 
+class TestXMLBuilderBuildDPSId:
+    """Tests for _build_dps_id method."""
+
+    def test_build_dps_id_format(self, sample_dps):
+        """_build_dps_id should return correct format."""
+        builder = XMLBuilder()
+
+        dps_id = builder._build_dps_id(sample_dps)
+
+        # Format: DPS + cLocEmi(7) + tpInsc(1) + CNPJ(14) + serie(5) + nDPS(15)
+        # cLocEmi: 3509502 (7 digits)
+        # tpInsc: 2 (CNPJ)
+        # CNPJ: 11222333000181 (14 digits)
+        # serie: 00900 (5 digits, zero-padded)
+        # nDPS: 000000000000001 (15 digits, zero-padded)
+        expected = "DPS350950221122233300018100900000000000000001"
+
+        assert dps_id == expected
+        assert len(dps_id) == 45
+
+    def test_build_dps_id_with_custom_values(self, sample_dps):
+        """_build_dps_id should handle different values."""
+        sample_dps.numero = 12345
+        sample_dps.serie = "NF"
+        builder = XMLBuilder()
+
+        dps_id = builder._build_dps_id(sample_dps)
+
+        assert "000NF" in dps_id
+        assert "000000000012345" in dps_id
+
+
 class TestXMLBuilderBuildDPS:
     """Tests for build_dps method."""
 
@@ -115,7 +151,9 @@ class TestXMLBuilderBuildDPS:
         xml_str = builder.build_dps(sample_dps)
 
         assert xml_str.startswith("<?xml version='1.0' encoding='utf-8'?>")
+
         root = ET.fromstring(xml_str)
+
         assert root.tag == "{http://www.sped.fazenda.gov.br/nfse}DPS"
 
     def test_build_dps_includes_namespace(self, sample_dps):
@@ -150,8 +188,9 @@ class TestXMLBuilderBuildDPS:
 
         assert tpAmb.text == "1"
 
-    def test_build_dps_includes_id_attribute(self, sample_dps):
-        """infDPS should have Id attribute set to id_dps."""
+    def test_build_dps_generates_id_when_not_provided(self, sample_dps):
+        """infDPS should have auto-generated Id when id_dps is None."""
+        sample_dps.id_dps = None
         builder = XMLBuilder()
 
         xml_str = builder.build_dps(sample_dps)
@@ -159,10 +198,23 @@ class TestXMLBuilderBuildDPS:
 
         infDPS = root.find("nfse:infDPS", NS)
 
-        assert infDPS.attrib.get("Id") == "11222333000181NF0000000001"
+        assert infDPS.attrib.get("Id").startswith("DPS")
+        assert len(infDPS.attrib.get("Id")) == 45
 
-    def test_build_dps_includes_emission_date(self, sample_dps):
-        """build_dps should include dhEmi with ISO format."""
+    def test_build_dps_uses_provided_id(self, sample_dps):
+        """infDPS should use provided id_dps when set."""
+        sample_dps.id_dps = "DPS350950221122233300018100900000000000000001"
+        builder = XMLBuilder()
+
+        xml_str = builder.build_dps(sample_dps)
+        root = ET.fromstring(xml_str)
+
+        infDPS = root.find("nfse:infDPS", NS)
+
+        assert infDPS.attrib.get("Id") == "DPS350950221122233300018100900000000000000001"
+
+    def test_build_dps_includes_emission_date_with_timezone(self, sample_dps):
+        """build_dps should include dhEmi with ISO format and timezone."""
         builder = XMLBuilder()
 
         xml_str = builder.build_dps(sample_dps)
@@ -171,7 +223,7 @@ class TestXMLBuilderBuildDPS:
         infDPS = root.find("nfse:infDPS", NS)
         dhEmi = infDPS.find("nfse:dhEmi", NS)
 
-        assert dhEmi.text == "2026-01-15T10:30:00"
+        assert dhEmi.text == "2026-01-15T10:30:00-03:00"
 
     def test_build_dps_includes_serie_and_numero(self, sample_dps):
         """build_dps should include serie and nDPS."""
@@ -184,11 +236,11 @@ class TestXMLBuilderBuildDPS:
         serie = infDPS.find("nfse:serie", NS)
         nDPS = infDPS.find("nfse:nDPS", NS)
 
-        assert serie.text == "NF"
+        assert serie.text == "900"
         assert nDPS.text == "1"
 
-    def test_build_dps_includes_competencia(self, sample_dps):
-        """build_dps should include dCompet."""
+    def test_build_dps_includes_dcompet_as_date(self, sample_dps):
+        """build_dps should include dCompet as YYYY-MM-DD."""
         builder = XMLBuilder()
 
         xml_str = builder.build_dps(sample_dps)
@@ -197,7 +249,19 @@ class TestXMLBuilderBuildDPS:
         infDPS = root.find("nfse:infDPS", NS)
         dCompet = infDPS.find("nfse:dCompet", NS)
 
-        assert dCompet.text == "2026-01"
+        assert dCompet.text == "2026-01-15"
+
+    def test_build_dps_includes_cloc_emi(self, sample_dps):
+        """build_dps should include cLocEmi with municipality code."""
+        builder = XMLBuilder()
+
+        xml_str = builder.build_dps(sample_dps)
+        root = ET.fromstring(xml_str)
+
+        infDPS = root.find("nfse:infDPS", NS)
+        cLocEmi = infDPS.find("nfse:cLocEmi", NS)
+
+        assert cLocEmi.text == "3509502"
 
 
 class TestXMLBuilderPrestador:
@@ -215,8 +279,8 @@ class TestXMLBuilderPrestador:
 
         assert cnpj.text == "11222333000181"
 
-    def test_build_dps_includes_prestador_im(self, sample_dps):
-        """Prestador section should include inscricao municipal."""
+    def test_build_dps_includes_prestador_im_padded(self, sample_dps):
+        """Prestador section should include IM right-padded to 15 chars."""
         builder = XMLBuilder()
 
         xml_str = builder.build_dps(sample_dps)
@@ -225,61 +289,20 @@ class TestXMLBuilderPrestador:
         prest = root.find("nfse:infDPS/nfse:prest", NS)
         im = prest.find("nfse:IM", NS)
 
-        assert im.text == "12345"
+        assert im.text == "          12345"
+        assert len(im.text) == 15
 
-    def test_build_dps_includes_prestador_name(self, sample_dps):
-        """Prestador section should include razao social."""
+    def test_build_dps_includes_prestador_fone(self, sample_dps):
+        """Prestador section should include fone."""
         builder = XMLBuilder()
 
         xml_str = builder.build_dps(sample_dps)
         root = ET.fromstring(xml_str)
 
         prest = root.find("nfse:infDPS/nfse:prest", NS)
-        xNome = prest.find("nfse:xNome", NS)
+        fone = prest.find("nfse:fone", NS)
 
-        assert xNome.text == "Clinica Teste LTDA"
-
-    def test_build_dps_includes_prestador_fantasia(self, sample_dps):
-        """Prestador section should include nome fantasia."""
-        builder = XMLBuilder()
-
-        xml_str = builder.build_dps(sample_dps)
-        root = ET.fromstring(xml_str)
-
-        prest = root.find("nfse:infDPS/nfse:prest", NS)
-        xFant = prest.find("nfse:xFant", NS)
-
-        assert xFant.text == "Clinica Teste"
-
-    def test_build_dps_omits_fantasia_if_none(self, sample_dps):
-        """Prestador should omit xFant if nome_fantasia is None."""
-        sample_dps.prestador.nome_fantasia = None
-        builder = XMLBuilder()
-
-        xml_str = builder.build_dps(sample_dps)
-        root = ET.fromstring(xml_str)
-
-        prest = root.find("nfse:infDPS/nfse:prest", NS)
-        xFant = prest.find("nfse:xFant", NS)
-
-        assert xFant is None
-
-    def test_build_dps_includes_prestador_address(self, sample_dps):
-        """Prestador section should include address."""
-        builder = XMLBuilder()
-
-        xml_str = builder.build_dps(sample_dps)
-        root = ET.fromstring(xml_str)
-
-        ender = root.find("nfse:infDPS/nfse:prest/nfse:enderPrest", NS)
-
-        assert ender.find("nfse:xLgr", NS).text == "Rua Teste"
-        assert ender.find("nfse:nro", NS).text == "100"
-        assert ender.find("nfse:xCpl", NS).text == "Sala 1"
-        assert ender.find("nfse:xBairro", NS).text == "Centro"
-        assert ender.find("nfse:cMun", NS).text == "3509502"
-        assert ender.find("nfse:UF", NS).text == "SP"
-        assert ender.find("nfse:CEP", NS).text == "13000000"
+        assert fone.text == "1999999999"
 
     def test_build_dps_includes_prestador_email(self, sample_dps):
         """Prestador section should include email."""
@@ -293,8 +316,8 @@ class TestXMLBuilderPrestador:
 
         assert email.text == "contato@clinica.com"
 
-    def test_build_dps_includes_regime_tributario(self, sample_dps):
-        """Prestador section should include regTrib."""
+    def test_build_dps_includes_regtrib(self, sample_dps):
+        """Prestador section should include regTrib element."""
         builder = XMLBuilder()
 
         xml_str = builder.build_dps(sample_dps)
@@ -303,58 +326,79 @@ class TestXMLBuilderPrestador:
         prest = root.find("nfse:infDPS/nfse:prest", NS)
         regTrib = prest.find("nfse:regTrib", NS)
 
-        assert regTrib.text == "1"
+        assert regTrib is not None
 
-    def test_build_dps_maps_regime_normal(self, sample_dps):
-        """regTrib should be 3 for normal regime."""
-        sample_dps.regime_tributario = "normal"
+    def test_build_dps_opsimpnac_for_simples(self, sample_dps):
+        """opSimpNac should be 3 for optante simples (ME/EPP)."""
+        sample_dps.optante_simples = True
         builder = XMLBuilder()
 
         xml_str = builder.build_dps(sample_dps)
         root = ET.fromstring(xml_str)
 
-        prest = root.find("nfse:infDPS/nfse:prest", NS)
-        regTrib = prest.find("nfse:regTrib", NS)
+        opSimpNac = root.find("nfse:infDPS/nfse:prest/nfse:regTrib/nfse:opSimpNac", NS)
 
-        assert regTrib.text == "3"
+        assert opSimpNac.text == "3"
 
-    def test_build_dps_maps_regime_mei(self, sample_dps):
-        """regTrib should be 4 for MEI regime."""
-        sample_dps.regime_tributario = "mei"
-        builder = XMLBuilder()
-
-        xml_str = builder.build_dps(sample_dps)
-        root = ET.fromstring(xml_str)
-
-        prest = root.find("nfse:infDPS/nfse:prest", NS)
-        regTrib = prest.find("nfse:regTrib", NS)
-
-        assert regTrib.text == "4"
-
-    def test_build_dps_includes_optante_simples(self, sample_dps):
-        """Prestador section should include optSN."""
-        builder = XMLBuilder()
-
-        xml_str = builder.build_dps(sample_dps)
-        root = ET.fromstring(xml_str)
-
-        prest = root.find("nfse:infDPS/nfse:prest", NS)
-        optSN = prest.find("nfse:optSN", NS)
-
-        assert optSN.text == "1"
-
-    def test_build_dps_optante_simples_false(self, sample_dps):
-        """optSN should be 2 when optante_simples is False."""
+    def test_build_dps_opsimpnac_for_non_simples(self, sample_dps):
+        """opSimpNac should be 1 for non-optante."""
         sample_dps.optante_simples = False
         builder = XMLBuilder()
 
         xml_str = builder.build_dps(sample_dps)
         root = ET.fromstring(xml_str)
 
-        prest = root.find("nfse:infDPS/nfse:prest", NS)
-        optSN = prest.find("nfse:optSN", NS)
+        opSimpNac = root.find("nfse:infDPS/nfse:prest/nfse:regTrib/nfse:opSimpNac", NS)
 
-        assert optSN.text == "2"
+        assert opSimpNac.text == "1"
+
+    def test_build_dps_regaptribsn_for_simples(self, sample_dps):
+        """regApTribSN should be 1 for Simples Nacional."""
+        sample_dps.optante_simples = True
+        builder = XMLBuilder()
+
+        xml_str = builder.build_dps(sample_dps)
+        root = ET.fromstring(xml_str)
+
+        regApTribSN = root.find("nfse:infDPS/nfse:prest/nfse:regTrib/nfse:regApTribSN", NS)
+
+        assert regApTribSN.text == "1"
+
+    def test_build_dps_regaptribsn_absent_for_non_simples(self, sample_dps):
+        """regApTribSN should not be present for non-Simples."""
+        sample_dps.optante_simples = False
+        builder = XMLBuilder()
+
+        xml_str = builder.build_dps(sample_dps)
+        root = ET.fromstring(xml_str)
+
+        regApTribSN = root.find("nfse:infDPS/nfse:prest/nfse:regTrib/nfse:regApTribSN", NS)
+
+        assert regApTribSN is None
+
+    def test_build_dps_regesptrib_default(self, sample_dps):
+        """regEspTrib should default to 0."""
+        sample_dps.regime_tributario = "unknown"
+        builder = XMLBuilder()
+
+        xml_str = builder.build_dps(sample_dps)
+        root = ET.fromstring(xml_str)
+
+        regEspTrib = root.find("nfse:infDPS/nfse:prest/nfse:regTrib/nfse:regEspTrib", NS)
+
+        assert regEspTrib.text == "0"
+
+    def test_build_dps_regesptrib_mei(self, sample_dps):
+        """regEspTrib should be 4 for MEI."""
+        sample_dps.regime_tributario = "mei"
+        builder = XMLBuilder()
+
+        xml_str = builder.build_dps(sample_dps)
+        root = ET.fromstring(xml_str)
+
+        regEspTrib = root.find("nfse:infDPS/nfse:prest/nfse:regTrib/nfse:regEspTrib", NS)
+
+        assert regEspTrib.text == "4"
 
 
 class TestXMLBuilderTomador:
@@ -388,8 +432,8 @@ class TestXMLBuilderTomador:
         assert cnpj.text == "99888777000166"
         assert cpf is None
 
-    def test_build_dps_includes_tomador_name(self, sample_dps):
-        """Tomador section should include razao social."""
+    def test_build_dps_includes_tomador_xnome(self, sample_dps):
+        """Tomador section should include xNome."""
         builder = XMLBuilder()
 
         xml_str = builder.build_dps(sample_dps)
@@ -400,20 +444,25 @@ class TestXMLBuilderTomador:
 
         assert xNome.text == "Joao Silva"
 
-    def test_build_dps_includes_tomador_email(self, sample_dps):
-        """Tomador section should include email."""
+    def test_build_dps_includes_tomador_address(self, sample_dps):
+        """Tomador section should include address with endNac."""
         builder = XMLBuilder()
 
         xml_str = builder.build_dps(sample_dps)
         root = ET.fromstring(xml_str)
 
-        toma = root.find("nfse:infDPS/nfse:toma", NS)
-        email = toma.find("nfse:email", NS)
+        end = root.find("nfse:infDPS/nfse:toma/nfse:end", NS)
+        endNac = end.find("nfse:endNac", NS)
 
-        assert email.text == "paciente@email.com"
+        assert endNac.find("nfse:cMun", NS).text == "3509502"
+        assert endNac.find("nfse:CEP", NS).text == "13000000"
+        assert end.find("nfse:xLgr", NS).text == "Rua Teste"
+        assert end.find("nfse:nro", NS).text == "100"
+        assert end.find("nfse:xCpl", NS).text == "Sala 1"
+        assert end.find("nfse:xBairro", NS).text == "Centro"
 
     def test_build_dps_omits_tomador_address_if_none(self, sample_dps):
-        """Tomador should omit enderToma if address is None."""
+        """Tomador should omit end if address is None."""
         sample_dps.tomador.endereco = None
         builder = XMLBuilder()
 
@@ -421,152 +470,199 @@ class TestXMLBuilderTomador:
         root = ET.fromstring(xml_str)
 
         toma = root.find("nfse:infDPS/nfse:toma", NS)
-        ender = toma.find("nfse:enderToma", NS)
+        end = toma.find("nfse:end", NS)
 
-        assert ender is None
+        assert end is None
 
 
 class TestXMLBuilderServico:
     """Tests for servico section."""
 
-    def test_build_dps_includes_servico_code(self, sample_dps):
-        """Servico section should include cServ (LC116 code)."""
+    def test_build_dps_includes_loc_prest(self, sample_dps):
+        """Servico section should include locPrest."""
         builder = XMLBuilder()
 
         xml_str = builder.build_dps(sample_dps)
         root = ET.fromstring(xml_str)
 
-        serv = root.find("nfse:infDPS/nfse:serv", NS)
-        cServ = serv.find("nfse:cServ", NS)
+        locPrest = root.find("nfse:infDPS/nfse:serv/nfse:locPrest", NS)
+        cLocPrestacao = locPrest.find("nfse:cLocPrestacao", NS)
 
-        assert cServ.text == "403"
+        assert cLocPrestacao.text == "3509502"
 
-    def test_build_dps_includes_cnae(self, sample_dps):
-        """Servico section should include CNAE."""
+    def test_build_dps_includes_ctribnac(self, sample_dps):
+        """Servico section should include cTribNac (LC116 code without dots, 6 digits)."""
         builder = XMLBuilder()
 
         xml_str = builder.build_dps(sample_dps)
         root = ET.fromstring(xml_str)
 
-        serv = root.find("nfse:infDPS/nfse:serv", NS)
-        cnae = serv.find("nfse:CNAE", NS)
+        cServ = root.find("nfse:infDPS/nfse:serv/nfse:cServ", NS)
+        cTribNac = cServ.find("nfse:cTribNac", NS)
 
-        assert cnae.text == "8630503"
+        # "4.03.03" -> "40303" -> "040303" (6 digits)
+        assert cTribNac.text == "040303"
 
-    def test_build_dps_includes_description(self, sample_dps):
+    def test_build_dps_includes_ctribmun(self, sample_dps):
+        """Servico section should include cTribMun when provided."""
+        builder = XMLBuilder()
+
+        xml_str = builder.build_dps(sample_dps)
+        root = ET.fromstring(xml_str)
+
+        cServ = root.find("nfse:infDPS/nfse:serv/nfse:cServ", NS)
+        cTribMun = cServ.find("nfse:cTribMun", NS)
+
+        assert cTribMun.text == "123456"
+
+    def test_build_dps_omits_ctribmun_when_none(self, sample_dps):
+        """Servico section should omit cTribMun when not provided."""
+        sample_dps.servico.codigo_tributacao_municipal = None
+        builder = XMLBuilder()
+
+        xml_str = builder.build_dps(sample_dps)
+        root = ET.fromstring(xml_str)
+
+        cServ = root.find("nfse:infDPS/nfse:serv/nfse:cServ", NS)
+        cTribMun = cServ.find("nfse:cTribMun", NS)
+
+        assert cTribMun is None
+
+    def test_build_dps_includes_xdescserv(self, sample_dps):
         """Servico section should include xDescServ."""
         builder = XMLBuilder()
 
         xml_str = builder.build_dps(sample_dps)
         root = ET.fromstring(xml_str)
 
-        serv = root.find("nfse:infDPS/nfse:serv", NS)
-        xDescServ = serv.find("nfse:xDescServ", NS)
+        cServ = root.find("nfse:infDPS/nfse:serv/nfse:cServ", NS)
+        xDescServ = cServ.find("nfse:xDescServ", NS)
 
         assert xDescServ.text == "Consulta medica"
 
-    def test_build_dps_includes_municipality_code(self, sample_dps):
-        """Servico section should include cMunInc."""
+    def test_build_dps_includes_cnbs(self, sample_dps):
+        """Servico section should include cNBS when provided."""
         builder = XMLBuilder()
 
         xml_str = builder.build_dps(sample_dps)
         root = ET.fromstring(xml_str)
 
-        serv = root.find("nfse:infDPS/nfse:serv", NS)
-        cMunInc = serv.find("nfse:cMunInc", NS)
+        cServ = root.find("nfse:infDPS/nfse:serv/nfse:cServ", NS)
+        cNBS = cServ.find("nfse:cNBS", NS)
 
-        assert cMunInc.text == "3509502"
+        assert cNBS.text == "1.0101.01.00"
+
+    def test_build_dps_omits_cnbs_when_none(self, sample_dps):
+        """Servico section should omit cNBS when not provided."""
+        sample_dps.servico.codigo_nbs = None
+        builder = XMLBuilder()
+
+        xml_str = builder.build_dps(sample_dps)
+        root = ET.fromstring(xml_str)
+
+        cServ = root.find("nfse:infDPS/nfse:serv/nfse:cServ", NS)
+        cNBS = cServ.find("nfse:cNBS", NS)
+
+        assert cNBS is None
 
 
 class TestXMLBuilderValores:
     """Tests for valores (values) section."""
 
-    def test_build_dps_includes_valor_servicos(self, sample_dps):
-        """Valores section should include vServPrest."""
+    def test_build_dps_includes_vserv(self, sample_dps):
+        """Valores section should include vServ."""
         builder = XMLBuilder()
 
         xml_str = builder.build_dps(sample_dps)
         root = ET.fromstring(xml_str)
 
-        valores = root.find("nfse:infDPS/nfse:valores", NS)
-        vServPrest = valores.find("nfse:vServPrest", NS)
+        vServPrest = root.find("nfse:infDPS/nfse:valores/nfse:vServPrest", NS)
+        vServ = vServPrest.find("nfse:vServ", NS)
 
-        assert vServPrest.text == "500.00"
+        assert vServ.text == "500.00"
 
-    def test_build_dps_includes_deducoes(self, sample_dps):
-        """Valores section should include vDeducoes."""
+    def test_build_dps_includes_tribissqn(self, sample_dps):
+        """Valores section should include tribISSQN=1."""
         builder = XMLBuilder()
 
         xml_str = builder.build_dps(sample_dps)
         root = ET.fromstring(xml_str)
 
-        valores = root.find("nfse:infDPS/nfse:valores", NS)
-        vDeducoes = valores.find("nfse:vDeducoes", NS)
+        tribMun = root.find("nfse:infDPS/nfse:valores/nfse:trib/nfse:tribMun", NS)
+        tribISSQN = tribMun.find("nfse:tribISSQN", NS)
 
-        assert vDeducoes.text == "0.00"
+        assert tribISSQN.text == "1"
 
-    def test_build_dps_includes_tributos(self, sample_dps):
-        """Valores section should include all tax fields."""
-        builder = XMLBuilder()
-
-        xml_str = builder.build_dps(sample_dps)
-        root = ET.fromstring(xml_str)
-
-        valores = root.find("nfse:infDPS/nfse:valores", NS)
-
-        assert valores.find("nfse:vPIS", NS).text == "0.00"
-        assert valores.find("nfse:vCOFINS", NS).text == "0.00"
-        assert valores.find("nfse:vINSS", NS).text == "0.00"
-        assert valores.find("nfse:vIR", NS).text == "0.00"
-        assert valores.find("nfse:vCSLL", NS).text == "0.00"
-
-    def test_build_dps_iss_not_retained(self, sample_dps):
-        """indISSRet should be 2 when ISS not retained."""
+    def test_build_dps_tpretissqn_not_retained(self, sample_dps):
+        """tpRetISSQN should be 1 when ISS not retained."""
         sample_dps.servico.iss_retido = False
         builder = XMLBuilder()
 
         xml_str = builder.build_dps(sample_dps)
         root = ET.fromstring(xml_str)
 
-        valores = root.find("nfse:infDPS/nfse:valores", NS)
-        indISSRet = valores.find("nfse:indISSRet", NS)
+        tribMun = root.find("nfse:infDPS/nfse:valores/nfse:trib/nfse:tribMun", NS)
+        tpRetISSQN = tribMun.find("nfse:tpRetISSQN", NS)
 
-        assert indISSRet.text == "2"
+        assert tpRetISSQN.text == "1"
 
-    def test_build_dps_iss_retained(self, sample_dps):
-        """indISSRet should be 1 when ISS retained."""
+    def test_build_dps_tpretissqn_retained(self, sample_dps):
+        """tpRetISSQN should be 2 when ISS retained."""
         sample_dps.servico.iss_retido = True
         builder = XMLBuilder()
 
         xml_str = builder.build_dps(sample_dps)
         root = ET.fromstring(xml_str)
 
-        valores = root.find("nfse:infDPS/nfse:valores", NS)
-        indISSRet = valores.find("nfse:indISSRet", NS)
+        tribMun = root.find("nfse:infDPS/nfse:valores/nfse:trib/nfse:tribMun", NS)
+        tpRetISSQN = tribMun.find("nfse:tpRetISSQN", NS)
 
-        assert indISSRet.text == "1"
+        assert tpRetISSQN.text == "2"
 
-    def test_build_dps_includes_aliquota_iss(self, sample_dps):
-        """Valores section should include aliqISS when provided."""
+    def test_build_dps_ptottribsn_for_simples(self, sample_dps):
+        """pTotTribSN should be set for Simples Nacional."""
+        sample_dps.optante_simples = True
+        sample_dps.servico.aliquota_simples = Decimal("15.50")
         builder = XMLBuilder()
 
         xml_str = builder.build_dps(sample_dps)
         root = ET.fromstring(xml_str)
 
-        valores = root.find("nfse:infDPS/nfse:valores", NS)
-        aliqISS = valores.find("nfse:aliqISS", NS)
+        totTrib = root.find("nfse:infDPS/nfse:valores/nfse:trib/nfse:totTrib", NS)
+        pTotTribSN = totTrib.find("nfse:pTotTribSN", NS)
 
-        assert aliqISS.text == "2.00"
+        assert pTotTribSN.text == "15.50"
 
-    def test_build_dps_omits_aliquota_if_none(self, sample_dps):
-        """Valores should omit aliqISS if aliquota_iss is None."""
-        sample_dps.servico.aliquota_iss = None
+    def test_build_dps_ptottribsn_default_with_warning(self, sample_dps):
+        """pTotTribSN should default to 18.83 with warning when not provided."""
+        sample_dps.optante_simples = True
+        sample_dps.servico.aliquota_simples = None
+        builder = XMLBuilder()
+
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+
+            xml_str = builder.build_dps(sample_dps)
+            root = ET.fromstring(xml_str)
+
+            totTrib = root.find("nfse:infDPS/nfse:valores/nfse:trib/nfse:totTrib", NS)
+            pTotTribSN = totTrib.find("nfse:pTotTribSN", NS)
+
+            assert pTotTribSN.text == "18.83"
+            assert len(w) == 1
+            assert "aliquota_simples not provided" in str(w[0].message)
+
+    def test_build_dps_ptottrib_for_non_simples(self, sample_dps):
+        """pTotTrib should be set for non-Simples Nacional."""
+        sample_dps.optante_simples = False
         builder = XMLBuilder()
 
         xml_str = builder.build_dps(sample_dps)
         root = ET.fromstring(xml_str)
 
-        valores = root.find("nfse:infDPS/nfse:valores", NS)
-        aliqISS = valores.find("nfse:aliqISS", NS)
+        totTrib = root.find("nfse:infDPS/nfse:valores/nfse:trib/nfse:totTrib", NS)
+        pTotTrib = totTrib.find("nfse:pTotTrib", NS)
 
-        assert aliqISS is None
+        assert pTotTrib.find("nfse:pTotTribFed", NS).text == "0"
+        assert pTotTrib.find("nfse:pTotTribEst", NS).text == "0"
+        assert pTotTrib.find("nfse:pTotTribMun", NS).text == "0"

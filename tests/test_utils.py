@@ -2,7 +2,7 @@
 
 import pytest
 
-from backend.lib.pynfse_nacional.utils import (
+from pynfse_nacional.utils import (
     compress_encode,
     compress_and_encode,
     decode_decompress,
