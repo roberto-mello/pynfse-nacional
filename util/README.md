@@ -1,40 +1,51 @@
-# NFSe Nacional - Utility Scripts
+# NFSe Nacional - Scripts Utilitarios
 
-Command-line utilities for issuing NFSe (Nota Fiscal de Servicos Eletronica) through Brazil's national NFSe system.
+Utilitarios de linha de comando para emissao de NFSe (Nota Fiscal de Servicos Eletronica) atraves do sistema nacional de NFSe do Brasil.
 
-## Setup
+## Indice
 
-### 1. Install the library
+- [Configuracao](#configuracao)
+- [Uso](#uso)
+- [Opcoes de Linha de Comando](#opcoes-de-linha-de-comando)
+- [Codigos de Servico LC 116](#codigos-de-servico-lc-116)
+- [Codigos de Municipio IBGE](#codigos-de-municipio-ibge)
+- [Solucao de Problemas](#solucao-de-problemas)
+- [Arquivos](#arquivos)
+- [English Version](#english-version)
+
+## Configuracao
+
+### 1. Instalar a biblioteca
 
 ```bash
-# Basic installation
+# Instalacao basica
 pip install pynfse-nacional
 
-# With PDF generation support
+# Com suporte a geracao de PDF
 pip install "pynfse-nacional[pdf]"
 ```
 
-### 2. Configure your issuer (prestador)
+### 2. Configurar seu emissor (prestador)
 
-Copy the example configuration file and fill in your company details:
+Copie o arquivo de configuracao de exemplo e preencha os dados da sua empresa:
 
 ```bash
 cp issuer.example.ini issuer.ini
 ```
 
-Edit `issuer.ini` with your:
-- Certificate path and password
-- Company information (CNPJ, razao social, etc.)
-- Address
-- Tax regime settings
+Edite o `issuer.ini` com:
+- Caminho do certificado e senha
+- Informacoes da empresa (CNPJ, razao social, etc.)
+- Endereco
+- Configuracoes do regime tributario
 
-### 3. Certificate
+### 3. Certificado
 
-You need an ICP-Brasil A1 digital certificate (`.pfx` or `.p12` file) to issue NFSe. This is the same certificate used for signing other Brazilian electronic documents (NF-e, CT-e, etc.).
+Voce precisa de um certificado digital ICP-Brasil A1 (arquivo `.pfx` ou `.p12`) para emitir NFSe. Este e o mesmo certificado usado para assinar outros documentos eletronicos brasileiros (NF-e, CT-e, etc.).
 
-## Usage
+## Uso
 
-### Basic Example
+### Exemplo Basico
 
 ```bash
 python issue_nfse.py --config issuer.ini \
@@ -45,7 +56,7 @@ python issue_nfse.py --config issuer.ini \
     --servico-valor 1500.00
 ```
 
-### Full Example with Tomador Address
+### Exemplo Completo com Endereco do Tomador
 
 ```bash
 python issue_nfse.py --config issuer.ini \
@@ -64,7 +75,258 @@ python issue_nfse.py --config issuer.ini \
     --servico-valor 5000.00
 ```
 
-### Production Environment
+### Ambiente de Producao
+
+Por padrao, o script usa o ambiente de **homologacao** (teste). Para emitir NFSe real em producao:
+
+```bash
+python issue_nfse.py --config issuer.ini --producao \
+    --tomador-cpf 12345678901 \
+    --tomador-nome "Cliente Real" \
+    --servico-codigo "4.03.03" \
+    --servico-descricao "Servico prestado" \
+    --servico-valor 1000.00
+```
+
+### Gerar PDF
+
+Para gerar o PDF do DANFSE apos a emissao:
+
+```bash
+python issue_nfse.py --config issuer.ini \
+    --tomador-cpf 12345678901 \
+    --tomador-nome "Cliente" \
+    --servico-codigo "4.03.03" \
+    --servico-descricao "Servico" \
+    --servico-valor 100.00 \
+    --gerar-pdf --pdf-output ./notas/
+```
+
+### Saida em JSON
+
+Para integracao com outras ferramentas:
+
+```bash
+python issue_nfse.py --config issuer.ini --json \
+    --tomador-cpf 12345678901 \
+    --tomador-nome "Cliente" \
+    --servico-codigo "4.03.03" \
+    --servico-descricao "Servico" \
+    --servico-valor 100.00
+```
+
+Saida:
+```json
+{
+  "success": true,
+  "chave_acesso": "13026032427139240001850000000000034260108333...",
+  "nfse_number": "342601",
+  "ambiente": "homologacao",
+  "dps_numero": 1,
+  "dps_serie": "900"
+}
+```
+
+## Opcoes de Linha de Comando
+
+### Ambiente
+
+| Opcao | Descricao |
+|-------|-----------|
+| `--config`, `-c` | Caminho para o arquivo de configuracao do emissor (obrigatorio) |
+| `--producao` | Usar ambiente de producao (padrao: homologacao) |
+
+### Certificado (sobrescreve arquivo de config)
+
+| Opcao | Descricao |
+|-------|-----------|
+| `--cert-path` | Caminho para o arquivo do certificado |
+| `--cert-password` | Senha do certificado |
+
+Voce tambem pode usar variaveis de ambiente:
+```bash
+export NFSE_CERT_PATH=/caminho/para/cert.pfx
+export NFSE_CERT_PASSWORD=senha123
+```
+
+### Tomador (Destinatario do Servico)
+
+| Opcao | Descricao |
+|-------|-----------|
+| `--tomador-cpf` | CPF (11 digitos) |
+| `--tomador-cnpj` | CNPJ (14 digitos) |
+| `--tomador-nome` | Nome/razao social (obrigatorio) |
+| `--tomador-email` | Email |
+| `--tomador-telefone` | Telefone |
+
+### Endereco do Tomador (opcional)
+
+| Opcao | Descricao |
+|-------|-----------|
+| `--tomador-logradouro` | Nome da rua |
+| `--tomador-numero` | Numero |
+| `--tomador-complemento` | Complemento |
+| `--tomador-bairro` | Bairro |
+| `--tomador-municipio` | Codigo do municipio IBGE |
+| `--tomador-uf` | Estado (2 letras) |
+| `--tomador-cep` | CEP (8 digitos) |
+
+### Detalhes do Servico
+
+| Opcao | Descricao |
+|-------|-----------|
+| `--servico-codigo` | Codigo LC 116 (obrigatorio, ex: "4.03.03") |
+| `--servico-descricao` | Descricao (obrigatorio) |
+| `--servico-valor` | Valor em BRL (obrigatorio) |
+| `--servico-cnae` | Codigo CNAE |
+| `--servico-codigo-municipal` | Codigo de tributacao municipal |
+| `--servico-nbs` | Codigo NBS |
+
+### Opcoes de Tributos
+
+| Opcao | Descricao |
+|-------|-----------|
+| `--iss-retido` | ISS retido pelo tomador |
+| `--aliquota-iss` | Aliquota do ISS (percentual) |
+| `--aliquota-simples` | Aliquota total do Simples Nacional |
+
+### Opcoes da DPS
+
+| Opcao | Descricao |
+|-------|-----------|
+| `--numero` | Numero da DPS (auto-incremento por padrao) |
+| `--serie` | Serie da DPS (do arquivo de config por padrao) |
+| `--competencia` | Competencia YYYY-MM (mes atual por padrao) |
+
+### Opcoes de Saida
+
+| Opcao | Descricao |
+|-------|-----------|
+| `--gerar-pdf` | Gerar PDF do DANFSE |
+| `--pdf-output` | Diretorio de saida do PDF |
+| `--json` | Saida em formato JSON |
+| `--quiet`, `-q` | Saida minima |
+
+## Codigos de Servico LC 116
+
+Codigos de servico comuns (Lista de Servicos - LC 116/2003):
+
+| Codigo | Descricao |
+|--------|-----------|
+| 1.01 | Analise e desenvolvimento de sistemas |
+| 1.02 | Programacao |
+| 1.03 | Processamento de dados |
+| 1.04 | Elaboracao de programas |
+| 1.05 | Licenciamento de software |
+| 4.03 | Processamento de dados e congeneres |
+| 7.01 | Engenharia, agronomia, etc. |
+| 17.01 | Assessoria ou consultoria |
+
+Lista completa: [Portal Nacional da NFS-e](https://www.gov.br/nfse/pt-br)
+
+## Codigos de Municipio IBGE
+
+Encontre o codigo do seu municipio em: https://www.ibge.gov.br/explica/codigos-dos-municipios.php
+
+Codigos comuns:
+- Sao Paulo/SP: 3550308
+- Rio de Janeiro/RJ: 3304557
+- Belo Horizonte/MG: 3106200
+- Curitiba/PR: 4106902
+- Porto Alegre/RS: 4314902
+
+## Solucao de Problemas
+
+### Erros de certificado
+
+```
+Certificate Error: Certificate file not found
+```
+Verifique se o caminho do certificado no `issuer.ini` esta correto.
+
+```
+Certificate Error: Error loading certificate
+```
+Verifique se a senha do certificado esta correta.
+
+### Erros da API
+
+```
+API Error: TIMEOUT
+```
+A API do SEFIN pode estar temporariamente indisponivel. Tente novamente mais tarde.
+
+```
+API Error: 422 - Validation error
+```
+Verifique se todos os campos obrigatorios estao preenchidos corretamente, especialmente:
+- Formato do CNPJ/CPF
+- Codigos de municipio
+- Formato do codigo de servico
+
+### Conflito de numero da DPS
+
+Se voce receber um erro sobre numero de DPS duplicado, atualize o `proximo_numero` no seu `issuer.ini` para um valor maior.
+
+## Arquivos
+
+| Arquivo | Descricao |
+|---------|-----------|
+| `issuer.example.ini` | Configuracao de exemplo (copie para `issuer.ini`) |
+| `issuer.ini` | Sua configuracao (nao rastreado pelo git) |
+| `issue_nfse.py` | Script CLI principal |
+| `README.md` | Esta documentacao |
+
+---
+
+## English Version
+
+Command-line utilities for issuing NFSe (Nota Fiscal de Servicos Eletronica) through Brazil's national NFSe system.
+
+### Setup
+
+#### 1. Install the library
+
+```bash
+# Basic installation
+pip install pynfse-nacional
+
+# With PDF generation support
+pip install "pynfse-nacional[pdf]"
+```
+
+#### 2. Configure your issuer (prestador)
+
+Copy the example configuration file and fill in your company details:
+
+```bash
+cp issuer.example.ini issuer.ini
+```
+
+Edit `issuer.ini` with your:
+- Certificate path and password
+- Company information (CNPJ, razao social, etc.)
+- Address
+- Tax regime settings
+
+#### 3. Certificate
+
+You need an ICP-Brasil A1 digital certificate (`.pfx` or `.p12` file) to issue NFSe. This is the same certificate used for signing other Brazilian electronic documents (NF-e, CT-e, etc.).
+
+### Usage
+
+#### Basic Example
+
+```bash
+python issue_nfse.py --config issuer.ini \
+    --tomador-cpf 12345678901 \
+    --tomador-nome "Joao da Silva" \
+    --servico-codigo "4.03.03" \
+    --servico-descricao "Consultoria em tecnologia da informacao" \
+    --servico-valor 1500.00
+```
+
+#### Production Environment
 
 By default, the script uses the **homologacao** (staging) environment. To issue real NFSe in production:
 
@@ -77,7 +339,7 @@ python issue_nfse.py --config issuer.ini --producao \
     --servico-valor 1000.00
 ```
 
-### Generate PDF
+#### Generate PDF
 
 To generate the DANFSE PDF after issuing:
 
@@ -91,142 +353,13 @@ python issue_nfse.py --config issuer.ini \
     --gerar-pdf --pdf-output ./notas/
 ```
 
-### JSON Output
+### Command Line Options
 
-For integration with other tools:
+See the Portuguese section above for the complete options table. The options use Portuguese names (e.g., `--tomador-cpf`, `--servico-valor`) as they map directly to Brazilian tax concepts.
 
-```bash
-python issue_nfse.py --config issuer.ini --json \
-    --tomador-cpf 12345678901 \
-    --tomador-nome "Cliente" \
-    --servico-codigo "4.03.03" \
-    --servico-descricao "Servico" \
-    --servico-valor 100.00
-```
+### Troubleshooting
 
-Output:
-```json
-{
-  "success": true,
-  "chave_acesso": "13026032427139240001850000000000034260108333...",
-  "nfse_number": "342601",
-  "ambiente": "homologacao",
-  "dps_numero": 1,
-  "dps_serie": "900"
-}
-```
-
-## Command Line Options
-
-### Environment
-
-| Option | Description |
-|--------|-------------|
-| `--config`, `-c` | Path to issuer configuration file (required) |
-| `--producao` | Use production environment (default: homologacao) |
-
-### Certificate (override config file)
-
-| Option | Description |
-|--------|-------------|
-| `--cert-path` | Path to certificate file |
-| `--cert-password` | Certificate password |
-
-You can also use environment variables:
-```bash
-export NFSE_CERT_PATH=/path/to/cert.pfx
-export NFSE_CERT_PASSWORD=senha123
-```
-
-### Tomador (Service Recipient)
-
-| Option | Description |
-|--------|-------------|
-| `--tomador-cpf` | CPF (11 digits) |
-| `--tomador-cnpj` | CNPJ (14 digits) |
-| `--tomador-nome` | Name/razao social (required) |
-| `--tomador-email` | Email |
-| `--tomador-telefone` | Phone |
-
-### Tomador Address (optional)
-
-| Option | Description |
-|--------|-------------|
-| `--tomador-logradouro` | Street name |
-| `--tomador-numero` | Street number |
-| `--tomador-complemento` | Complement |
-| `--tomador-bairro` | Neighborhood |
-| `--tomador-municipio` | IBGE municipality code |
-| `--tomador-uf` | State (2 letters) |
-| `--tomador-cep` | ZIP code (8 digits) |
-
-### Service Details
-
-| Option | Description |
-|--------|-------------|
-| `--servico-codigo` | LC 116 code (required, e.g., "4.03.03") |
-| `--servico-descricao` | Description (required) |
-| `--servico-valor` | Value in BRL (required) |
-| `--servico-cnae` | CNAE code |
-| `--servico-codigo-municipal` | Municipal tax code |
-| `--servico-nbs` | NBS code |
-
-### Tax Options
-
-| Option | Description |
-|--------|-------------|
-| `--iss-retido` | ISS retained by tomador |
-| `--aliquota-iss` | ISS rate (percentage) |
-| `--aliquota-simples` | Simples Nacional total tax rate |
-
-### DPS Options
-
-| Option | Description |
-|--------|-------------|
-| `--numero` | DPS number (auto-increment by default) |
-| `--serie` | DPS series (from config by default) |
-| `--competencia` | Competencia YYYY-MM (current month by default) |
-
-### Output Options
-
-| Option | Description |
-|--------|-------------|
-| `--gerar-pdf` | Generate DANFSE PDF |
-| `--pdf-output` | PDF output directory |
-| `--json` | Output as JSON |
-| `--quiet`, `-q` | Minimal output |
-
-## LC 116 Service Codes
-
-Common service codes (Lista de Servicos - LC 116/2003):
-
-| Code | Description |
-|------|-------------|
-| 1.01 | Analise e desenvolvimento de sistemas |
-| 1.02 | Programacao |
-| 1.03 | Processamento de dados |
-| 1.04 | Elaboracao de programas |
-| 1.05 | Licenciamento de software |
-| 4.03 | Processamento de dados e congeneres |
-| 7.01 | Engenharia, agronomia, etc. |
-| 17.01 | Assessoria ou consultoria |
-
-Full list: [Portal Nacional da NFS-e](https://www.gov.br/nfse/pt-br)
-
-## IBGE Municipality Codes
-
-Find your municipality code at: https://www.ibge.gov.br/explica/codigos-dos-municipios.php
-
-Common codes:
-- Sao Paulo/SP: 3550308
-- Rio de Janeiro/RJ: 3304557
-- Belo Horizonte/MG: 3106200
-- Curitiba/PR: 4106902
-- Porto Alegre/RS: 4314902
-
-## Troubleshooting
-
-### Certificate errors
+#### Certificate errors
 
 ```
 Certificate Error: Certificate file not found
@@ -238,7 +371,7 @@ Certificate Error: Error loading certificate
 ```
 Check if the certificate password is correct.
 
-### API errors
+#### API errors
 
 ```
 API Error: TIMEOUT
@@ -253,11 +386,7 @@ Check if all required fields are filled correctly, especially:
 - Municipality codes
 - Service code format
 
-### DPS number conflict
-
-If you get an error about duplicate DPS number, update the `proximo_numero` in your `issuer.ini` to a higher value.
-
-## Files
+### Files
 
 | File | Description |
 |------|-------------|
