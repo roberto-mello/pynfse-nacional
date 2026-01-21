@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Issue NFSe Nacional from command line.
+"""Emitir NFSe Nacional via linha de comando.
 
-This utility helps you issue electronic service invoices (NFSe) through
-Brazil's national NFSe system (Padrao Nacional).
+Este utilitario ajuda a emitir notas fiscais de servicos eletronicas (NFSe)
+atraves do sistema nacional de NFSe do Brasil (Padrao Nacional).
 
-Usage:
-    # Using config file for issuer (prestador) data:
+Uso:
+    # Usando arquivo de config para dados do emissor (prestador):
     python issue_nfse.py --config issuer.ini \\
         --tomador-cpf 12345678901 \\
         --tomador-nome "Joao da Silva" \\
@@ -13,7 +13,7 @@ Usage:
         --servico-descricao "Consultoria em tecnologia" \\
         --servico-valor 1500.00
 
-    # With full tomador address:
+    # Com endereco completo do tomador:
     python issue_nfse.py --config issuer.ini \\
         --tomador-cnpj 99888777000166 \\
         --tomador-nome "Empresa Cliente LTDA" \\
@@ -27,7 +27,7 @@ Usage:
         --servico-descricao "Desenvolvimento de software" \\
         --servico-valor 5000.00
 
-    # Production environment:
+    # Ambiente de producao:
     python issue_nfse.py --config issuer.ini --producao \\
         --tomador-cpf 12345678901 \\
         --tomador-nome "Cliente Final" \\
@@ -35,7 +35,7 @@ Usage:
         --servico-descricao "Servico prestado" \\
         --servico-valor 200.00
 
-    # Generate PDF after issuing:
+    # Gerar PDF apos emissao:
     python issue_nfse.py --config issuer.ini \\
         --tomador-cpf 12345678901 \\
         --tomador-nome "Cliente" \\
@@ -44,8 +44,8 @@ Usage:
         --servico-valor 100.00 \\
         --gerar-pdf --pdf-output ./notas/
 
-Examples using environment variables for certificate:
-    export NFSE_CERT_PATH=/path/to/cert.pfx
+Exemplos usando variaveis de ambiente para o certificado:
+    export NFSE_CERT_PATH=/caminho/para/cert.pfx
     export NFSE_CERT_PASSWORD=senha123
     python issue_nfse.py --config issuer.ini ...
 """
@@ -67,10 +67,11 @@ from pynfse_nacional.models import DPS, Prestador, Tomador, Servico, Endereco
 
 
 def load_config(config_path: str) -> configparser.ConfigParser:
-    """Load issuer configuration from INI file."""
+    """Carrega configuracao do emissor de arquivo INI."""
+
     if not Path(config_path).exists():
-        print(f"Error: Config file not found: {config_path}")
-        print("Copy issuer.example.ini to issuer.ini and fill in your details.")
+        print(f"Erro: Arquivo de configuracao nao encontrado: {config_path}")
+        print("Copie issuer.example.ini para issuer.ini e preencha seus dados.")
         sys.exit(1)
 
     config = configparser.ConfigParser()
@@ -80,8 +81,9 @@ def load_config(config_path: str) -> configparser.ConfigParser:
 
 
 def get_certificate_info(config: configparser.ConfigParser, args) -> tuple[str, str]:
-    """Get certificate path and password from config, args, or environment."""
-    # Priority: args > environment > config file
+    """Obtem caminho e senha do certificado de config, args ou ambiente."""
+
+    # Prioridade: args > ambiente > arquivo de config
     cert_path = (
         args.cert_path
         or os.environ.get("NFSE_CERT_PATH")
@@ -95,24 +97,25 @@ def get_certificate_info(config: configparser.ConfigParser, args) -> tuple[str, 
     )
 
     if not cert_path:
-        print("Error: Certificate path not provided.")
-        print("Use --cert-path, NFSE_CERT_PATH env var, or set in config file.")
+        print("Erro: Caminho do certificado nao fornecido.")
+        print("Use --cert-path, variavel NFSE_CERT_PATH ou configure no arquivo.")
         sys.exit(1)
 
     if not cert_password:
-        print("Error: Certificate password not provided.")
-        print("Use --cert-password, NFSE_CERT_PASSWORD env var, or set in config file.")
+        print("Erro: Senha do certificado nao fornecida.")
+        print("Use --cert-password, variavel NFSE_CERT_PASSWORD ou configure no arquivo.")
         sys.exit(1)
 
     if not Path(cert_path).exists():
-        print(f"Error: Certificate file not found: {cert_path}")
+        print(f"Erro: Arquivo de certificado nao encontrado: {cert_path}")
         sys.exit(1)
 
     return cert_path, cert_password
 
 
 def build_prestador(config: configparser.ConfigParser) -> Prestador:
-    """Build Prestador from config file."""
+    """Constroi Prestador a partir do arquivo de config."""
+
     endereco = Endereco(
         logradouro=config.get("endereco", "logradouro"),
         numero=config.get("endereco", "numero"),
@@ -135,20 +138,22 @@ def build_prestador(config: configparser.ConfigParser) -> Prestador:
 
 
 def build_tomador(args) -> Tomador:
-    """Build Tomador from command line arguments."""
+    """Constroi Tomador a partir dos argumentos de linha de comando."""
+
     if not args.tomador_cpf and not args.tomador_cnpj:
-        print("Error: Either --tomador-cpf or --tomador-cnpj is required.")
+        print("Erro: --tomador-cpf ou --tomador-cnpj e obrigatorio.")
         sys.exit(1)
 
     if not args.tomador_nome:
-        print("Error: --tomador-nome is required.")
+        print("Erro: --tomador-nome e obrigatorio.")
         sys.exit(1)
 
     endereco = None
 
     if args.tomador_logradouro:
+
         if not all([args.tomador_bairro, args.tomador_municipio, args.tomador_uf, args.tomador_cep]):
-            print("Error: When providing tomador address, all fields are required:")
+            print("Erro: Ao fornecer endereco do tomador, todos os campos sao obrigatorios:")
             print("  --tomador-logradouro, --tomador-numero, --tomador-bairro,")
             print("  --tomador-municipio, --tomador-uf, --tomador-cep")
             sys.exit(1)
@@ -174,24 +179,26 @@ def build_tomador(args) -> Tomador:
 
 
 def build_servico(args, config: configparser.ConfigParser) -> Servico:
-    """Build Servico from command line arguments and config."""
+    """Constroi Servico a partir dos argumentos e config."""
+
     if not args.servico_codigo:
-        print("Error: --servico-codigo is required (e.g., '4.03.03').")
+        print("Erro: --servico-codigo e obrigatorio (ex: '4.03.03').")
         sys.exit(1)
 
     if not args.servico_descricao:
-        print("Error: --servico-descricao is required.")
+        print("Erro: --servico-descricao e obrigatorio.")
         sys.exit(1)
 
     if args.servico_valor is None:
-        print("Error: --servico-valor is required.")
+        print("Erro: --servico-valor e obrigatorio.")
         sys.exit(1)
 
-    # Get aliquota_simples from args or config
+    # Obtem aliquota_simples de args ou config
     aliquota_simples = None
 
     if args.aliquota_simples:
         aliquota_simples = Decimal(str(args.aliquota_simples))
+
     elif config.has_option("tributacao", "aliquota_simples"):
         aliquota_simples = Decimal(config.get("tributacao", "aliquota_simples"))
 
@@ -209,10 +216,11 @@ def build_servico(args, config: configparser.ConfigParser) -> Servico:
 
 
 def get_next_numero(config: configparser.ConfigParser, config_path: str) -> int:
-    """Get next DPS number and increment in config file."""
+    """Obtem proximo numero de DPS e incrementa no arquivo de config."""
+
     numero = config.getint("nfse", "proximo_numero", fallback=1)
 
-    # Update config file with next number
+    # Atualiza arquivo de config com proximo numero
     config.set("nfse", "proximo_numero", str(numero + 1))
 
     with open(config_path, "w", encoding="utf-8") as f:
@@ -222,12 +230,14 @@ def get_next_numero(config: configparser.ConfigParser, config_path: str) -> int:
 
 
 def generate_pdf(nfse_xml_b64: str, chave_acesso: str, output_dir: str, header_config=None):
-    """Generate DANFSE PDF from NFSe XML."""
+    """Gera PDF do DANFSE a partir do XML da NFSe."""
+
     try:
         from pynfse_nacional.pdf_generator import generate_danfse_from_base64, HeaderConfig
+
     except ImportError:
-        print("Warning: PDF generation requires optional dependencies.")
-        print("Install with: pip install pynfse-nacional[pdf]")
+        print("Aviso: Geracao de PDF requer dependencias opcionais.")
+        print("Instale com: pip install pynfse-nacional[pdf]")
         return None
 
     output_path = Path(output_dir)
@@ -246,263 +256,263 @@ def generate_pdf(nfse_xml_b64: str, chave_acesso: str, output_dir: str, header_c
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Issue NFSe Nacional (Brazilian electronic service invoice)",
+        description="Emitir NFSe Nacional (nota fiscal de servicos eletronica brasileira)",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
-Examples:
-  # Basic usage with config file:
+Exemplos:
+  # Uso basico com arquivo de config:
   %(prog)s --config issuer.ini \\
       --tomador-cpf 12345678901 --tomador-nome "Cliente" \\
       --servico-codigo "4.03.03" --servico-descricao "Consultoria" \\
       --servico-valor 1000.00
 
-  # Production environment:
+  # Ambiente de producao:
   %(prog)s --config issuer.ini --producao \\
       --tomador-cpf 12345678901 --tomador-nome "Cliente" \\
       --servico-codigo "4.03.03" --servico-descricao "Consultoria" \\
       --servico-valor 1000.00
 
-  # With PDF generation:
+  # Com geracao de PDF:
   %(prog)s --config issuer.ini --gerar-pdf --pdf-output ./notas/ ...
 
-Environment variables:
-  NFSE_CERT_PATH      Path to certificate (overrides config)
-  NFSE_CERT_PASSWORD  Certificate password (overrides config)
+Variaveis de ambiente:
+  NFSE_CERT_PATH      Caminho do certificado (sobrescreve config)
+  NFSE_CERT_PASSWORD  Senha do certificado (sobrescreve config)
 """,
     )
 
-    # Config and environment
+    # Config e ambiente
     parser.add_argument(
         "--config", "-c",
         required=True,
-        help="Path to issuer configuration file (INI format)",
+        help="Caminho para arquivo de configuracao do emissor (formato INI)",
     )
 
     parser.add_argument(
         "--producao",
         action="store_true",
-        help="Use production environment (default: homologacao)",
+        help="Usar ambiente de producao (padrao: homologacao)",
     )
 
-    # Certificate options (override config/env)
+    # Opcoes de certificado (sobrescrevem config/env)
     parser.add_argument(
         "--cert-path",
-        help="Path to certificate file (overrides config and env)",
+        help="Caminho para arquivo do certificado (sobrescreve config e env)",
     )
 
     parser.add_argument(
         "--cert-password",
-        help="Certificate password (overrides config and env)",
+        help="Senha do certificado (sobrescreve config e env)",
     )
 
-    # Tomador (service recipient) options
-    tomador_group = parser.add_argument_group("Tomador (service recipient)")
+    # Opcoes do tomador (destinatario do servico)
+    tomador_group = parser.add_argument_group("Tomador (destinatario do servico)")
 
     tomador_group.add_argument(
         "--tomador-cpf",
-        help="Tomador CPF (11 digits)",
+        help="CPF do tomador (11 digitos)",
     )
 
     tomador_group.add_argument(
         "--tomador-cnpj",
-        help="Tomador CNPJ (14 digits)",
+        help="CNPJ do tomador (14 digitos)",
     )
 
     tomador_group.add_argument(
         "--tomador-nome",
         required=True,
-        help="Tomador name (razao social)",
+        help="Nome do tomador (razao social)",
     )
 
     tomador_group.add_argument(
         "--tomador-email",
-        help="Tomador email",
+        help="Email do tomador",
     )
 
     tomador_group.add_argument(
         "--tomador-telefone",
-        help="Tomador phone",
+        help="Telefone do tomador",
     )
 
-    # Tomador address (optional)
-    tomador_addr_group = parser.add_argument_group("Tomador address (optional)")
+    # Endereco do tomador (opcional)
+    tomador_addr_group = parser.add_argument_group("Endereco do tomador (opcional)")
 
     tomador_addr_group.add_argument(
         "--tomador-logradouro",
-        help="Street name",
+        help="Nome da rua",
     )
 
     tomador_addr_group.add_argument(
         "--tomador-numero",
-        help="Street number",
+        help="Numero",
     )
 
     tomador_addr_group.add_argument(
         "--tomador-complemento",
-        help="Address complement",
+        help="Complemento do endereco",
     )
 
     tomador_addr_group.add_argument(
         "--tomador-bairro",
-        help="Neighborhood",
+        help="Bairro",
     )
 
     tomador_addr_group.add_argument(
         "--tomador-municipio",
         type=int,
-        help="IBGE municipality code (7 digits)",
+        help="Codigo do municipio IBGE (7 digitos)",
     )
 
     tomador_addr_group.add_argument(
         "--tomador-uf",
-        help="State (2 letters)",
+        help="Estado (2 letras)",
     )
 
     tomador_addr_group.add_argument(
         "--tomador-cep",
-        help="ZIP code (8 digits)",
+        help="CEP (8 digitos)",
     )
 
-    # Servico (service) options
-    servico_group = parser.add_argument_group("Servico (service details)")
+    # Opcoes do servico
+    servico_group = parser.add_argument_group("Servico (detalhes do servico)")
 
     servico_group.add_argument(
         "--servico-codigo",
         required=True,
-        help="LC 116 service code (e.g., '4.03.03' for IT consulting)",
+        help="Codigo LC 116 do servico (ex: '4.03.03' para consultoria em TI)",
     )
 
     servico_group.add_argument(
         "--servico-descricao",
         required=True,
-        help="Service description (discriminacao)",
+        help="Descricao do servico (discriminacao)",
     )
 
     servico_group.add_argument(
         "--servico-valor",
         type=float,
         required=True,
-        help="Service value in BRL",
+        help="Valor do servico em BRL",
     )
 
     servico_group.add_argument(
         "--servico-cnae",
-        help="CNAE code (optional)",
+        help="Codigo CNAE (opcional)",
     )
 
     servico_group.add_argument(
         "--servico-codigo-municipal",
-        help="Municipal tax code (optional)",
+        help="Codigo de tributacao municipal (opcional)",
     )
 
     servico_group.add_argument(
         "--servico-nbs",
-        help="NBS code (optional)",
+        help="Codigo NBS (opcional)",
     )
 
-    # Tax options
-    tax_group = parser.add_argument_group("Tax options")
+    # Opcoes de tributos
+    tax_group = parser.add_argument_group("Opcoes de tributos")
 
     tax_group.add_argument(
         "--iss-retido",
         action="store_true",
-        help="ISS retained by tomador",
+        help="ISS retido pelo tomador",
     )
 
     tax_group.add_argument(
         "--aliquota-iss",
         type=float,
-        help="ISS rate (percentage)",
+        help="Aliquota do ISS (percentual)",
     )
 
     tax_group.add_argument(
         "--aliquota-simples",
         type=float,
-        help="Simples Nacional total tax rate (overrides config)",
+        help="Aliquota total do Simples Nacional (sobrescreve config)",
     )
 
-    # DPS options
-    dps_group = parser.add_argument_group("DPS options")
+    # Opcoes da DPS
+    dps_group = parser.add_argument_group("Opcoes da DPS")
 
     dps_group.add_argument(
         "--numero",
         type=int,
-        help="DPS number (default: auto-increment from config)",
+        help="Numero da DPS (padrao: auto-incremento do config)",
     )
 
     dps_group.add_argument(
         "--serie",
-        help="DPS series (default: from config or '900')",
+        help="Serie da DPS (padrao: do config ou '900')",
     )
 
     dps_group.add_argument(
         "--competencia",
-        help="Competencia YYYY-MM (default: current month)",
+        help="Competencia YYYY-MM (padrao: mes atual)",
     )
 
-    # Output options
-    output_group = parser.add_argument_group("Output options")
+    # Opcoes de saida
+    output_group = parser.add_argument_group("Opcoes de saida")
 
     output_group.add_argument(
         "--gerar-pdf",
         action="store_true",
-        help="Generate DANFSE PDF after issuing",
+        help="Gerar PDF do DANFSE apos emissao",
     )
 
     output_group.add_argument(
         "--pdf-output",
         default=".",
-        help="Output directory for PDF (default: current directory)",
+        help="Diretorio de saida do PDF (padrao: diretorio atual)",
     )
 
     output_group.add_argument(
         "--json",
         action="store_true",
-        help="Output result as JSON",
+        help="Saida do resultado em formato JSON",
     )
 
     output_group.add_argument(
         "--quiet", "-q",
         action="store_true",
-        help="Minimal output (only errors and essential info)",
+        help="Saida minima (apenas erros e informacoes essenciais)",
     )
 
     args = parser.parse_args()
 
-    # Load configuration
+    # Carrega configuracao
     config = load_config(args.config)
 
-    # Get certificate info
+    # Obtem informacoes do certificado
     cert_path, cert_password = get_certificate_info(config, args)
 
-    # Determine environment
+    # Determina ambiente
     ambiente = "producao" if args.producao else "homologacao"
 
     if not args.quiet:
-        print(f"Environment: {ambiente.upper()}")
-        print(f"Certificate: {cert_path}")
+        print(f"Ambiente: {ambiente.upper()}")
+        print(f"Certificado: {cert_path}")
         print()
 
-    # Build models
+    # Constroi modelos
     prestador = build_prestador(config)
     tomador = build_tomador(args)
     servico = build_servico(args, config)
 
-    # Get DPS number
+    # Obtem numero da DPS
     numero = args.numero or get_next_numero(config, args.config)
     serie = args.serie or config.get("nfse", "serie", fallback="900")
 
-    # Get competencia
+    # Obtem competencia
     if args.competencia:
         competencia = args.competencia
     else:
         competencia = datetime.now().strftime("%Y-%m")
 
-    # Get tax regime info from config
+    # Obtem informacoes de regime tributario do config
     optante_simples = config.getboolean("tributacao", "optante_simples", fallback=False)
     regime_tributario = config.get("tributacao", "regime_tributario", fallback="normal")
 
-    # Build DPS
+    # Constroi DPS
     dps = DPS(
         serie=serie,
         numero=numero,
@@ -517,8 +527,8 @@ Environment variables:
     )
 
     if not args.quiet:
-        print(f"Issuing NFSe:")
-        print(f"  DPS Number: {numero}")
+        print(f"Emitindo NFSe:")
+        print(f"  Numero DPS: {numero}")
         print(f"  Serie: {serie}")
         print(f"  Competencia: {competencia}")
         print(f"  Prestador: {prestador.razao_social} ({prestador.cnpj})")
@@ -527,7 +537,7 @@ Environment variables:
         print(f"  Descricao: {servico.discriminacao[:50]}...")
         print()
 
-    # Create client and submit
+    # Cria cliente e envia
     try:
         client = NFSeClient(
             cert_path=cert_path,
@@ -537,7 +547,7 @@ Environment variables:
         )
 
         if not args.quiet:
-            print("Submitting DPS to SEFIN...")
+            print("Enviando DPS para SEFIN...")
 
         response = client.submit_dps(dps)
 
@@ -554,18 +564,19 @@ Environment variables:
             if args.json:
                 print(json.dumps(result, indent=2))
             else:
-                print("SUCCESS!")
+                print("SUCESSO!")
                 print(f"  Chave de Acesso: {response.chave_acesso}")
-                print(f"  NFSe Number: {response.nfse_number}")
+                print(f"  Numero NFSe: {response.nfse_number}")
 
                 if response.nfse_xml_gzip_b64:
                     result["has_xml"] = True
 
-            # Generate PDF if requested
+            # Gera PDF se solicitado
             if args.gerar_pdf and response.nfse_xml_gzip_b64:
+
                 if not args.quiet:
                     print()
-                    print("Generating PDF...")
+                    print("Gerando PDF...")
 
                 try:
                     pdf_path = generate_pdf(
@@ -578,11 +589,12 @@ Environment variables:
                         result["pdf_path"] = str(pdf_path)
 
                         if not args.json:
-                            print(f"  PDF saved: {pdf_path}")
+                            print(f"  PDF salvo: {pdf_path}")
 
                 except Exception as e:
+
                     if not args.json:
-                        print(f"  Warning: Failed to generate PDF: {e}")
+                        print(f"  Aviso: Falha ao gerar PDF: {e}")
 
                     result["pdf_error"] = str(e)
 
@@ -599,9 +611,9 @@ Environment variables:
             if args.json:
                 print(json.dumps(result, indent=2))
             else:
-                print("FAILED!")
-                print(f"  Error Code: {response.error_code}")
-                print(f"  Error Message: {response.error_message}")
+                print("FALHOU!")
+                print(f"  Codigo do Erro: {response.error_code}")
+                print(f"  Mensagem de Erro: {response.error_message}")
 
             sys.exit(1)
 
@@ -615,7 +627,7 @@ Environment variables:
         if args.json:
             print(json.dumps(error_result, indent=2))
         else:
-            print(f"Certificate Error: {e}")
+            print(f"Erro de Certificado: {e}")
 
         sys.exit(1)
 
@@ -633,10 +645,10 @@ Environment variables:
         if args.json:
             print(json.dumps(error_result, indent=2))
         else:
-            print(f"API Error: {e.code} - {e.message}")
+            print(f"Erro da API: {e.code} - {e.message}")
 
             if e.status_code:
-                print(f"  HTTP Status: {e.status_code}")
+                print(f"  Status HTTP: {e.status_code}")
 
         sys.exit(1)
 
@@ -650,7 +662,7 @@ Environment variables:
         if args.json:
             print(json.dumps(error_result, indent=2))
         else:
-            print(f"Error: {e}")
+            print(f"Erro: {e}")
 
         sys.exit(1)
 
