@@ -132,12 +132,12 @@ class TestXMLBuilderBuildDPSId:
     def test_build_dps_id_with_custom_values(self, sample_dps):
         """_build_dps_id should handle different values."""
         sample_dps.numero = 12345
-        sample_dps.serie = "NF"
+        sample_dps.serie = "123"
         builder = XMLBuilder()
 
         dps_id = builder._build_dps_id(sample_dps)
 
-        assert "000NF" in dps_id
+        assert "00123" in dps_id
         assert "000000000012345" in dps_id
 
 

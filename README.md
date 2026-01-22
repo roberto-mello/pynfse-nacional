@@ -42,37 +42,85 @@ pip install git+https://github.com/robmello/pynfse-nacional.git
 ## Inicio Rapido
 
 ```python
-from pynfse_nacional import NFSeClient, DPS, Prestador, Tomador, Servico
+from datetime import datetime
+from decimal import Decimal
+
+from pynfse_nacional import NFSeClient, DPS, Prestador, Tomador, Servico, Endereco
+
+# Criar endereco do prestador
+endereco_prestador = Endereco(
+    logradouro="Rua Exemplo",
+    numero="100",
+    complemento="Sala 1",
+    bairro="Centro",
+    codigo_municipio=3550308,  # Codigo IBGE do municipio
+    uf="SP",
+    cep="01310100",
+)
+
+# Criar prestador (emissor da nota)
+prestador = Prestador(
+    cnpj="12345678000199",
+    inscricao_municipal="12345",
+    razao_social="Empresa Exemplo LTDA",
+    nome_fantasia="Empresa Exemplo",
+    endereco=endereco_prestador,
+    email="contato@empresa.com",
+    telefone="11999999999",
+)
+
+# Criar tomador (cliente)
+tomador = Tomador(
+    cpf="12345678901",
+    razao_social="Joao da Silva",
+    endereco=Endereco(
+        logradouro="Av. Brasil",
+        numero="500",
+        bairro="Jardins",
+        codigo_municipio=3550308,
+        uf="SP",
+        cep="01430001",
+    ),
+)
+
+# Criar servico
+servico = Servico(
+    codigo_lc116="4.03",  # Item da LC 116
+    discriminacao="Consulta medica em consultorio",
+    valor_servicos=Decimal("500.00"),
+    iss_retido=False,
+    aliquota_simples=Decimal("18.83"),  # Para Simples Nacional
+)
+
+# Criar DPS (nao definir id_dps - sera gerado automaticamente)
+dps = DPS(
+    serie="900",
+    numero=1,
+    competencia="2026-01",
+    data_emissao=datetime.now(),
+    prestador=prestador,
+    tomador=tomador,
+    servico=servico,
+    regime_tributario="simples_nacional",
+    optante_simples=True,
+    incentivador_cultural=False,
+)
 
 # Inicializar cliente com certificado
 client = NFSeClient(
     cert_path="/caminho/para/certificado.pfx",
     cert_password="sua-senha",
-    ambiente="homologacao"  # ou "producao"
-)
-
-# Criar DPS
-dps = DPS(
-    prestador=Prestador(
-        cnpj="12345678000199",
-        inscricao_municipal="12345",
-        # ...
-    ),
-    tomador=Tomador(
-        cpf_cnpj="98765432100",
-        # ...
-    ),
-    servico=Servico(
-        valor_servicos=1000.00,
-        item_lista_servico="4.01",
-        # ...
-    ),
+    ambiente="homologacao",  # ou "producao"
 )
 
 # Enviar e obter NFSe
 response = client.submit_dps(dps)
-print(f"NFSe emitida: {response.nfse_number}")
-print(f"Chave de acesso: {response.chave_acesso}")
+
+if response.success:
+    print(f"NFSe emitida: {response.nfse_number}")
+    print(f"Chave de acesso: {response.chave_acesso}")
+else:
+    print(f"Erro: {response.error_message}")
 ```
 
 ## Referencia da API
@@ -149,37 +197,85 @@ pip install git+https://github.com/robmello/pynfse-nacional.git
 ### Quick Start
 
 ```python
-from pynfse_nacional import NFSeClient, DPS, Prestador, Tomador, Servico
+from datetime import datetime
+from decimal import Decimal
+
+from pynfse_nacional import NFSeClient, DPS, Prestador, Tomador, Servico, Endereco
+
+# Create provider address
+provider_address = Endereco(
+    logradouro="Rua Exemplo",
+    numero="100",
+    complemento="Sala 1",
+    bairro="Centro",
+    codigo_municipio=3550308,  # IBGE municipality code
+    uf="SP",
+    cep="01310100",
+)
+
+# Create provider (invoice issuer)
+prestador = Prestador(
+    cnpj="12345678000199",
+    inscricao_municipal="12345",
+    razao_social="Example Company LTDA",
+    nome_fantasia="Example Company",
+    endereco=provider_address,
+    email="contact@company.com",
+    telefone="11999999999",
+)
+
+# Create recipient (client)
+tomador = Tomador(
+    cpf="12345678901",
+    razao_social="John Smith",
+    endereco=Endereco(
+        logradouro="Av. Brasil",
+        numero="500",
+        bairro="Jardins",
+        codigo_municipio=3550308,
+        uf="SP",
+        cep="01430001",
+    ),
+)
+
+# Create service
+servico = Servico(
+    codigo_lc116="4.03",  # LC 116 item code
+    discriminacao="Medical consultation",
+    valor_servicos=Decimal("500.00"),
+    iss_retido=False,
+    aliquota_simples=Decimal("18.83"),  # For Simples Nacional
+)
+
+# Create DPS (do NOT set id_dps - it will be auto-generated)
+dps = DPS(
+    serie="900",
+    numero=1,
+    competencia="2026-01",
+    data_emissao=datetime.now(),
+    prestador=prestador,
+    tomador=tomador,
+    servico=servico,
+    regime_tributario="simples_nacional",
+    optante_simples=True,
+    incentivador_cultural=False,
+)
 
 # Initialize client with certificate
 client = NFSeClient(
     cert_path="/path/to/certificate.pfx",
     cert_password="your-password",
-    ambiente="homologacao"  # or "producao"
-)
-
-# Create DPS
-dps = DPS(
-    prestador=Prestador(
-        cnpj="12345678000199",
-        inscricao_municipal="12345",
-        # ...
-    ),
-    tomador=Tomador(
-        cpf_cnpj="98765432100",
-        # ...
-    ),
-    servico=Servico(
-        valor_servicos=1000.00,
-        item_lista_servico="4.01",
-        # ...
-    ),
+    ambiente="homologacao",  # or "producao"
 )
 
 # Submit and get NFSe
 response = client.submit_dps(dps)
-print(f"NFSe issued: {response.nfse_number}")
-print(f"Access key: {response.chave_acesso}")
+
+if response.success:
+    print(f"NFSe issued: {response.nfse_number}")
+    print(f"Access key: {response.chave_acesso}")
+else:
+    print(f"Error: {response.error_message}")
 ```
 
 ### API Reference

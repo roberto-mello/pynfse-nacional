@@ -1,7 +1,9 @@
+import re
 from datetime import datetime
 from decimal import Decimal
 from typing import Optional
-from pydantic import BaseModel, Field
+
+from pydantic import BaseModel, Field, field_validator
 
 
 class Endereco(BaseModel):
@@ -72,7 +74,7 @@ class DPS(BaseModel):
     """Declaracao de Prestacao de Servicos."""
 
     id_dps: Optional[str] = Field(None, description="DPS ID (auto-generated if not provided)")
-    serie: str = Field(default="900")
+    serie: str = Field(default="900", description="Serie must be numeric (1-5 digits)")
     numero: int
     competencia: str = Field(..., description="YYYY-MM format")
     data_emissao: datetime
@@ -84,6 +86,36 @@ class DPS(BaseModel):
     )
     optante_simples: bool = False
     incentivador_cultural: bool = False
+
+    @field_validator("serie")
+    @classmethod
+    def validate_serie(cls, v: str) -> str:
+        """Validate serie is numeric (XSD pattern: ^0{0,4}\\d{1,5}$)."""
+
+        if not re.match(r"^0{0,4}\d{1,5}$", v):
+            raise ValueError(
+                f"serie must be numeric (1-5 digits), got '{v}'. "
+                "Use values like '1', '900', '00001'. Alphabetic series like 'NF' are not allowed."
+            )
+
+        return v
+
+    @field_validator("id_dps")
+    @classmethod
+    def validate_id_dps(cls, v: Optional[str]) -> Optional[str]:
+        """Validate id_dps format if provided (XSD pattern: DPS[0-9]{42})."""
+
+        if v is None:
+            return v
+
+        if not re.match(r"^DPS[0-9]{42}$", v):
+            raise ValueError(
+                f"id_dps must match pattern 'DPS' + 42 digits (45 chars total), got '{v}' ({len(v)} chars). "
+                "Format: DPS + cLocEmi(7) + tpInsc(1) + CNPJ(14) + serie(5) + nDPS(15). "
+                "Leave id_dps unset to auto-generate."
+            )
+
+        return v
 
 
 class NFSeResponse(BaseModel):
