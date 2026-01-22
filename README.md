@@ -26,6 +26,8 @@ Esta biblioteca fornece um cliente para interagir com a API do NFSe Nacional (SE
 - Compressao GZip e codificacao Base64
 - Emissao, consulta e cancelamento de NFSe
 - Download do DANFSe em PDF
+- Consulta de parametros municipais e servicos aderidos
+- Validacao de campos com mensagens em portugues
 
 ## Instalacao
 
@@ -85,7 +87,7 @@ tomador = Tomador(
 
 # Criar servico
 servico = Servico(
-    codigo_lc116="4.03",  # Item da LC 116
+    codigo_lc116="04.03.01",  # Codigo completo com subitem (XX.XX.XX)
     discriminacao="Consulta medica em consultorio",
     valor_servicos=Decimal("500.00"),
     iss_retido=False,
@@ -129,10 +131,39 @@ else:
 
 Cliente principal para a API do NFSe Nacional.
 
+**Emissao e Consulta de NFSe:**
+
 - `submit_dps(dps: DPS) -> NFSeResponse` - Envia DPS e recebe NFSe
 - `query_nfse(chave_acesso: str) -> NFSeQueryResult` - Consulta NFSe pela chave de acesso
 - `download_danfse(chave_acesso: str) -> bytes` - Baixa o DANFSe em PDF
 - `cancel_nfse(chave_acesso: str, reason: str) -> EventResponse` - Cancela NFSe
+
+**Consulta de Parametros Municipais:**
+
+- `query_parametros_municipais(codigo_municipio: int) -> ParametrosMunicipais` - Consulta parametros e servicos aderidos por um municipio
+- `query_servico_municipal(codigo_municipio: int, codigo_servico: str) -> ServicoMunicipal` - Verifica se um servico especifico esta aderido
+- `listar_servicos_aderidos(codigo_municipio: int) -> list[ServicoMunicipal]` - Lista todos os servicos aderidos pelo municipio
+
+### Consultando Servicos Aderidos
+
+Antes de emitir uma NFSe, verifique se o municipio aderiu ao codigo de servico:
+
+```python
+# Verificar se um codigo de servico esta aderido
+servico = client.query_servico_municipal(1302603, "040301")  # Manaus
+
+if servico.aderido:
+    print(f"Servico {servico.codigo_servico} aderido")
+    print(f"Aliquota: {servico.aliquota}%")
+else:
+    print("Servico nao aderido pelo municipio")
+
+# Listar todos os servicos aderidos
+servicos = client.listar_servicos_aderidos(1302603)
+
+for s in servicos:
+    print(f"{s.codigo_servico}: {s.descricao}")
+```
 
 ### Modelos
 
@@ -140,6 +171,8 @@ Cliente principal para a API do NFSe Nacional.
 - `Prestador` - Prestador de servicos (emissor)
 - `Tomador` - Tomador de servicos
 - `Servico` - Detalhes do servico
+- `ParametrosMunicipais` - Parametros de um municipio (adesao, servicos)
+- `ServicoMunicipal` - Informacoes de um servico aderido
 
 ## Ambientes
 
@@ -182,6 +215,8 @@ This library provides a client for interacting with the NFSe Nacional (SEFIN Nac
 - GZip compression and Base64 encoding
 - NFSe issuance, query, and cancellation
 - DANFSe PDF download
+- Municipal parameters and adhered services query
+- Field validation with Portuguese error messages
 
 ### Installation
 
@@ -241,7 +276,7 @@ tomador = Tomador(
 
 # Create service
 servico = Servico(
-    codigo_lc116="4.03",  # LC 116 item code
+    codigo_lc116="04.03.01",  # Full code with subitem (XX.XX.XX)
     discriminacao="Medical consultation",
     valor_servicos=Decimal("500.00"),
     iss_retido=False,
@@ -285,10 +320,39 @@ else:
 
 Main client for NFSe Nacional API.
 
+**NFSe Issuance and Query:**
+
 - `submit_dps(dps: DPS) -> NFSeResponse` - Submit DPS and receive NFSe
 - `query_nfse(chave_acesso: str) -> NFSeQueryResult` - Query NFSe by access key
 - `download_danfse(chave_acesso: str) -> bytes` - Download DANFSe PDF
 - `cancel_nfse(chave_acesso: str, reason: str) -> EventResponse` - Cancel NFSe
+
+**Municipal Parameters Query:**
+
+- `query_parametros_municipais(codigo_municipio: int) -> ParametrosMunicipais` - Query parameters and adhered services for a municipality
+- `query_servico_municipal(codigo_municipio: int, codigo_servico: str) -> ServicoMunicipal` - Check if a specific service is adhered
+- `listar_servicos_aderidos(codigo_municipio: int) -> list[ServicoMunicipal]` - List all adhered services for a municipality
+
+#### Querying Adhered Services
+
+Before issuing an NFSe, check if the municipality has adhered to the service code:
+
+```python
+# Check if a service code is adhered
+servico = client.query_servico_municipal(1302603, "040301")  # Manaus
+
+if servico.aderido:
+    print(f"Service {servico.codigo_servico} is adhered")
+    print(f"Tax rate: {servico.aliquota}%")
+else:
+    print("Service not adhered by the municipality")
+
+# List all adhered services
+servicos = client.listar_servicos_aderidos(1302603)
+
+for s in servicos:
+    print(f"{s.codigo_servico}: {s.descricao}")
+```
 
 #### Models
 
@@ -296,6 +360,8 @@ Main client for NFSe Nacional API.
 - `Prestador` - Service provider (issuer)
 - `Tomador` - Service recipient
 - `Servico` - Service details
+- `ParametrosMunicipais` - Municipality parameters (adherence, services)
+- `ServicoMunicipal` - Adhered service information
 
 ### Environments
 
