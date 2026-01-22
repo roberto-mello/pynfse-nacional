@@ -369,6 +369,11 @@ class NFSeClient:
             AliquotaServico(codigo_servico='040301', aliquota=Decimal('5.00'), aderido=True)
         """
         codigo_servico_clean = codigo_servico.replace(".", "")
+
+        # API requires 9 digits (pad with zeros on the right)
+        if len(codigo_servico_clean) == 6:
+            codigo_servico_clean = codigo_servico_clean + "000"
+
         url = f"{self.parametrizacao_url}/{codigo_municipio}/{codigo_servico_clean}/{competencia}/aliquota"
 
         try:

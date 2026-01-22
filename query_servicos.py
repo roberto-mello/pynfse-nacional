@@ -24,7 +24,15 @@ client = NFSeClient(
     ambiente="homologacao",
 )
 
-print(f"Consultando servico {CODIGO_SERVICO} no municipio {CODIGO_MUNICIPIO}...")
+# Normalize service code to 9 digits
+codigo_limpo = CODIGO_SERVICO.replace(".", "")
+if len(codigo_limpo) == 6:
+    codigo_9dig = codigo_limpo + "000"
+else:
+    codigo_9dig = codigo_limpo
+
+print(f"Consultando servico {CODIGO_SERVICO} (codigo API: {codigo_9dig})")
+print(f"Municipio: {CODIGO_MUNICIPIO}")
 print(f"Competencia: {COMPETENCIA}")
 print()
 
