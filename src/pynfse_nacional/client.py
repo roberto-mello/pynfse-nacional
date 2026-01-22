@@ -183,10 +183,17 @@ class NFSeClient:
                 except Exception:
                     pass
 
+            # Get nNFSe from response, or extract from chave_acesso (positions 25-34)
+            chave_acesso = data.get("chaveAcesso")
+            nfse_number = data.get("nNFSe")
+
+            if not nfse_number and chave_acesso and len(chave_acesso) >= 34:
+                nfse_number = str(int(chave_acesso[24:34]))
+
             return NFSeResponse(
                 success=True,
-                chave_acesso=data.get("chaveAcesso"),
-                nfse_number=data.get("nNFSe"),
+                chave_acesso=chave_acesso,
+                nfse_number=nfse_number,
                 nfse_xml_gzip_b64=nfse_xml_b64,
                 xml_nfse=nfse_xml,
             )

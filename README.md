@@ -25,7 +25,7 @@ Esta biblioteca fornece um cliente para interagir com a API do NFSe Nacional (SE
 - Assinatura digital de XML (XMLDSIG)
 - Compressao GZip e codificacao Base64
 - Emissao, consulta e cancelamento de NFSe
-- Download do DANFSe em PDF
+- Download e geracao local do DANFSe em PDF
 - Consulta de convenio municipal
 - Validacao de campos com mensagens em portugues
 
@@ -39,6 +39,12 @@ Ou instale a partir do codigo fonte:
 
 ```bash
 pip install git+https://github.com/robmello/pynfse-nacional.git
+```
+
+Para geracao local de PDF (DANFSe):
+
+```bash
+pip install pynfse-nacional[pdf]
 ```
 
 ## Inicio Rapido
@@ -159,6 +165,52 @@ else:
 
 **Nota:** A API de parametrizacao (aliquotas por servico) esta com problemas no ambiente de homologacao. Apenas a consulta de convenio municipal esta disponivel.
 
+### Gerando DANFSe (PDF)
+
+A biblioteca permite gerar o DANFSe localmente a partir do XML da NFSe:
+
+```python
+from pynfse_nacional.pdf_generator import (
+    generate_danfse_from_base64,
+    generate_danfse_from_xml,
+    HeaderConfig,
+)
+
+# Apos emitir a NFSe, gerar PDF a partir da resposta
+response = client.submit_dps(dps)
+
+if response.success:
+    # Gerar PDF a partir do XML comprimido retornado pela API
+    pdf_bytes = generate_danfse_from_base64(
+        nfse_xml_gzip_b64=response.nfse_xml_gzip_b64,
+        output_path="/caminho/para/danfse.pdf",  # Opcional - salva em arquivo
+    )
+
+    # Ou gerar a partir de XML string
+    pdf_bytes = generate_danfse_from_xml(
+        xml_content=response.xml_nfse,
+        output_path="/caminho/para/danfse.pdf",
+    )
+```
+
+**Com cabecalho personalizado (logo da empresa):**
+
+```python
+header = HeaderConfig(
+    image_path="/caminho/para/logo.png",
+    title="Nome da Empresa",
+    subtitle="Servicos Medicos",
+    phone="(11) 99999-9999",
+    email="contato@empresa.com",
+)
+
+pdf_bytes = generate_danfse_from_base64(
+    nfse_xml_gzip_b64=response.nfse_xml_gzip_b64,
+    output_path="/caminho/para/danfse.pdf",
+    header_config=header,
+)
+```
+
 ### Modelos
 
 - `DPS` - Declaracao de prestacao de servicos
@@ -207,7 +259,7 @@ This library provides a client for interacting with the NFSe Nacional (SEFIN Nac
 - XML digital signing (XMLDSIG)
 - GZip compression and Base64 encoding
 - NFSe issuance, query, and cancellation
-- DANFSe PDF download
+- DANFSe PDF download and local generation
 - Municipal agreement (convenio) query
 - Field validation with Portuguese error messages
 
@@ -221,6 +273,12 @@ Or install from source:
 
 ```bash
 pip install git+https://github.com/robmello/pynfse-nacional.git
+```
+
+For local PDF generation (DANFSe):
+
+```bash
+pip install pynfse-nacional[pdf]
 ```
 
 ### Quick Start
@@ -340,6 +398,52 @@ else:
 ```
 
 **Note:** The parametrization API (service tax rates) has issues in the homologation environment. Only the municipal agreement query is available.
+
+#### Generating DANFSe (PDF)
+
+The library allows generating DANFSe locally from the NFSe XML:
+
+```python
+from pynfse_nacional.pdf_generator import (
+    generate_danfse_from_base64,
+    generate_danfse_from_xml,
+    HeaderConfig,
+)
+
+# After issuing the NFSe, generate PDF from the response
+response = client.submit_dps(dps)
+
+if response.success:
+    # Generate PDF from compressed XML returned by the API
+    pdf_bytes = generate_danfse_from_base64(
+        nfse_xml_gzip_b64=response.nfse_xml_gzip_b64,
+        output_path="/path/to/danfse.pdf",  # Optional - saves to file
+    )
+
+    # Or generate from XML string
+    pdf_bytes = generate_danfse_from_xml(
+        xml_content=response.xml_nfse,
+        output_path="/path/to/danfse.pdf",
+    )
+```
+
+**With custom header (company logo):**
+
+```python
+header = HeaderConfig(
+    image_path="/path/to/logo.png",
+    title="Company Name",
+    subtitle="Medical Services",
+    phone="(11) 99999-9999",
+    email="contact@company.com",
+)
+
+pdf_bytes = generate_danfse_from_base64(
+    nfse_xml_gzip_b64=response.nfse_xml_gzip_b64,
+    output_path="/path/to/danfse.pdf",
+    header_config=header,
+)
+```
 
 #### Models
 
