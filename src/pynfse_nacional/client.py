@@ -1,6 +1,5 @@
 import tempfile
 from contextlib import contextmanager
-from decimal import Decimal
 from pathlib import Path
 from typing import Generator
 
@@ -8,7 +7,7 @@ import httpx
 
 from .constants import API_URLS, ENDPOINTS, PARAMETRIZACAO_URLS, Ambiente
 from .exceptions import NFSeAPIError, NFSeCertificateError
-from .models import DPS, NFSeResponse, EventResponse, NFSeQueryResult, AliquotaServico, ConvenioMunicipal
+from .models import DPS, NFSeResponse, EventResponse, NFSeQueryResult, ConvenioMunicipal
 from .xml_builder import XMLBuilder
 from .xml_signer import XMLSignerService
 from .utils import compress_encode, decode_decompress
@@ -342,93 +341,6 @@ class NFSeClient:
                 error_message=response.text or "Erro desconhecido",
             )
 
-    def query_aliquota_servico(
-        self,
-        codigo_municipio: int,
-        codigo_servico: str,
-        competencia: str,
-    ) -> AliquotaServico:
-        """Consulta a aliquota de um servico em um municipio para uma competencia.
-
-        Verifica se o municipio aderiu ao codigo de servico informado e retorna
-        a aliquota aplicavel para a competencia especificada.
-
-        Args:
-            codigo_municipio: Codigo IBGE do municipio (7 digitos)
-            codigo_servico: Codigo do servico (cTribNac, 6 digitos sem pontos)
-            competencia: Competencia no formato YYYY-MM
-
-        Returns:
-            AliquotaServico com informacoes do servico
-
-        Raises:
-            NFSeAPIError: Se ocorrer erro na consulta
-
-        Example:
-            >>> client.query_aliquota_servico(1302603, "040301", "2026-01")
-            AliquotaServico(codigo_servico='040301', aliquota=Decimal('5.00'), aderido=True)
-        """
-        codigo_servico_clean = codigo_servico.replace(".", "")
-
-        # API requires 9 digits (pad with zeros on the right)
-        if len(codigo_servico_clean) == 6:
-            codigo_servico_clean = codigo_servico_clean + "000"
-
-        url = f"{self.parametrizacao_url}/{codigo_municipio}/{codigo_servico_clean}/{competencia}/aliquota"
-
-        try:
-            with self._get_client() as client:
-                response = client.get(url)
-
-                if response.status_code == 404:
-                    return AliquotaServico(
-                        codigo_municipio=codigo_municipio,
-                        codigo_servico=codigo_servico_clean,
-                        competencia=competencia,
-                        aderido=False,
-                    )
-
-                if response.status_code != 200:
-                    error_data = {}
-
-                    try:
-                        error_data = response.json()
-                    except Exception:
-                        pass
-
-                    raise NFSeAPIError(
-                        error_data.get("mensagem", f"Erro ao consultar aliquota: HTTP {response.status_code}"),
-                        code=error_data.get("codigo"),
-                        status_code=response.status_code,
-                    )
-
-                data = response.json()
-
-                aliquota = None
-
-                if isinstance(data, dict):
-                    aliquota = data.get("aliquota") or data.get("vlAliq")
-                elif isinstance(data, (int, float, Decimal)):
-                    aliquota = data
-
-                return AliquotaServico(
-                    codigo_municipio=codigo_municipio,
-                    codigo_servico=codigo_servico_clean,
-                    competencia=competencia,
-                    aliquota=aliquota,
-                    aderido=True,
-                    raw_data=data if isinstance(data, dict) else {"aliquota": data},
-                )
-
-        except NFSeAPIError:
-            raise
-
-        except httpx.TimeoutException:
-            raise NFSeAPIError("Timeout ao consultar aliquota", code="TIMEOUT")
-
-        except httpx.RequestError as e:
-            raise NFSeAPIError(f"Erro de comunicacao: {str(e)}", code="COMM_ERROR")
-
     def query_convenio_municipal(self, codigo_municipio: int) -> ConvenioMunicipal:
         """Consulta se um municipio tem convenio com o sistema nacional.
 
@@ -483,25 +395,3 @@ class NFSeClient:
 
         except httpx.RequestError as e:
             raise NFSeAPIError(f"Erro de comunicacao: {str(e)}", code="COMM_ERROR")
-
-    def verificar_servico_aderido(
-        self,
-        codigo_municipio: int,
-        codigo_servico: str,
-        competencia: str,
-    ) -> bool:
-        """Verifica se um servico esta aderido por um municipio.
-
-        Atalho para query_aliquota_servico que retorna apenas se o servico
-        esta aderido ou nao.
-
-        Args:
-            codigo_municipio: Codigo IBGE do municipio (7 digitos)
-            codigo_servico: Codigo do servico (cTribNac)
-            competencia: Competencia no formato YYYY-MM
-
-        Returns:
-            True se o servico esta aderido, False caso contrario
-        """
-        result = self.query_aliquota_servico(codigo_municipio, codigo_servico, competencia)
-        return result.aderido
