@@ -15,11 +15,19 @@ API_URLS = {
     Ambiente.PRODUCAO: "https://sefin.nfse.gov.br/SefinNacional",
 }
 
+# Parametrizacao API URLs (for municipal parameters)
+PARAMETRIZACAO_URLS = {
+    Ambiente.HOMOLOGACAO: "https://adn.producaorestrita.nfse.gov.br/parametrizacao",
+    Ambiente.PRODUCAO: "https://adn.nfse.gov.br/parametrizacao",
+}
+
 ENDPOINTS = {
     "submit_dps": "/nfse",
     "query_nfse": "/nfse/{chave}",
     "download_danfse": "/danfse/{chave}",
     "events": "/eventos",
+    "parametros_municipais": "/parametros_municipais/{codigo_municipio}",
+    "servico_municipal": "/parametros_municipais/{codigo_municipio}/{codigo_servico}",
 }
 
 # Regime tributario codes

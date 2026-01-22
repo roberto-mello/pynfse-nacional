@@ -454,3 +454,24 @@ class NFSe(BaseModel):
     xml_original: Optional[str] = Field(None, description="Original signed XML (Base64)")
     data_cancelamento: Optional[datetime] = None
     motivo_cancelamento: Optional[str] = None
+
+
+class ServicoMunicipal(BaseModel):
+    """Informacoes de um servico aderido por um municipio."""
+
+    codigo_servico: str = Field(..., description="Codigo do servico (cTribNac)")
+    descricao: Optional[str] = Field(None, description="Descricao do servico")
+    aliquota: Optional[Decimal] = Field(None, description="Aliquota do ISS")
+    aderido: bool = Field(default=True, description="Se o municipio aderiu a este servico")
+
+
+class ParametrosMunicipais(BaseModel):
+    """Parametros de um municipio para emissao de NFSe."""
+
+    codigo_municipio: int = Field(..., description="Codigo IBGE do municipio")
+    nome_municipio: Optional[str] = Field(None, description="Nome do municipio")
+    uf: Optional[str] = Field(None, description="UF do municipio")
+    aderido: bool = Field(default=False, description="Se o municipio aderiu ao sistema nacional")
+    data_adesao: Optional[datetime] = Field(None, description="Data de adesao ao sistema")
+    servicos: list[ServicoMunicipal] = Field(default_factory=list, description="Servicos aderidos")
+    raw_data: Optional[dict] = Field(None, description="Dados brutos da API")
