@@ -1,0 +1,4 @@
+patient_name,cpf,prescription_url,valor
+Eron Fernandes Silva,49732555807,https://prescricao.cfm.org.br/api/consulta-documento?sw=CFMP-RE-7UPCHG6F,500.00
+Talita Pereira da Silva,75260867149,https://prescricao.cfm.org.br/api/consulta-documento?sw=CFMP-RE-9D7UCLXS,500.00
+Gabriel Éric Silva Raposo,06948277110,https://prescricao.cfm.org.br/api/consulta-documento?sw=CFMP-RE-RXKCH64C,500.00
