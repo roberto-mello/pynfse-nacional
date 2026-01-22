@@ -158,6 +158,7 @@ Cliente principal para a API do NFSe Nacional.
 
 - Implementacao de Referencia: https://github.com/nfe/poc-nfse-nacional
 - Biblioteca PHP: https://github.com/nfse-nacional/nfse-php
+- Codigos IBGE dos Municipios (CSV): https://github.com/kelvins/municipios-brasileiros
 
 ## Licenca
 
@@ -313,6 +314,7 @@ Main client for NFSe Nacional API.
 
 - Reference Implementation: https://github.com/nfe/poc-nfse-nacional
 - PHP Library: https://github.com/nfse-nacional/nfse-php
+- IBGE Municipality Codes (CSV): https://github.com/kelvins/municipios-brasileiros
 
 ### License
 
