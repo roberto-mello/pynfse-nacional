@@ -63,7 +63,7 @@ class TestQueryAliquotaServico:
 
             assert isinstance(result, AliquotaServico)
             assert result.codigo_municipio == 1302603
-            assert result.codigo_servico == "040301"
+            assert result.codigo_servico == "040301000"  # Padded to 9 digits
             assert result.competencia == "2026-01"
             assert result.aliquota == 5.0
             assert result.aderido is True
@@ -98,7 +98,7 @@ class TestQueryAliquotaServico:
 
             result = mock_client.query_aliquota_servico(1302603, "999999", "2026-01")
 
-            assert result.codigo_servico == "999999"
+            assert result.codigo_servico == "999999000"  # Padded to 9 digits
             assert result.aderido is False
             assert result.aliquota is None
 
@@ -114,10 +114,10 @@ class TestQueryAliquotaServico:
 
             result = mock_client.query_aliquota_servico(1302603, "04.03.01", "2026-01")
 
-            assert result.codigo_servico == "040301"
+            assert result.codigo_servico == "040301000"  # Padded to 9 digits
 
             call_args = mock_http.get.call_args[0][0]
-            assert "040301" in call_args
+            assert "040301000" in call_args  # 9-digit code in URL
             assert "04.03.01" not in call_args
 
     def test_url_format_correct(self, mock_client):
@@ -133,7 +133,7 @@ class TestQueryAliquotaServico:
             mock_client.query_aliquota_servico(1302603, "040301", "2026-01")
 
             call_args = mock_http.get.call_args[0][0]
-            assert "/1302603/040301/2026-01/aliquota" in call_args
+            assert "/1302603/040301000/2026-01/aliquota" in call_args  # 9-digit code
 
     def test_erro_api_500(self, mock_client):
         """Test API error handling for 500 response."""
