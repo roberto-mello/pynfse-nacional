@@ -140,30 +140,31 @@ Cliente principal para a API do NFSe Nacional.
 
 **Consulta de Parametros Municipais:**
 
-- `query_parametros_municipais(codigo_municipio: int) -> ParametrosMunicipais` - Consulta parametros e servicos aderidos por um municipio
-- `query_servico_municipal(codigo_municipio: int, codigo_servico: str) -> ServicoMunicipal` - Verifica se um servico especifico esta aderido
-- `listar_servicos_aderidos(codigo_municipio: int) -> list[ServicoMunicipal]` - Lista todos os servicos aderidos pelo municipio
+- `query_aliquota_servico(codigo_municipio, codigo_servico, competencia) -> AliquotaServico` - Consulta aliquota de um servico para uma competencia
+- `query_convenio_municipal(codigo_municipio) -> ConvenioMunicipal` - Consulta se municipio tem convenio
+- `verificar_servico_aderido(codigo_municipio, codigo_servico, competencia) -> bool` - Verifica se servico esta aderido
 
-### Consultando Servicos Aderidos
+### Verificando Servicos Aderidos
 
 Antes de emitir uma NFSe, verifique se o municipio aderiu ao codigo de servico:
 
 ```python
 # Verificar se um codigo de servico esta aderido
-servico = client.query_servico_municipal(1302603, "040301")  # Manaus
+aderido = client.verificar_servico_aderido(1302603, "040301", "2026-01")
 
-if servico.aderido:
-    print(f"Servico {servico.codigo_servico} aderido")
-    print(f"Aliquota: {servico.aliquota}%")
+if aderido:
+    print("Servico aderido pelo municipio")
 else:
-    print("Servico nao aderido pelo municipio")
+    print("Servico NAO aderido - escolha outro codigo")
 
-# Listar todos os servicos aderidos
-servicos = client.listar_servicos_aderidos(1302603)
+# Consultar aliquota do servico
+aliquota = client.query_aliquota_servico(1302603, "040301", "2026-01")
 
-for s in servicos:
-    print(f"{s.codigo_servico}: {s.descricao}")
+if aliquota.aderido:
+    print(f"Aliquota: {aliquota.aliquota}%")
 ```
+
+**Nota:** A API nao permite listar todos os servicos de um municipio - apenas consultar codigos especificos.
 
 ### Modelos
 
@@ -171,8 +172,8 @@ for s in servicos:
 - `Prestador` - Prestador de servicos (emissor)
 - `Tomador` - Tomador de servicos
 - `Servico` - Detalhes do servico
-- `ParametrosMunicipais` - Parametros de um municipio (adesao, servicos)
-- `ServicoMunicipal` - Informacoes de um servico aderido
+- `AliquotaServico` - Aliquota de um servico em um municipio
+- `ConvenioMunicipal` - Informacoes de convenio municipal
 
 ## Ambientes
 
@@ -329,30 +330,31 @@ Main client for NFSe Nacional API.
 
 **Municipal Parameters Query:**
 
-- `query_parametros_municipais(codigo_municipio: int) -> ParametrosMunicipais` - Query parameters and adhered services for a municipality
-- `query_servico_municipal(codigo_municipio: int, codigo_servico: str) -> ServicoMunicipal` - Check if a specific service is adhered
-- `listar_servicos_aderidos(codigo_municipio: int) -> list[ServicoMunicipal]` - List all adhered services for a municipality
+- `query_aliquota_servico(codigo_municipio, codigo_servico, competencia) -> AliquotaServico` - Query service tax rate for a period
+- `query_convenio_municipal(codigo_municipio) -> ConvenioMunicipal` - Query if municipality has agreement
+- `verificar_servico_aderido(codigo_municipio, codigo_servico, competencia) -> bool` - Check if service is adhered
 
-#### Querying Adhered Services
+#### Checking Adhered Services
 
 Before issuing an NFSe, check if the municipality has adhered to the service code:
 
 ```python
 # Check if a service code is adhered
-servico = client.query_servico_municipal(1302603, "040301")  # Manaus
+aderido = client.verificar_servico_aderido(1302603, "040301", "2026-01")
 
-if servico.aderido:
-    print(f"Service {servico.codigo_servico} is adhered")
-    print(f"Tax rate: {servico.aliquota}%")
+if aderido:
+    print("Service is adhered by the municipality")
 else:
-    print("Service not adhered by the municipality")
+    print("Service NOT adhered - choose another code")
 
-# List all adhered services
-servicos = client.listar_servicos_aderidos(1302603)
+# Query service tax rate
+aliquota = client.query_aliquota_servico(1302603, "040301", "2026-01")
 
-for s in servicos:
-    print(f"{s.codigo_servico}: {s.descricao}")
+if aliquota.aderido:
+    print(f"Tax rate: {aliquota.aliquota}%")
 ```
+
+**Note:** The API does not allow listing all services for a municipality - only querying specific codes.
 
 #### Models
 
@@ -360,8 +362,8 @@ for s in servicos:
 - `Prestador` - Service provider (issuer)
 - `Tomador` - Service recipient
 - `Servico` - Service details
-- `ParametrosMunicipais` - Municipality parameters (adherence, services)
-- `ServicoMunicipal` - Adhered service information
+- `AliquotaServico` - Service tax rate for a municipality
+- `ConvenioMunicipal` - Municipal agreement information
 
 ### Environments
 
