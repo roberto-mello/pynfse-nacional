@@ -456,17 +456,6 @@ class NFSe(BaseModel):
     motivo_cancelamento: Optional[str] = None
 
 
-class AliquotaServico(BaseModel):
-    """Aliquota de um servico em um municipio para uma competencia."""
-
-    codigo_municipio: int = Field(..., description="Codigo IBGE do municipio")
-    codigo_servico: str = Field(..., description="Codigo do servico (cTribNac)")
-    competencia: str = Field(..., description="Competencia (YYYY-MM)")
-    aliquota: Optional[Decimal] = Field(None, description="Aliquota do ISS")
-    aderido: bool = Field(default=True, description="Se o servico esta aderido")
-    raw_data: Optional[dict] = Field(None, description="Dados brutos da API")
-
-
 class ConvenioMunicipal(BaseModel):
     """Informacoes de convenio de um municipio."""
 

@@ -17,7 +17,6 @@ from .models import (
     NFSeResponse,
     EventResponse,
     NFSeQueryResult,
-    AliquotaServico,
     ConvenioMunicipal,
 )
 from .exceptions import (
@@ -78,7 +77,6 @@ __all__ = [
     "NFSeResponse",
     "EventResponse",
     "NFSeQueryResult",
-    "AliquotaServico",
     "ConvenioMunicipal",
     # Exceptions
     "NFSeError",

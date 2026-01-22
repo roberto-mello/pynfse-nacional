@@ -26,7 +26,7 @@ Esta biblioteca fornece um cliente para interagir com a API do NFSe Nacional (SE
 - Compressao GZip e codificacao Base64
 - Emissao, consulta e cancelamento de NFSe
 - Download do DANFSe em PDF
-- Consulta de parametros municipais e servicos aderidos
+- Consulta de convenio municipal
 - Validacao de campos com mensagens em portugues
 
 ## Instalacao
@@ -138,33 +138,26 @@ Cliente principal para a API do NFSe Nacional.
 - `download_danfse(chave_acesso: str) -> bytes` - Baixa o DANFSe em PDF
 - `cancel_nfse(chave_acesso: str, reason: str) -> EventResponse` - Cancela NFSe
 
-**Consulta de Parametros Municipais:**
+**Consulta de Convenio Municipal:**
 
-- `query_aliquota_servico(codigo_municipio, codigo_servico, competencia) -> AliquotaServico` - Consulta aliquota de um servico para uma competencia
-- `query_convenio_municipal(codigo_municipio) -> ConvenioMunicipal` - Consulta se municipio tem convenio
-- `verificar_servico_aderido(codigo_municipio, codigo_servico, competencia) -> bool` - Verifica se servico esta aderido
+- `query_convenio_municipal(codigo_municipio) -> ConvenioMunicipal` - Consulta se municipio tem convenio com o sistema nacional
 
-### Verificando Servicos Aderidos
+### Verificando Convenio Municipal
 
-Antes de emitir uma NFSe, verifique se o municipio aderiu ao codigo de servico:
+Antes de emitir uma NFSe, verifique se o municipio tem convenio com o sistema nacional:
 
 ```python
-# Verificar se um codigo de servico esta aderido
-aderido = client.verificar_servico_aderido(1302603, "040301", "2026-01")
+# Verificar se o municipio tem convenio
+convenio = client.query_convenio_municipal(1302603)
 
-if aderido:
-    print("Servico aderido pelo municipio")
+if convenio.aderido:
+    print("Municipio tem convenio com o sistema nacional")
+    print(f"Dados: {convenio.raw_data}")
 else:
-    print("Servico NAO aderido - escolha outro codigo")
-
-# Consultar aliquota do servico
-aliquota = client.query_aliquota_servico(1302603, "040301", "2026-01")
-
-if aliquota.aderido:
-    print(f"Aliquota: {aliquota.aliquota}%")
+    print("Municipio NAO tem convenio")
 ```
 
-**Nota:** A API nao permite listar todos os servicos de um municipio - apenas consultar codigos especificos.
+**Nota:** A API de parametrizacao (aliquotas por servico) esta com problemas no ambiente de homologacao. Apenas a consulta de convenio municipal esta disponivel.
 
 ### Modelos
 
@@ -172,7 +165,6 @@ if aliquota.aderido:
 - `Prestador` - Prestador de servicos (emissor)
 - `Tomador` - Tomador de servicos
 - `Servico` - Detalhes do servico
-- `AliquotaServico` - Aliquota de um servico em um municipio
 - `ConvenioMunicipal` - Informacoes de convenio municipal
 
 ## Ambientes
@@ -216,7 +208,7 @@ This library provides a client for interacting with the NFSe Nacional (SEFIN Nac
 - GZip compression and Base64 encoding
 - NFSe issuance, query, and cancellation
 - DANFSe PDF download
-- Municipal parameters and adhered services query
+- Municipal agreement (convenio) query
 - Field validation with Portuguese error messages
 
 ### Installation
@@ -328,33 +320,26 @@ Main client for NFSe Nacional API.
 - `download_danfse(chave_acesso: str) -> bytes` - Download DANFSe PDF
 - `cancel_nfse(chave_acesso: str, reason: str) -> EventResponse` - Cancel NFSe
 
-**Municipal Parameters Query:**
+**Municipal Agreement Query:**
 
-- `query_aliquota_servico(codigo_municipio, codigo_servico, competencia) -> AliquotaServico` - Query service tax rate for a period
-- `query_convenio_municipal(codigo_municipio) -> ConvenioMunicipal` - Query if municipality has agreement
-- `verificar_servico_aderido(codigo_municipio, codigo_servico, competencia) -> bool` - Check if service is adhered
+- `query_convenio_municipal(codigo_municipio) -> ConvenioMunicipal` - Query if municipality has agreement with the national system
 
-#### Checking Adhered Services
+#### Checking Municipal Agreement
 
-Before issuing an NFSe, check if the municipality has adhered to the service code:
+Before issuing an NFSe, check if the municipality has an agreement with the national system:
 
 ```python
-# Check if a service code is adhered
-aderido = client.verificar_servico_aderido(1302603, "040301", "2026-01")
+# Check if the municipality has an agreement
+convenio = client.query_convenio_municipal(1302603)
 
-if aderido:
-    print("Service is adhered by the municipality")
+if convenio.aderido:
+    print("Municipality has agreement with the national system")
+    print(f"Data: {convenio.raw_data}")
 else:
-    print("Service NOT adhered - choose another code")
-
-# Query service tax rate
-aliquota = client.query_aliquota_servico(1302603, "040301", "2026-01")
-
-if aliquota.aderido:
-    print(f"Tax rate: {aliquota.aliquota}%")
+    print("Municipality does NOT have agreement")
 ```
 
-**Note:** The API does not allow listing all services for a municipality - only querying specific codes.
+**Note:** The parametrization API (service tax rates) has issues in the homologation environment. Only the municipal agreement query is available.
 
 #### Models
 
@@ -362,7 +347,6 @@ if aliquota.aderido:
 - `Prestador` - Service provider (issuer)
 - `Tomador` - Service recipient
 - `Servico` - Service details
-- `AliquotaServico` - Service tax rate for a municipality
 - `ConvenioMunicipal` - Municipal agreement information
 
 ### Environments
