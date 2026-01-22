@@ -46,7 +46,7 @@ def sample_prestador(sample_endereco):
 def sample_tomador(sample_endereco):
     """Sample service taker (patient) for testing."""
     return Tomador(
-        cpf="12345678901",
+        cpf="52998224725",
         razao_social="Joao Silva",
         email="paciente@email.com",
         telefone="1988888888",
@@ -59,9 +59,9 @@ def sample_servico():
     """Sample service for testing."""
     return Servico(
         codigo_cnae="8630503",
-        codigo_lc116="4.03.03",
+        codigo_lc116="04.03.03",
         codigo_tributacao_municipal="123456",
-        codigo_nbs="1.0101.01.00",
+        codigo_nbs="101010100",
         discriminacao="Consulta medica",
         valor_servicos=Decimal("500.00"),
         iss_retido=False,
@@ -414,12 +414,12 @@ class TestXMLBuilderTomador:
         toma = root.find("nfse:infDPS/nfse:toma", NS)
         cpf = toma.find("nfse:CPF", NS)
 
-        assert cpf.text == "12345678901"
+        assert cpf.text == "52998224725"
 
     def test_build_dps_includes_tomador_cnpj(self, sample_dps):
         """Tomador section should include CNPJ when CPF is None."""
         sample_dps.tomador.cpf = None
-        sample_dps.tomador.cnpj = "99888777000166"
+        sample_dps.tomador.cnpj = "11222333000181"
         builder = XMLBuilder()
 
         xml_str = builder.build_dps(sample_dps)
@@ -429,7 +429,7 @@ class TestXMLBuilderTomador:
         cnpj = toma.find("nfse:CNPJ", NS)
         cpf = toma.find("nfse:CPF", NS)
 
-        assert cnpj.text == "99888777000166"
+        assert cnpj.text == "11222333000181"
         assert cpf is None
 
     def test_build_dps_includes_tomador_xnome(self, sample_dps):
@@ -550,7 +550,7 @@ class TestXMLBuilderServico:
         cServ = root.find("nfse:infDPS/nfse:serv/nfse:cServ", NS)
         cNBS = cServ.find("nfse:cNBS", NS)
 
-        assert cNBS.text == "1.0101.01.00"
+        assert cNBS.text == "101010100"
 
     def test_build_dps_omits_cnbs_when_none(self, sample_dps):
         """Servico section should omit cNBS when not provided."""
