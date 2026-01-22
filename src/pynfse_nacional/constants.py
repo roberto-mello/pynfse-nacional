@@ -26,8 +26,6 @@ ENDPOINTS = {
     "query_nfse": "/nfse/{chave}",
     "download_danfse": "/danfse/{chave}",
     "events": "/eventos",
-    "parametros_municipais": "/parametros_municipais/{codigo_municipio}",
-    "servico_municipal": "/parametros_municipais/{codigo_municipio}/{codigo_servico}",
 }
 
 # Regime tributario codes

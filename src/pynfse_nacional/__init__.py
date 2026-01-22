@@ -17,8 +17,8 @@ from .models import (
     NFSeResponse,
     EventResponse,
     NFSeQueryResult,
-    ParametrosMunicipais,
-    ServicoMunicipal,
+    AliquotaServico,
+    ConvenioMunicipal,
 )
 from .exceptions import (
     NFSeError,
@@ -78,8 +78,8 @@ __all__ = [
     "NFSeResponse",
     "EventResponse",
     "NFSeQueryResult",
-    "ParametrosMunicipais",
-    "ServicoMunicipal",
+    "AliquotaServico",
+    "ConvenioMunicipal",
     # Exceptions
     "NFSeError",
     "NFSeAPIError",
