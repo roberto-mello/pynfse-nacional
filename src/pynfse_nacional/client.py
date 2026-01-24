@@ -1,7 +1,8 @@
 import tempfile
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Generator
+from typing import Generator, Optional
+from xml.etree import ElementTree as ET
 
 import httpx
 
@@ -11,6 +12,35 @@ from .models import DPS, NFSeResponse, EventResponse, NFSeQueryResult, ConvenioM
 from .xml_builder import XMLBuilder
 from .xml_signer import XMLSignerService
 from .utils import compress_encode, decode_decompress
+
+# NFSe namespace for XML parsing
+_NFSE_NS = {"nfse": "http://www.sped.fazenda.gov.br/nfse"}
+
+
+def _extract_nfse_number_from_xml(xml_content: str) -> Optional[str]:
+    """Extract nNFSe from NFSe XML content.
+
+    Args:
+        xml_content: The NFSe XML as a string.
+
+    Returns:
+        The NFSe number as string, or None if not found.
+    """
+    try:
+        root = ET.fromstring(xml_content)
+
+        nfse_elem = root.find(".//nfse:nNFSe", _NFSE_NS)
+
+        if nfse_elem is None:
+            nfse_elem = root.find(".//{http://www.sped.fazenda.gov.br/nfse}nNFSe")
+
+        if nfse_elem is not None and nfse_elem.text:
+            return nfse_elem.text.strip()
+
+    except ET.ParseError:
+        pass
+
+    return None
 
 try:
     from cryptography.hazmat.primitives.serialization import pkcs12, Encoding, PrivateFormat, NoEncryption
@@ -183,12 +213,16 @@ class NFSeClient:
                 except Exception:
                     pass
 
-            # Get nNFSe from response, or extract from chave_acesso (positions 29-38)
             chave_acesso = data.get("chaveAcesso")
-            nfse_number = data.get("nNFSe")
+            nfse_number = None
 
-            if not nfse_number and chave_acesso and len(chave_acesso) >= 38:
-                nfse_number = str(int(chave_acesso[28:38]))
+            # Priority 1: Extract nNFSe from the XML (most reliable source)
+            if nfse_xml:
+                nfse_number = _extract_nfse_number_from_xml(nfse_xml)
+
+            # Priority 2: Get nNFSe from JSON response
+            if not nfse_number:
+                nfse_number = data.get("nNFSe")
 
             return NFSeResponse(
                 success=True,
