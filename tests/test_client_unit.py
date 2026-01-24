@@ -58,107 +58,141 @@ def mock_client():
 # =============================================================================
 
 
+def _make_nfse_xml(nfse_number: str) -> str:
+    """Create a sample NFSe XML with the given nNFSe value."""
+    return f'''<?xml version="1.0" encoding="UTF-8"?>
+<NFSe xmlns="http://www.sped.fazenda.gov.br/nfse">
+    <infNFSe Id="NFS12345678901234567890123456789012345678901234567890">
+        <nNFSe>{nfse_number}</nNFSe>
+        <dhProc>2026-01-15T10:30:00-03:00</dhProc>
+    </infNFSe>
+</NFSe>'''
+
+
+def _compress_encode(xml_content: str) -> str:
+    """Compress and base64 encode XML content."""
+    import gzip
+    import base64
+
+    compressed = gzip.compress(xml_content.encode("utf-8"))
+    return base64.b64encode(compressed).decode("utf-8")
+
+
 class TestParseDpsResponseNfseNumberExtraction:
-    """Tests for nfse_number extraction from chave_acesso."""
+    """Tests for nfse_number extraction from XML."""
 
-    def test_extracts_nfse_number_from_chave_acesso(self, mock_client):
-        """Should extract nfse_number from chave_acesso positions 28-38."""
-        # Chave acesso format (50 chars):
-        # cLocEmi(7) + tpInsc(1) + CNPJ/CPF(14) + nNFSe(10) + cSit(1) + dhEmi(8) + serie(3) + cDV(1) + tpAmb(1) + cMunGer(4)
-        # Positions: 0-6(7) + 7(1) + 8-21(14) + 22-31(10) ... wait that's 22-31
-        # Actually: 0-6(7) + 7(1) + 8-21(14) = 22 chars, then nNFSe is positions 22-31 (but code uses 28:38)
-        # Let me check: The actual format may differ. The fix changed from [24:34] to [28:38]
-        # Positions 28-38 should contain the nNFSe (10 digits)
-
-        # Create a 50-char chave_acesso with nNFSe at positions 28-38
-        # First 28 chars + 10 digit nNFSe + remaining 12 chars = 50 total
-        chave_prefix = "1234567890123456789012345678"  # 28 chars
-        nfse_number_in_chave = "0000012345"  # 10 chars (nNFSe)
-        chave_suffix = "123456789012"  # 12 chars
-        chave_acesso = chave_prefix + nfse_number_in_chave + chave_suffix
-
-        assert len(chave_acesso) == 50
+    def test_extracts_nfse_number_from_xml(self, mock_client):
+        """Should extract nfse_number from the XML content (priority 1)."""
+        chave_acesso = "12345678901234567890123456789012345678901234567890"
+        xml_content = _make_nfse_xml("50")
+        encoded_xml = _compress_encode(xml_content)
 
         mock_response = MockResponse(
             status_code=200,
             json_data={
                 "chaveAcesso": chave_acesso,
-                # nNFSe not returned, should extract from chave
+                "nfseXmlGZipB64": encoded_xml,
             },
         )
 
         result = mock_client._parse_dps_response(mock_response)
 
         assert result.success is True
-        assert result.chave_acesso == chave_acesso
-        # Extracted and converted: "0000012345" -> int() -> "12345"
-        assert result.nfse_number == "12345"
+        assert result.nfse_number == "50"
 
-    def test_uses_api_nnfse_when_provided(self, mock_client):
-        """Should use nNFSe from API response when provided."""
+    def test_xml_number_takes_priority_over_json(self, mock_client):
+        """Should prefer XML nNFSe over JSON nNFSe."""
+        chave_acesso = "12345678901234567890123456789012345678901234567890"
+        xml_content = _make_nfse_xml("100")
+        encoded_xml = _compress_encode(xml_content)
+
+        mock_response = MockResponse(
+            status_code=200,
+            json_data={
+                "chaveAcesso": chave_acesso,
+                "nfseXmlGZipB64": encoded_xml,
+                "nNFSe": "999",
+            },
+        )
+
+        result = mock_client._parse_dps_response(mock_response)
+
+        assert result.nfse_number == "100"
+
+    def test_falls_back_to_json_when_no_xml(self, mock_client):
+        """Should use nNFSe from JSON when XML is not available."""
         chave_acesso = "12345678901234567890123456789012345678901234567890"
 
         mock_response = MockResponse(
             status_code=200,
             json_data={
                 "chaveAcesso": chave_acesso,
-                "nNFSe": "99999",
+                "nNFSe": "42",
             },
         )
 
         result = mock_client._parse_dps_response(mock_response)
 
         assert result.success is True
-        assert result.nfse_number == "99999"
+        assert result.nfse_number == "42"
 
-    def test_handles_short_chave_acesso(self, mock_client):
-        """Should handle chave_acesso shorter than 38 chars gracefully."""
-        short_chave = "12345678901234567890"  # 20 chars
+    def test_handles_missing_xml_and_json_nfse(self, mock_client):
+        """Should return None when neither XML nor JSON has nNFSe."""
+        chave_acesso = "12345678901234567890123456789012345678901234567890"
 
         mock_response = MockResponse(
             status_code=200,
             json_data={
-                "chaveAcesso": short_chave,
+                "chaveAcesso": chave_acesso,
             },
         )
 
         result = mock_client._parse_dps_response(mock_response)
 
         assert result.success is True
-        assert result.chave_acesso == short_chave
         assert result.nfse_number is None
 
-    def test_strips_leading_zeros_from_nfse_number(self, mock_client):
-        """Should strip leading zeros when extracting nfse_number."""
-        # Position 28-38 contains "0000000001"
-        chave_acesso = "1234567890123456789012345678" + "0000000001" + "123456789012"
+    def test_handles_invalid_xml_gracefully(self, mock_client):
+        """Should fall back to JSON when XML parsing fails."""
+        chave_acesso = "12345678901234567890123456789012345678901234567890"
 
         mock_response = MockResponse(
             status_code=200,
             json_data={
                 "chaveAcesso": chave_acesso,
+                "nfseXmlGZipB64": "not-valid-base64!!!",
+                "nNFSe": "123",
             },
         )
 
         result = mock_client._parse_dps_response(mock_response)
 
-        assert result.nfse_number == "1"
+        assert result.success is True
+        assert result.nfse_number == "123"
 
-    def test_handles_all_zeros_nfse_number(self, mock_client):
-        """Should handle case where nfse_number is all zeros."""
-        # Position 28-38 contains "0000000000"
-        chave_acesso = "1234567890123456789012345678" + "0000000000" + "123456789012"
+    def test_handles_xml_without_nfse_element(self, mock_client):
+        """Should fall back to JSON when XML lacks nNFSe element."""
+        chave_acesso = "12345678901234567890123456789012345678901234567890"
+        xml_content = '''<?xml version="1.0" encoding="UTF-8"?>
+<NFSe xmlns="http://www.sped.fazenda.gov.br/nfse">
+    <infNFSe Id="NFS123">
+        <dhProc>2026-01-15T10:30:00-03:00</dhProc>
+    </infNFSe>
+</NFSe>'''
+        encoded_xml = _compress_encode(xml_content)
 
         mock_response = MockResponse(
             status_code=200,
             json_data={
                 "chaveAcesso": chave_acesso,
+                "nfseXmlGZipB64": encoded_xml,
+                "nNFSe": "456",
             },
         )
 
         result = mock_client._parse_dps_response(mock_response)
 
-        assert result.nfse_number == "0"
+        assert result.nfse_number == "456"
 
 
 class TestParseDpsResponseSuccess:
@@ -167,14 +201,8 @@ class TestParseDpsResponseSuccess:
     def test_parses_success_response_with_xml(self, mock_client):
         """Should parse successful response with nfseXmlGZipB64."""
         chave_acesso = "12345678901234567890123456780000000001123456789012"
-
-        # Create compressed XML
-        import gzip
-        import base64
-
-        xml_content = '<?xml version="1.0"?><nfse>test</nfse>'
-        compressed = gzip.compress(xml_content.encode("utf-8"))
-        encoded = base64.b64encode(compressed).decode("utf-8")
+        xml_content = _make_nfse_xml("789")
+        encoded = _compress_encode(xml_content)
 
         mock_response = MockResponse(
             status_code=200,
@@ -189,6 +217,7 @@ class TestParseDpsResponseSuccess:
         assert result.success is True
         assert result.xml_nfse == xml_content
         assert result.nfse_xml_gzip_b64 == encoded
+        assert result.nfse_number == "789"
 
     def test_parses_success_without_xml(self, mock_client):
         """Should handle success response without XML."""
@@ -241,7 +270,7 @@ class TestParseDpsResponseError:
         assert result.error_code == "500"
         assert "Internal Server Error" in result.error_message
 
-    def test_handles_invalid_xml_gracefully(self, mock_client):
+    def test_handles_invalid_base64_gracefully(self, mock_client):
         """Should handle invalid base64/gzip content gracefully."""
         chave_acesso = "12345678901234567890123456780000000001123456789012"
 
@@ -257,6 +286,7 @@ class TestParseDpsResponseError:
 
         assert result.success is True
         assert result.xml_nfse is None
+        assert result.nfse_number is None
 
 
 # =============================================================================
