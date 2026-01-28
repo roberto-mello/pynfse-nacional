@@ -385,6 +385,35 @@ def parse_nfse_xml(xml_content: str) -> NFSeData:
                 data.toma_telefone = _format_phone(_get_text(toma, ".//nfse:fone"))
                 data.toma_email = _get_text(toma, ".//nfse:email")
 
+                # Tomador address
+                toma_end = toma.find(".//nfse:end", NS)
+
+                if toma_end is None:
+                    toma_end = toma.find(".//{http://www.sped.fazenda.gov.br/nfse}end")
+
+                if toma_end is not None:
+                    lgr = _get_text(toma_end, ".//nfse:xLgr")
+                    nro = _get_text(toma_end, ".//nfse:nro")
+                    bairro = _get_text(toma_end, ".//nfse:xBairro")
+                    data.toma_endereco = f"{lgr}, {nro}, {bairro}".strip(", ")
+                    data.toma_cep = _format_cep(_get_text(toma_end, ".//nfse:CEP"))
+
+                    # Get municipality code and try to resolve name
+                    end_nac = toma_end.find(".//nfse:endNac", NS)
+
+                    if end_nac is None:
+                        end_nac = toma_end.find(
+                            ".//{http://www.sped.fazenda.gov.br/nfse}endNac"
+                        )
+
+                    if end_nac is not None:
+                        c_mun = _get_text(end_nac, ".//nfse:cMun")
+
+                        if c_mun:
+                            data.toma_municipio = c_mun
+
+                        data.toma_uf = _get_text(end_nac, ".//nfse:UF")
+
             # Servico
             serv = inf_dps.find(".//nfse:serv", NS)
 
@@ -874,7 +903,12 @@ def generate_danfse_pdf(
         ],
         [
             make_field("Endereco", nfse_data.toma_endereco or "-"),
-            make_field("Municipio", nfse_data.toma_municipio or "-"),
+            make_field(
+                "Municipio",
+                f"{nfse_data.toma_municipio} - {nfse_data.toma_uf}"
+                if nfse_data.toma_municipio and nfse_data.toma_uf
+                else (nfse_data.toma_municipio or "-"),
+            ),
             make_field("CEP", nfse_data.toma_cep or "-"),
         ],
     ]
