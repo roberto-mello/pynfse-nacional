@@ -71,7 +71,7 @@ class XMLBuilder:
         """
         subst = dps.substituicao
 
-        infSubst = ET.SubElement(parent, "subst1")
+        infSubst = ET.SubElement(parent, "subst")
         ET.SubElement(infSubst, "chSubstda").text = subst.chave_nfse_substituida
         ET.SubElement(infSubst, "cMotivo").text = str(subst.codigo_motivo)
         ET.SubElement(infSubst, "xMotivo").text = subst.motivo
