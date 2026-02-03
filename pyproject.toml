@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pynfse-nacional"
-version = "0.3.2"
+version = "0.4.0"
 description = "Python library for Brazilian NFSe Nacional (Padrao Nacional) API integration"
 readme = "README.md"
 license = "MIT"
@@ -65,3 +65,8 @@ select = ["E", "F", "I", "N", "W"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+
+[dependency-groups]
+dev = [
+    "ruff>=0.14.13",
+]

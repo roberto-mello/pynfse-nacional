@@ -53,12 +53,28 @@ class XMLBuilder:
         ET.SubElement(infDPS, "tpEmit").text = "1"
         ET.SubElement(infDPS, "cLocEmi").text = str(dps.prestador.endereco.codigo_municipio)
 
+        # Add substitution info if present (must come before prest)
+        if dps.substituicao:
+            self._add_substituicao(infDPS, dps)
+
         self._add_prestador(infDPS, dps)
         self._add_tomador(infDPS, dps)
         self._add_servico(infDPS, dps)
         self._add_valores(infDPS, dps)
 
         return ET.tostring(root, encoding="unicode", xml_declaration=True)
+
+    def _add_substituicao(self, parent: ET.Element, dps: DPS) -> None:
+        """Add substitution information to DPS XML.
+
+        This element references the NFSe being substituted and the reason.
+        """
+        subst = dps.substituicao
+
+        infSubst = ET.SubElement(parent, "subst1")
+        ET.SubElement(infSubst, "chSubstda").text = subst.chave_nfse_substituida
+        ET.SubElement(infSubst, "cMotivo").text = str(subst.codigo_motivo)
+        ET.SubElement(infSubst, "xMotivo").text = subst.motivo
 
     def _add_prestador(self, parent: ET.Element, dps: DPS) -> None:
         prest = ET.SubElement(parent, "prest")

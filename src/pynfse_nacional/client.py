@@ -8,7 +8,14 @@ import httpx
 
 from .constants import API_URLS, ENDPOINTS, PARAMETRIZACAO_URLS, Ambiente
 from .exceptions import NFSeAPIError, NFSeCertificateError
-from .models import DPS, NFSeResponse, EventResponse, NFSeQueryResult, ConvenioMunicipal
+from .models import (
+    DPS,
+    NFSeResponse,
+    EventResponse,
+    NFSeQueryResult,
+    ConvenioMunicipal,
+    SubstituicaoNFSe,
+)
 from .xml_builder import XMLBuilder
 from .xml_signer import XMLSignerService
 from .utils import compress_encode, decode_decompress
@@ -334,6 +341,47 @@ class NFSeClient:
 
         except httpx.RequestError as e:
             raise NFSeAPIError(f"Erro de comunicacao: {str(e)}", code="COMM_ERROR")
+
+    def substitute_nfse(
+        self,
+        chave_acesso_original: str,
+        new_dps: DPS,
+        motivo: str,
+        codigo_motivo: int = 99,
+    ) -> NFSeResponse:
+        """Substitute an existing NFSe with a new one.
+
+        This operation cancels the original NFSe and creates a new one
+        with the updated information. The new NFSe will be linked to the
+        original as a substitution.
+
+        Args:
+            chave_acesso_original: Access key of the NFSe to be substituted (50 digits)
+            new_dps: New DPS with updated information (do not set substituicao field)
+            motivo: Reason for substitution (15-255 characters)
+            codigo_motivo: Reason code (1-99, default 99 for "outros")
+
+        Returns:
+            NFSeResponse with the new NFSe data
+
+        Raises:
+            NFSeAPIError: If the API returns an error
+            ValueError: If the original NFSe cannot be substituted
+
+        Note:
+            - Substitution must be done within 35 days of the original emission
+            - Cannot substitute NFSe where tomador was not identified
+            - Cannot change the tomador to a different person/company
+        """
+        substituicao = SubstituicaoNFSe(
+            chave_nfse_substituida=chave_acesso_original,
+            codigo_motivo=codigo_motivo,
+            motivo=motivo,
+        )
+
+        dps_with_subst = new_dps.model_copy(update={"substituicao": substituicao})
+
+        return self.submit_dps(dps_with_subst)
 
     def cancel_nfse(self, chave_acesso: str, reason: str) -> EventResponse:
         """Cancel NFSe by access key."""
