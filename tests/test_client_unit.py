@@ -19,6 +19,7 @@ from pynfse_nacional.models import (
     NFSeResponse,
     EventResponse,
     NFSeQueryResult,
+    SubstituicaoNFSe,
 )
 
 
@@ -678,3 +679,214 @@ class TestSubmitDps:
 
                     decoded = base64.b64decode(payload["dpsXmlGZipB64"])
                     assert decoded  # Should be valid base64
+
+
+# =============================================================================
+# Tests: substitute_nfse
+# =============================================================================
+
+
+class TestSubstituteNfse:
+    """Tests for substitute_nfse method."""
+
+    @pytest.fixture
+    def sample_dps(self):
+        """Create a sample DPS for testing."""
+        from datetime import datetime
+
+        endereco = Endereco(
+            logradouro="Rua Teste",
+            numero="100",
+            bairro="Centro",
+            codigo_municipio=3509502,
+            uf="SP",
+            cep="13000000",
+        )
+
+        prestador = Prestador(
+            cnpj="11222333000181",
+            inscricao_municipal="12345",
+            razao_social="Empresa Teste",
+            endereco=endereco,
+        )
+
+        tomador = Tomador(
+            cpf="52998224725",
+            razao_social="Cliente Teste",
+        )
+
+        servico = Servico(
+            codigo_lc116="04.03.01",
+            discriminacao="Servico de teste atualizado com mais detalhes",
+            valor_servicos=Decimal("100.00"),
+        )
+
+        return DPS(
+            serie="900",
+            numero=2,
+            competencia="2026-01",
+            data_emissao=datetime.now(),
+            prestador=prestador,
+            tomador=tomador,
+            servico=servico,
+            regime_tributario="simples_nacional",
+        )
+
+    def test_substitute_nfse_success(self, mock_client, sample_dps):
+        """Should substitute NFSe successfully."""
+        original_chave = "12345678901234567890123456789012345678901234567890"
+        new_chave = "98765432109876543210987654321098765432109876543210"
+
+        mock_response = MockResponse(
+            status_code=200,
+            json_data={
+                "chaveAcesso": new_chave,
+                "nNFSe": "2",
+            },
+        )
+
+        with patch.object(mock_client, "_get_client") as mock_get_client:
+            mock_http = MagicMock()
+            mock_http.post.return_value = mock_response
+            mock_get_client.return_value.__enter__ = MagicMock(return_value=mock_http)
+            mock_get_client.return_value.__exit__ = MagicMock(return_value=False)
+
+            with patch.object(mock_client._xml_builder, "build_dps", return_value="<xml/>"):
+                with patch.object(mock_client._xml_signer, "sign", return_value="<signed/>"):
+                    result = mock_client.substitute_nfse(
+                        chave_acesso_original=original_chave,
+                        new_dps=sample_dps,
+                        motivo="Correcao da descricao do servico prestado",
+                    )
+
+                    assert isinstance(result, NFSeResponse)
+                    assert result.success is True
+                    assert result.chave_acesso == new_chave
+
+    def test_substitute_nfse_creates_dps_with_substituicao(self, mock_client, sample_dps):
+        """Should create DPS with substituicao info."""
+        original_chave = "12345678901234567890123456789012345678901234567890"
+        new_chave = "98765432109876543210987654321098765432109876543210"
+
+        mock_response = MockResponse(
+            status_code=200,
+            json_data={"chaveAcesso": new_chave},
+        )
+
+        captured_dps = None
+
+        def capture_build_dps(dps):
+            nonlocal captured_dps
+            captured_dps = dps
+            return "<xml/>"
+
+        with patch.object(mock_client, "_get_client") as mock_get_client:
+            mock_http = MagicMock()
+            mock_http.post.return_value = mock_response
+            mock_get_client.return_value.__enter__ = MagicMock(return_value=mock_http)
+            mock_get_client.return_value.__exit__ = MagicMock(return_value=False)
+
+            with patch.object(mock_client._xml_builder, "build_dps", side_effect=capture_build_dps):
+                with patch.object(mock_client._xml_signer, "sign", return_value="<signed/>"):
+                    mock_client.substitute_nfse(
+                        chave_acesso_original=original_chave,
+                        new_dps=sample_dps,
+                        motivo="Correcao da descricao do servico prestado",
+                        codigo_motivo=99,
+                    )
+
+                    assert captured_dps is not None
+                    assert captured_dps.substituicao is not None
+                    assert captured_dps.substituicao.chave_nfse_substituida == original_chave
+                    assert captured_dps.substituicao.codigo_motivo == 99
+                    assert "Correcao" in captured_dps.substituicao.motivo
+
+    def test_substitute_nfse_does_not_modify_original_dps(self, mock_client, sample_dps):
+        """Should not modify the original DPS object."""
+        original_chave = "12345678901234567890123456789012345678901234567890"
+        new_chave = "98765432109876543210987654321098765432109876543210"
+
+        mock_response = MockResponse(
+            status_code=200,
+            json_data={"chaveAcesso": new_chave},
+        )
+
+        with patch.object(mock_client, "_get_client") as mock_get_client:
+            mock_http = MagicMock()
+            mock_http.post.return_value = mock_response
+            mock_get_client.return_value.__enter__ = MagicMock(return_value=mock_http)
+            mock_get_client.return_value.__exit__ = MagicMock(return_value=False)
+
+            with patch.object(mock_client._xml_builder, "build_dps", return_value="<xml/>"):
+                with patch.object(mock_client._xml_signer, "sign", return_value="<signed/>"):
+                    mock_client.substitute_nfse(
+                        chave_acesso_original=original_chave,
+                        new_dps=sample_dps,
+                        motivo="Correcao da descricao do servico prestado",
+                    )
+
+                    # Original DPS should remain unchanged
+                    assert sample_dps.substituicao is None
+
+    def test_substitute_nfse_with_custom_codigo_motivo(self, mock_client, sample_dps):
+        """Should accept custom codigo_motivo."""
+        original_chave = "12345678901234567890123456789012345678901234567890"
+        new_chave = "98765432109876543210987654321098765432109876543210"
+
+        mock_response = MockResponse(
+            status_code=200,
+            json_data={"chaveAcesso": new_chave},
+        )
+
+        captured_dps = None
+
+        def capture_build_dps(dps):
+            nonlocal captured_dps
+            captured_dps = dps
+            return "<xml/>"
+
+        with patch.object(mock_client, "_get_client") as mock_get_client:
+            mock_http = MagicMock()
+            mock_http.post.return_value = mock_response
+            mock_get_client.return_value.__enter__ = MagicMock(return_value=mock_http)
+            mock_get_client.return_value.__exit__ = MagicMock(return_value=False)
+
+            with patch.object(mock_client._xml_builder, "build_dps", side_effect=capture_build_dps):
+                with patch.object(mock_client._xml_signer, "sign", return_value="<signed/>"):
+                    mock_client.substitute_nfse(
+                        chave_acesso_original=original_chave,
+                        new_dps=sample_dps,
+                        motivo="Alteracao do valor do servico",
+                        codigo_motivo=1,
+                    )
+
+                    assert captured_dps.substituicao.codigo_motivo == 1
+
+    def test_substitute_nfse_error(self, mock_client, sample_dps):
+        """Should handle substitution error."""
+        original_chave = "12345678901234567890123456789012345678901234567890"
+
+        mock_response = MockResponse(
+            status_code=400,
+            json_data={
+                "codigo": "SUBST_ERR",
+                "mensagem": "NFSe nao pode ser substituida apos 35 dias",
+            },
+        )
+
+        with patch.object(mock_client, "_get_client") as mock_get_client:
+            mock_http = MagicMock()
+            mock_http.post.return_value = mock_response
+            mock_get_client.return_value.__enter__ = MagicMock(return_value=mock_http)
+            mock_get_client.return_value.__exit__ = MagicMock(return_value=False)
+
+            with patch.object(mock_client._xml_builder, "build_dps", return_value="<xml/>"):
+                with patch.object(mock_client._xml_signer, "sign", return_value="<signed/>"):
+                    result = mock_client.substitute_nfse(
+                        chave_acesso_original=original_chave,
+                        new_dps=sample_dps,
+                        motivo="Correcao da descricao do servico prestado",
+                    )
+
+                    assert result.success is False
+                    assert result.error_code == "SUBST_ERR"

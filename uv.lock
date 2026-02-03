@@ -852,7 +852,7 @@ wheels = [
 
 [[package]]
 name = "pynfse-nacional"
-version = "0.3.1"
+version = "0.4.0"
 source = { editable = "." }
 dependencies = [
     { name = "cryptography" },
@@ -882,6 +882,11 @@ pdf = [
     { name = "reportlab" },
 ]
 
+[package.dev-dependencies]
+dev = [
+    { name = "ruff" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "cryptography", specifier = ">=42.0.0" },
@@ -898,6 +903,9 @@ requires-dist = [
     { name = "signxml", specifier = ">=3.2.0" },
 ]
 provides-extras = ["pdf", "dev", "all"]
+
+[package.metadata.requires-dev]
+dev = [{ name = "ruff", specifier = ">=0.14.13" }]
 
 [[package]]
 name = "pytest"

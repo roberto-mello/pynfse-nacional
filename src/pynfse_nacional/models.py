@@ -329,6 +329,42 @@ class Servico(BaseModel):
         return v
 
 
+class SubstituicaoNFSe(BaseModel):
+    """Informacoes de substituicao de NFSe."""
+
+    chave_nfse_substituida: str = Field(
+        ...,
+        min_length=50,
+        max_length=50,
+        description="Chave de acesso da NFSe que sera substituida (50 caracteres)"
+    )
+    codigo_motivo: int = Field(
+        default=99,
+        ge=1,
+        le=99,
+        description="Codigo do motivo da substituicao (1-99, 99=outros)"
+    )
+    motivo: str = Field(
+        ...,
+        min_length=15,
+        max_length=255,
+        description="Descricao do motivo da substituicao (15-255 caracteres)"
+    )
+
+    @field_validator("chave_nfse_substituida")
+    @classmethod
+    def validate_chave_nfse(cls, v: str) -> str:
+        """Valida chave de acesso da NFSe (50 digitos)."""
+
+        if not re.match(r"^[0-9]{50}$", v):
+            raise ValueError(
+                f"chave_nfse_substituida deve conter 50 digitos numericos, recebido: '{v}' ({len(v)} caracteres). "
+                "A chave de acesso e retornada na emissao da NFSe original."
+            )
+
+        return v
+
+
 class DPS(BaseModel):
     """Declaracao de Prestacao de Servicos."""
 
@@ -345,6 +381,10 @@ class DPS(BaseModel):
     )
     optante_simples: bool = False
     incentivador_cultural: bool = False
+    substituicao: Optional[SubstituicaoNFSe] = Field(
+        None,
+        description="Informacoes de substituicao (preencher apenas para substituir NFSe existente)"
+    )
 
     @field_validator("serie")
     @classmethod

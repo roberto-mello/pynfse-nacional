@@ -1,53 +1,53 @@
 # pynfse-nacional
 
-Biblioteca Python para integracao com a API do NFSe Nacional (Padrao Nacional).
+Biblioteca Python para integração com a API do NFSe Nacional (Padrão Nacional).
 
-## Indice
+## Índice
 
-- [Visao Geral](#visao-geral)
+- [Visão Geral](#visão-geral)
 - [Funcionalidades](#funcionalidades)
-- [Instalacao](#instalacao)
-- [Inicio Rapido](#inicio-rapido)
-- [Referencia da API](#referencia-da-api)
+- [Instalação](#instalação)
+- [Início Rápido](#início-rápido)
+- [Referência da API](#referência-da-api)
 - [Ambientes](#ambientes)
-- [Documentacao](#documentacao)
-- [Licenca](#licenca)
+- [Documentação](#documentação)
+- [Licença](#licença)
 - [English Version](#english-version)
 
-## Visao Geral
+## Visão Geral
 
-Esta biblioteca fornece um cliente para interagir com a API do NFSe Nacional (SEFIN Nacional), que se tornou obrigatoria para todos os municipios brasileiros a partir de janeiro de 2026.
+Esta biblioteca fornece um cliente para interagir com a API do NFSe Nacional (SEFIN Nacional), que se tornou obrigatória para todos os municípios brasileiros a partir de janeiro de 2026.
 
 ## Funcionalidades
 
-- Autenticacao mTLS com certificados ICP-Brasil A1/A3
-- Geracao de XML da DPS (Declaracao de Prestacao de Servicos)
+- Autenticação mTLS com certificados ICP-Brasil A1/A3
+- Geração de XML da DPS (Declaração de Prestação de Serviços)
 - Assinatura digital de XML (XMLDSIG)
-- Compressao GZip e codificacao Base64
-- Emissao, consulta e cancelamento de NFSe
-- Download e geracao local do DANFSe em PDF
-- Consulta de convenio municipal
-- Validacao de campos com mensagens em portugues
+- Compressão GZip e codificação Base64
+- Emissão, consulta, cancelamento e substituição de NFSe
+- Download e geração local do DANFSe em PDF
+- Consulta de convênio municipal
+- Validação de campos com mensagens em português
 
-## Instalacao
+## Instalação
 
 ```bash
 pip install pynfse-nacional
 ```
 
-Ou instale a partir do codigo fonte:
+Ou instale a partir do código fonte:
 
 ```bash
 pip install git+https://github.com/robmello/pynfse-nacional.git
 ```
 
-Para geracao local de PDF (DANFSe):
+Para geração local de PDF (DANFSe):
 
 ```bash
 pip install pynfse-nacional[pdf]
 ```
 
-## Inicio Rapido
+## Início Rápido
 
 ```python
 from datetime import datetime
@@ -55,13 +55,13 @@ from decimal import Decimal
 
 from pynfse_nacional import NFSeClient, DPS, Prestador, Tomador, Servico, Endereco
 
-# Criar endereco do prestador
+# Criar endereço do prestador
 endereco_prestador = Endereco(
     logradouro="Rua Exemplo",
     numero="100",
     complemento="Sala 1",
     bairro="Centro",
-    codigo_municipio=3550308,  # Codigo IBGE do municipio
+    codigo_municipio=3550308,  # Código IBGE do município
     uf="SP",
     cep="01310100",
 )
@@ -91,16 +91,16 @@ tomador = Tomador(
     ),
 )
 
-# Criar servico
+# Criar serviço
 servico = Servico(
-    codigo_lc116="04.03.01",  # Codigo completo com subitem (XX.XX.XX)
-    discriminacao="Consulta medica em consultorio",
+    codigo_lc116="04.03.01",  # Código completo com subitem (XX.XX.XX)
+    discriminacao="Consulta médica em consultório",
     valor_servicos=Decimal("500.00"),
     iss_retido=False,
     aliquota_simples=Decimal("18.83"),  # Para Simples Nacional
 )
 
-# Criar DPS (nao definir id_dps - sera gerado automaticamente)
+# Criar DPS (não definir id_dps - será gerado automaticamente)
 dps = DPS(
     serie="900",
     numero=1,
@@ -131,39 +131,85 @@ else:
     print(f"Erro: {response.error_message}")
 ```
 
-## Referencia da API
+## Referência da API
 
 ### NFSeClient
 
 Cliente principal para a API do NFSe Nacional.
 
-**Emissao e Consulta de NFSe:**
+**Emissão e Consulta de NFSe:**
 
 - `submit_dps(dps: DPS) -> NFSeResponse` - Envia DPS e recebe NFSe
 - `query_nfse(chave_acesso: str) -> NFSeQueryResult` - Consulta NFSe pela chave de acesso
 - `download_danfse(chave_acesso: str) -> bytes` - Baixa o DANFSe em PDF
 - `cancel_nfse(chave_acesso: str, reason: str) -> EventResponse` - Cancela NFSe
+- `substitute_nfse(chave_acesso_original, new_dps, motivo, codigo_motivo) -> NFSeResponse` - Substitui NFSe existente
 
-**Consulta de Convenio Municipal:**
+**Consulta de Convênio Municipal:**
 
-- `query_convenio_municipal(codigo_municipio) -> ConvenioMunicipal` - Consulta se municipio tem convenio com o sistema nacional
+- `query_convenio_municipal(codigo_municipio) -> ConvenioMunicipal` - Consulta se município tem convênio com o sistema nacional
 
-### Verificando Convenio Municipal
+### Verificando Convênio Municipal
 
-Antes de emitir uma NFSe, verifique se o municipio tem convenio com o sistema nacional:
+Antes de emitir uma NFSe, verifique se o município tem convênio com o sistema nacional:
 
 ```python
-# Verificar se o municipio tem convenio
+# Verificar se o município tem convênio
 convenio = client.query_convenio_municipal(1302603)
 
 if convenio.aderido:
-    print("Municipio tem convenio com o sistema nacional")
+    print("Município tem convênio com o sistema nacional")
     print(f"Dados: {convenio.raw_data}")
 else:
-    print("Municipio NAO tem convenio")
+    print("Município NÃO tem convênio")
 ```
 
-**Nota:** A API de parametrizacao (aliquotas por servico) esta com problemas no ambiente de homologacao. Apenas a consulta de convenio municipal esta disponivel.
+**Nota:** A API de parametrização (alíquotas por serviço) está com problemas no ambiente de homologação. Apenas a consulta de convênio municipal está disponível.
+
+### Substituindo NFSe
+
+Para corrigir informações em uma NFSe já emitida, você pode substituí-la por uma nova:
+
+```python
+from datetime import datetime
+from decimal import Decimal
+
+# Criar novo DPS com as informações corrigidas
+new_dps = DPS(
+    serie="900",
+    numero=2,  # Novo número sequencial
+    competencia="2026-01",
+    data_emissao=datetime.now(),
+    prestador=prestador,
+    tomador=tomador,
+    servico=Servico(
+        codigo_lc116="04.03.01",
+        discriminacao="Descrição corrigida do serviço prestado",  # Corrigido
+        valor_servicos=Decimal("500.00"),
+    ),
+    regime_tributario="simples_nacional",
+)
+
+# Substituir a NFSe original
+response = client.substitute_nfse(
+    chave_acesso_original="12345678901234567890123456789012345678901234567890",
+    new_dps=new_dps,
+    motivo="Correção da descrição do serviço prestado",
+    codigo_motivo=99,  # 99 = outros
+)
+
+if response.success:
+    print(f"NFSe substituta emitida: {response.nfse_number}")
+    print(f"Nova chave de acesso: {response.chave_acesso}")
+else:
+    print(f"Erro: {response.error_message}")
+```
+
+**Regras de substituição:**
+- A substituição deve ser feita em até 35 dias após a emissão original
+- Não é permitido substituir NFSe onde o tomador não foi identificado
+- Não é permitido alterar o tomador para outra pessoa/empresa
+- O motivo deve ter entre 15 e 255 caracteres
 
 ### Gerando DANFSe (PDF)
 
@@ -193,13 +239,13 @@ if response.success:
     )
 ```
 
-**Com cabecalho personalizado (logo da empresa):**
+**Com cabeçalho personalizado (logo da empresa):**
 
 ```python
 header = HeaderConfig(
     image_path="/caminho/para/logo.png",
     title="Nome da Empresa",
-    subtitle="Servicos Medicos",
+    subtitle="Serviços Médicos",
     phone="(11) 99999-9999",
     email="contato@empresa.com",
 )
@@ -213,34 +259,48 @@ pdf_bytes = generate_danfse_from_base64(
 
 ### Modelos
 
-- `DPS` - Declaracao de prestacao de servicos
-- `Prestador` - Prestador de servicos (emissor)
-- `Tomador` - Tomador de servicos
-- `Servico` - Detalhes do servico
-- `ConvenioMunicipal` - Informacoes de convenio municipal
+- `DPS` - Declaração de prestação de serviços
+- `Prestador` - Prestador de serviços (emissor)
+- `Tomador` - Tomador de serviços
+- `Servico` - Detalhes do serviço
+- `ConvenioMunicipal` - Informações de convênio municipal
+- `SubstituicaoNFSe` - Informações de substituição de NFSe
 
 ## Ambientes
 
-- **Homologacao**: `sefin.producaorestrita.nfse.gov.br`
-- **Producao**: `sefin.nfse.gov.br`
+- **Homologação**: `sefin.producaorestrita.nfse.gov.br`
+- **Produção**: `sefin.nfse.gov.br`
 
-## Documentacao
+## Documentação
 
-- [Portal NFSe Nacional](https://www.gov.br/nfse)
-- [Documentacao Tecnica](https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/)
-- [Toda Documentacao](https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/documentacao-atual)
-- [Schemas XSD](https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/documentacao-atual/nfse-esquemas_xsd-v1-01-20260101.zip)
-- [Documentacao das APIs](https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/apis-prod-restrita-e-producao)
+### Documentação Oficial
+
+- [Portal NFSe Nacional](https://www.gov.br/nfse) - Portal principal do sistema nacional
+- [Documentação Técnica](https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/) - Biblioteca de documentos técnicos
+- [Documentação Atual](https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/documentacao-atual) - Versão mais recente dos documentos
+- [Schemas XSD](https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/documentacao-atual/nfse-esquemas_xsd-v1-01-20260122.zip) - Esquemas XML para validação
+- [APIs - Produção e Homologação](https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/apis-prod-restrita-e-producao) - Endpoints das APIs
+
+### Manuais da API
+
+- [Manual de Contribuintes](https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/documentacao-atual/manual-contribuintes-emissor-publico-api-sistema-nacional-nfs-e-v1-2-out2025.pdf) - Guia para integração via API
+- [Manual de Municípios - ADN](https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/documentacao-atual) - Compartilhamento de dados
+- [Manual de Municípios - CNC](https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/documentacao-atual) - Cadastro Nacional de Contribuintes
+
+### Swagger / OpenAPI
+
+- **Homologação**: `https://sefin.producaorestrita.nfse.gov.br/API/SefinNacional/docs/index`
+- **Produção**: `https://sefin.nfse.gov.br/API/SefinNacional/docs/index`
 
 ### Recursos da Comunidade
 
-- Implementacao de Referencia: https://github.com/nfe/poc-nfse-nacional
-- Biblioteca PHP: https://github.com/nfse-nacional/nfse-php
-- Codigos IBGE dos Municipios (CSV): https://github.com/kelvins/municipios-brasileiros
+- [Implementação de Referência (PoC)](https://github.com/nfe/poc-nfse-nacional) - Projeto oficial de prova de conceito
+- [Biblioteca PHP](https://github.com/nfse-nacional/nfse-php) - Implementação em PHP
+- [Códigos IBGE dos Municípios](https://github.com/kelvins/municipios-brasileiros) - Lista de municípios em CSV
 
-## Licenca
+## Licença
 
-Licenca MIT
+Licença MIT
 
 ---
 
@@ -377,6 +437,7 @@ Main client for NFSe Nacional API.
 - `query_nfse(chave_acesso: str) -> NFSeQueryResult` - Query NFSe by access key
 - `download_danfse(chave_acesso: str) -> bytes` - Download DANFSe PDF
 - `cancel_nfse(chave_acesso: str, reason: str) -> EventResponse` - Cancel NFSe
+- `substitute_nfse(chave_acesso_original, new_dps, motivo, codigo_motivo) -> NFSeResponse` - Substitute existing NFSe
 
 **Municipal Agreement Query:**
 
@@ -452,6 +513,7 @@ pdf_bytes = generate_danfse_from_base64(
 - `Tomador` - Service recipient
 - `Servico` - Service details
 - `ConvenioMunicipal` - Municipal agreement information
+- `SubstituicaoNFSe` - NFSe substitution information
 
 ### Environments
 
@@ -463,7 +525,7 @@ pdf_bytes = generate_danfse_from_base64(
 - [NFSe Nacional Portal](https://www.gov.br/nfse)
 - [Technical Documentation](https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/)
 - [All Documentation](https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/documentacao-atual)
-- [XSD Schemas](https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/documentacao-atual/nfse-esquemas_xsd-v1-01-20260101.zip)
+- [XSD Schemas](https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/documentacao-atual/nfse-esquemas_xsd-v1-01-20260122.zip)
 - [API Docs](https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/apis-prod-restrita-e-producao)
 
 ### Community Resources

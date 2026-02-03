@@ -8,7 +8,7 @@ from xml.etree import ElementTree as ET
 import pytest
 
 from pynfse_nacional.constants import Ambiente
-from pynfse_nacional.models import DPS, Endereco, Prestador, Servico, Tomador
+from pynfse_nacional.models import DPS, Endereco, Prestador, Servico, Tomador, SubstituicaoNFSe
 from pynfse_nacional.xml_builder import XMLBuilder
 
 NS = {"nfse": "http://www.sped.fazenda.gov.br/nfse"}
@@ -666,3 +666,119 @@ class TestXMLBuilderValores:
         assert pTotTrib.find("nfse:pTotTribFed", NS).text == "0"
         assert pTotTrib.find("nfse:pTotTribEst", NS).text == "0"
         assert pTotTrib.find("nfse:pTotTribMun", NS).text == "0"
+
+
+class TestXMLBuilderSubstituicao:
+    """Tests for substituicao (substitution) section."""
+
+    @pytest.fixture
+    def sample_substituicao(self):
+        """Sample substitution info for testing."""
+        return SubstituicaoNFSe(
+            chave_nfse_substituida="12345678901234567890123456789012345678901234567890",
+            codigo_motivo=99,
+            motivo="Correcao da descricao do servico prestado",
+        )
+
+    def test_build_dps_includes_subst1_when_substituicao_present(
+        self, sample_dps, sample_substituicao
+    ):
+        """DPS should include subst1 element when substituicao is present."""
+        sample_dps.substituicao = sample_substituicao
+        builder = XMLBuilder()
+
+        xml_str = builder.build_dps(sample_dps)
+        root = ET.fromstring(xml_str)
+
+        subst1 = root.find("nfse:infDPS/nfse:subst1", NS)
+
+        assert subst1 is not None
+
+    def test_build_dps_includes_chsubstda(self, sample_dps, sample_substituicao):
+        """subst1 should include chSubstda with original NFSe access key."""
+        sample_dps.substituicao = sample_substituicao
+        builder = XMLBuilder()
+
+        xml_str = builder.build_dps(sample_dps)
+        root = ET.fromstring(xml_str)
+
+        chSubstda = root.find("nfse:infDPS/nfse:subst1/nfse:chSubstda", NS)
+
+        assert chSubstda.text == "12345678901234567890123456789012345678901234567890"
+
+    def test_build_dps_includes_cmotivo(self, sample_dps, sample_substituicao):
+        """subst1 should include cMotivo with reason code."""
+        sample_dps.substituicao = sample_substituicao
+        builder = XMLBuilder()
+
+        xml_str = builder.build_dps(sample_dps)
+        root = ET.fromstring(xml_str)
+
+        cMotivo = root.find("nfse:infDPS/nfse:subst1/nfse:cMotivo", NS)
+
+        assert cMotivo.text == "99"
+
+    def test_build_dps_includes_xmotivo(self, sample_dps, sample_substituicao):
+        """subst1 should include xMotivo with reason description."""
+        sample_dps.substituicao = sample_substituicao
+        builder = XMLBuilder()
+
+        xml_str = builder.build_dps(sample_dps)
+        root = ET.fromstring(xml_str)
+
+        xMotivo = root.find("nfse:infDPS/nfse:subst1/nfse:xMotivo", NS)
+
+        assert xMotivo.text == "Correcao da descricao do servico prestado"
+
+    def test_build_dps_subst1_comes_before_prest(self, sample_dps, sample_substituicao):
+        """subst1 element should come before prest in XML structure."""
+        sample_dps.substituicao = sample_substituicao
+        builder = XMLBuilder()
+
+        xml_str = builder.build_dps(sample_dps)
+        root = ET.fromstring(xml_str)
+
+        infDPS = root.find("nfse:infDPS", NS)
+        children = list(infDPS)
+
+        subst1_index = None
+        prest_index = None
+
+        for i, child in enumerate(children):
+            if child.tag.endswith("subst1"):
+                subst1_index = i
+
+            if child.tag.endswith("prest"):
+                prest_index = i
+
+        assert subst1_index is not None
+        assert prest_index is not None
+        assert subst1_index < prest_index
+
+    def test_build_dps_omits_subst1_when_no_substituicao(self, sample_dps):
+        """DPS should not include subst1 when substituicao is None."""
+        sample_dps.substituicao = None
+        builder = XMLBuilder()
+
+        xml_str = builder.build_dps(sample_dps)
+        root = ET.fromstring(xml_str)
+
+        subst1 = root.find("nfse:infDPS/nfse:subst1", NS)
+
+        assert subst1 is None
+
+    def test_build_dps_with_different_motivo_code(self, sample_dps):
+        """subst1 should accept different motivo codes."""
+        sample_dps.substituicao = SubstituicaoNFSe(
+            chave_nfse_substituida="12345678901234567890123456789012345678901234567890",
+            codigo_motivo=1,
+            motivo="Alteracao de valor do servico",
+        )
+        builder = XMLBuilder()
+
+        xml_str = builder.build_dps(sample_dps)
+        root = ET.fromstring(xml_str)
+
+        cMotivo = root.find("nfse:infDPS/nfse:subst1/nfse:cMotivo", NS)
+
+        assert cMotivo.text == "1"

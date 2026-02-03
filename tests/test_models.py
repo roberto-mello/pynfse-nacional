@@ -6,7 +6,7 @@ from decimal import Decimal
 import pytest
 from pydantic import ValidationError
 
-from pynfse_nacional.models import DPS, Endereco, Prestador, Servico, Tomador
+from pynfse_nacional.models import DPS, Endereco, Prestador, Servico, Tomador, SubstituicaoNFSe
 
 
 # =============================================================================
@@ -653,3 +653,173 @@ class TestDPSIdDps:
             )
 
         assert "45 caracteres" in str(exc_info.value)
+
+
+# =============================================================================
+# Tests: SubstituicaoNFSe
+# =============================================================================
+
+
+class TestSubstituicaoNFSeChaveNfse:
+    """Testes para validacao da chave_nfse_substituida."""
+
+    def test_accepts_valid_50_digit_chave(self):
+        """Deve aceitar chave de acesso com 50 digitos."""
+        subst = SubstituicaoNFSe(
+            chave_nfse_substituida="12345678901234567890123456789012345678901234567890",
+            motivo="Correcao da descricao do servico prestado",
+        )
+
+        assert subst.chave_nfse_substituida == "12345678901234567890123456789012345678901234567890"
+
+    def test_rejects_chave_with_less_than_50_digits(self):
+        """Deve rejeitar chave com menos de 50 digitos."""
+        with pytest.raises(ValidationError) as exc_info:
+            SubstituicaoNFSe(
+                chave_nfse_substituida="1234567890123456789012345678901234567890",
+                motivo="Correcao da descricao do servico prestado",
+            )
+
+        assert "at least 50 characters" in str(exc_info.value)
+
+    def test_rejects_chave_with_more_than_50_digits(self):
+        """Deve rejeitar chave com mais de 50 digitos."""
+        with pytest.raises(ValidationError) as exc_info:
+            SubstituicaoNFSe(
+                chave_nfse_substituida="123456789012345678901234567890123456789012345678901234567890",
+                motivo="Correcao da descricao do servico prestado",
+            )
+
+        assert "String should have at most 50 characters" in str(exc_info.value)
+
+    def test_rejects_chave_with_non_numeric_characters(self):
+        """Deve rejeitar chave com caracteres nao numericos."""
+        with pytest.raises(ValidationError) as exc_info:
+            SubstituicaoNFSe(
+                chave_nfse_substituida="1234567890123456789012345678901234567890123456789X",
+                motivo="Correcao da descricao do servico prestado",
+            )
+
+        assert "chave_nfse_substituida deve conter 50 digitos numericos" in str(exc_info.value)
+
+
+class TestSubstituicaoNFSeCodigoMotivo:
+    """Testes para validacao do codigo_motivo."""
+
+    def test_default_codigo_motivo_is_99(self):
+        """Deve ter codigo_motivo padrao como 99 (outros)."""
+        subst = SubstituicaoNFSe(
+            chave_nfse_substituida="12345678901234567890123456789012345678901234567890",
+            motivo="Correcao da descricao do servico prestado",
+        )
+
+        assert subst.codigo_motivo == 99
+
+    def test_accepts_codigo_motivo_between_1_and_99(self):
+        """Deve aceitar codigo_motivo entre 1 e 99."""
+        subst = SubstituicaoNFSe(
+            chave_nfse_substituida="12345678901234567890123456789012345678901234567890",
+            codigo_motivo=1,
+            motivo="Alteracao do valor do servico",
+        )
+
+        assert subst.codigo_motivo == 1
+
+    def test_rejects_codigo_motivo_less_than_1(self):
+        """Deve rejeitar codigo_motivo menor que 1."""
+        with pytest.raises(ValidationError) as exc_info:
+            SubstituicaoNFSe(
+                chave_nfse_substituida="12345678901234567890123456789012345678901234567890",
+                codigo_motivo=0,
+                motivo="Correcao da descricao do servico prestado",
+            )
+
+        assert "greater than or equal to 1" in str(exc_info.value)
+
+    def test_rejects_codigo_motivo_greater_than_99(self):
+        """Deve rejeitar codigo_motivo maior que 99."""
+        with pytest.raises(ValidationError) as exc_info:
+            SubstituicaoNFSe(
+                chave_nfse_substituida="12345678901234567890123456789012345678901234567890",
+                codigo_motivo=100,
+                motivo="Correcao da descricao do servico prestado",
+            )
+
+        assert "less than or equal to 99" in str(exc_info.value)
+
+
+class TestSubstituicaoNFSeMotivo:
+    """Testes para validacao do motivo."""
+
+    def test_accepts_motivo_with_15_to_255_characters(self):
+        """Deve aceitar motivo com 15 a 255 caracteres."""
+        subst = SubstituicaoNFSe(
+            chave_nfse_substituida="12345678901234567890123456789012345678901234567890",
+            motivo="Correcao da descricao do servico prestado ao cliente",
+        )
+
+        assert "Correcao" in subst.motivo
+
+    def test_rejects_motivo_with_less_than_15_characters(self):
+        """Deve rejeitar motivo com menos de 15 caracteres."""
+        with pytest.raises(ValidationError) as exc_info:
+            SubstituicaoNFSe(
+                chave_nfse_substituida="12345678901234567890123456789012345678901234567890",
+                motivo="Correcao",
+            )
+
+        assert "at least 15 characters" in str(exc_info.value)
+
+    def test_rejects_motivo_with_more_than_255_characters(self):
+        """Deve rejeitar motivo com mais de 255 caracteres."""
+        long_motivo = "A" * 256
+
+        with pytest.raises(ValidationError) as exc_info:
+            SubstituicaoNFSe(
+                chave_nfse_substituida="12345678901234567890123456789012345678901234567890",
+                motivo=long_motivo,
+            )
+
+        assert "at most 255 characters" in str(exc_info.value)
+
+
+class TestDPSSubstituicao:
+    """Testes para DPS com substituicao."""
+
+    def test_dps_accepts_substituicao(self, valid_prestador, valid_tomador, valid_servico):
+        """Deve aceitar DPS com informacoes de substituicao."""
+        substituicao = SubstituicaoNFSe(
+            chave_nfse_substituida="12345678901234567890123456789012345678901234567890",
+            codigo_motivo=99,
+            motivo="Correcao da descricao do servico prestado",
+        )
+
+        dps = DPS(
+            serie="900",
+            numero=2,
+            competencia="2026-01",
+            data_emissao=datetime.now(),
+            prestador=valid_prestador,
+            tomador=valid_tomador,
+            servico=valid_servico,
+            regime_tributario="simples_nacional",
+            substituicao=substituicao,
+        )
+
+        assert dps.substituicao is not None
+        assert dps.substituicao.chave_nfse_substituida == "12345678901234567890123456789012345678901234567890"
+
+    def test_dps_substituicao_defaults_to_none(self, valid_prestador, valid_tomador, valid_servico):
+        """Substituicao deve ser None por padrao."""
+        dps = DPS(
+            serie="900",
+            numero=1,
+            competencia="2026-01",
+            data_emissao=datetime.now(),
+            prestador=valid_prestador,
+            tomador=valid_tomador,
+            servico=valid_servico,
+            regime_tributario="simples_nacional",
+        )
+
+        assert dps.substituicao is None

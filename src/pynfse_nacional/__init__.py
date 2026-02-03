@@ -18,6 +18,7 @@ from .models import (
     EventResponse,
     NFSeQueryResult,
     ConvenioMunicipal,
+    SubstituicaoNFSe,
 )
 from .exceptions import (
     NFSeError,
@@ -61,7 +62,7 @@ try:
 except ImportError:
     _PDF_AVAILABLE = False
 
-__version__ = "0.3.1"
+__version__ = "0.4.0"
 
 __all__ = [
     # Client
@@ -78,6 +79,7 @@ __all__ = [
     "EventResponse",
     "NFSeQueryResult",
     "ConvenioMunicipal",
+    "SubstituicaoNFSe",
     # Exceptions
     "NFSeError",
     "NFSeAPIError",
