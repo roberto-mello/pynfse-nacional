@@ -274,8 +274,42 @@ Se voce receber um erro sobre numero de DPS duplicado, atualize o `proximo_numer
 |---------|-----------|
 | `issuer.example.ini` | Configuracao de exemplo (copie para `issuer.ini`) |
 | `issuer.ini` | Sua configuracao (nao rastreado pelo git) |
-| `issue_nfse.py` | Script CLI principal |
+| `issue_nfse.py` | Script CLI principal para emitir NFSe |
+| `query_convenio.py` | Script para consultar se um municipio aderiu ao sistema nacional |
+| `debug_api.py` | Script de debug para explorar endpoints da API |
 | `README.md` | Esta documentacao |
+
+## Consultar Convenio Municipal
+
+Para verificar se um municipio aderiu ao sistema NFSe Nacional:
+
+```bash
+# Consultar Manaus:
+python query_convenio.py --config issuer.ini --municipio 1302603
+
+# Consultar Sao Paulo:
+python query_convenio.py --config issuer.ini --municipio 3550308
+
+# Saida em JSON:
+python query_convenio.py --config issuer.ini --municipio 1302603 --json
+
+# Ambiente de producao:
+python query_convenio.py --config issuer.ini --municipio 1302603 --producao
+```
+
+## Debug da API
+
+Para explorar endpoints da API e debug de conectividade:
+
+```bash
+# Explorar endpoints para um municipio:
+python debug_api.py --config issuer.ini --municipio 1302603
+
+# Ambiente de producao:
+python debug_api.py --config issuer.ini --municipio 1302603 --producao
+```
+
+Este script faz chamadas HTTP diretas para explorar respostas da API e testar conectividade.
 
 ---
 
@@ -392,5 +426,39 @@ Check if all required fields are filled correctly, especially:
 |------|-------------|
 | `issuer.example.ini` | Example configuration (copy to `issuer.ini`) |
 | `issuer.ini` | Your configuration (not tracked by git) |
-| `issue_nfse.py` | Main CLI script |
+| `issue_nfse.py` | Main CLI script for issuing NFSe |
+| `query_convenio.py` | Script to check if a municipality has joined the national system |
+| `debug_api.py` | Debug script to explore API endpoints |
 | `README.md` | This documentation |
+
+### Query Municipal Agreement
+
+To check if a municipality has joined the NFSe Nacional system:
+
+```bash
+# Query Manaus:
+python query_convenio.py --config issuer.ini --municipio 1302603
+
+# Query Sao Paulo:
+python query_convenio.py --config issuer.ini --municipio 3550308
+
+# JSON output:
+python query_convenio.py --config issuer.ini --municipio 1302603 --json
+
+# Production environment:
+python query_convenio.py --config issuer.ini --municipio 1302603 --producao
+```
+
+### API Debug
+
+To explore API endpoints and debug connectivity:
+
+```bash
+# Explore endpoints for a municipality:
+python debug_api.py --config issuer.ini --municipio 1302603
+
+# Production environment:
+python debug_api.py --config issuer.ini --municipio 1302603 --producao
+```
+
+This script makes raw HTTP calls to explore API responses and test connectivity.
