@@ -7,7 +7,7 @@ name = "pynfse-nacional"
 version = "0.4.1"
 description = "Python library for Brazilian NFSe Nacional (Padrao Nacional) API integration"
 readme = "README.md"
-license = "MIT"
+license = "AGPL-3.0-only"
 requires-python = ">=3.10"
 authors = [
     { name = "Roberto Mello", email = "roberto.mello@gmail.com" }
@@ -16,7 +16,7 @@ keywords = ["nfse", "nota-fiscal", "brazil", "fiscal", "api"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
+    "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",

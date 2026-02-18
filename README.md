@@ -38,7 +38,7 @@ pip install pynfse-nacional
 Ou instale a partir do código fonte:
 
 ```bash
-pip install git+https://github.com/robmello/pynfse-nacional.git
+pip install git+https://github.com/roberto-mello/pynfse-nacional.git
 ```
 
 Para geração local de PDF (DANFSe):
@@ -300,7 +300,7 @@ pdf_bytes = generate_danfse_from_base64(
 
 ## Licença
 
-Licença MIT
+GNU Affero General Public License v3 (AGPL-3.0)
 
 ---
 
@@ -332,7 +332,7 @@ pip install pynfse-nacional
 Or install from source:
 
 ```bash
-pip install git+https://github.com/robmello/pynfse-nacional.git
+pip install git+https://github.com/roberto-mello/pynfse-nacional.git
 ```
 
 For local PDF generation (DANFSe):
@@ -536,4 +536,4 @@ pdf_bytes = generate_danfse_from_base64(
 
 ### License
 
-MIT License
+GNU Affero General Public License v3 (AGPL-3.0)
