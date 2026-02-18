@@ -32,19 +32,19 @@ Esta biblioteca fornece um cliente para interagir com a API do NFSe Nacional (SE
 ## Instalação
 
 ```bash
-pip install pynfse-nacional
+uv add pynfse-nacional
 ```
 
-Ou instale a partir do código fonte:
+Ou com pip:
 
 ```bash
-pip install git+https://github.com/roberto-mello/pynfse-nacional.git
+pip install pynfse-nacional
 ```
 
 Para geração local de PDF (DANFSe):
 
 ```bash
-pip install pynfse-nacional[pdf]
+uv add "pynfse-nacional[pdf]"
 ```
 
 ## Início Rápido
@@ -326,19 +326,19 @@ This library provides a client for interacting with the NFSe Nacional (SEFIN Nac
 ### Installation
 
 ```bash
-pip install pynfse-nacional
+uv add pynfse-nacional
 ```
 
-Or install from source:
+Or with pip:
 
 ```bash
-pip install git+https://github.com/roberto-mello/pynfse-nacional.git
+pip install pynfse-nacional
 ```
 
 For local PDF generation (DANFSe):
 
 ```bash
-pip install pynfse-nacional[pdf]
+uv add "pynfse-nacional[pdf]"
 ```
 
 ### Quick Start
