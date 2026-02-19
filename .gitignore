@@ -71,6 +71,11 @@ venv.bak/
 *.pem
 *.key
 *.crt
+*.PFX
+*.P12
+*.PEM
+*.KEY
+*.CRT
 
 # OS
 .DS_Store

@@ -14,21 +14,23 @@ This library provides a client for issuing, querying, and canceling electronic s
 - signxml for XML digital signatures
 - cryptography for certificate handling
 - pydantic for data validation
+- reportlab + qrcode for PDF generation (optional extra: `pynfse-nacional[pdf]`)
 
 ## Project Structure
 
 ```
 src/pynfse_nacional/
-  client.py       # Main NFSeClient class with mTLS support
-  models.py       # Pydantic models (DPS, NFSe, Prestador, Tomador, etc.)
-  xml_builder.py  # XML generation for DPS
-  xml_signer.py   # XML digital signature service
-  constants.py    # API URLs, endpoints, enums
-  exceptions.py   # Custom exceptions
-  utils.py        # Compression/encoding utilities
+  client.py           # Main NFSeClient class with mTLS support
+  models.py           # Pydantic models (DPS, NFSe, Prestador, Tomador, etc.)
+  xml_builder.py      # XML generation for DPS
+  xml_signer.py       # XML digital signature service
+  pdf_generator.py    # PDF rendering for NFSe documents
+  constants.py        # API URLs, endpoints, enums
+  exceptions.py       # Custom exceptions
+  utils.py            # Compression/encoding utilities
 
 tests/
-  test_*.py       # pytest tests
+  test_*.py           # pytest tests
 ```
 
 ## Development Commands
@@ -58,17 +60,6 @@ uv add <package>
 uv add --dev <package>
 ```
 
-## Code Style
-
-- Follow ruff linter rules (E, F, I, N, W)
-- Line length: 88 characters
-- Use type hints for all function signatures
-- Use Pydantic models for data structures
-- Add blank line after comments and code blocks
-- Add blank line before if, for, while statements
-- Portuguese for domain terms (NFSe, DPS, Prestador, Tomador)
-- English for code structure (class names, method names, comments)
-
 ## Key Concepts
 
 - **DPS**: Declaracao de Prestacao de Servicos (service declaration submitted to generate NFSe)
@@ -77,12 +68,6 @@ uv add --dev <package>
 - **Tomador**: Service recipient (the client receiving the invoice)
 - **mTLS**: Mutual TLS authentication using PKCS12 certificates (.pfx/.p12)
 - **Ambiente**: Environment - homologacao (staging) or producao (production)
-
-## Testing
-
-- Use pytest with pytest-asyncio
-- Integration tests require valid certificates (skipped by default)
-- Unit tests mock the HTTP client and XML signing
 
 ## Planning New Features
 
@@ -102,43 +87,3 @@ When planning new features or modifications to the NFSe integration:
 3. **Understand the XML structure** by examining the XSD schemas before implementing new elements
 
 4. **Follow existing patterns** in the codebase for consistency (xml_builder.py, models.py)
-
-## Agent Instructions
-
-This project uses **bd** (beads) for issue tracking. Run `bd onboard` to get started.
-
-### Quick Reference
-
-```bash
-bd ready              # Find available work
-bd show <id>          # View issue details
-bd update <id> --status in_progress  # Claim work
-bd close <id>         # Complete work
-bd sync --no-daemon   # Sync with git
-```
-
-### Landing the Plane (Session Completion)
-
-**When ending a work session**, you MUST complete ALL steps below. Work is NOT complete until `git push` succeeds.
-
-**MANDATORY WORKFLOW:**
-
-1. **File issues for remaining work** - Create issues for anything that needs follow-up
-2. **Run quality gates** (if code changed) - Tests, linters, builds
-3. **Update issue status** - Close finished work, update in-progress items
-4. **PUSH TO REMOTE** - This is MANDATORY:
-   ```bash
-   git pull --rebase
-   bd sync --no-daemon
-   git push
-   git status  # MUST show "up to date with origin"
-   ```
-5. **Clean up** - Clear stashes, prune remote branches
-6. **Verify** - All changes committed AND pushed
-7. **Hand off** - Provide context for next session
-
-**CRITICAL RULES:**
-- Work is NOT complete until `git push` succeeds
-- NEVER stop before pushing - that leaves work stranded locally
-- NEVER say "ready to push when you are" - YOU must push
-- If push fails, resolve and retry until it succeeds
