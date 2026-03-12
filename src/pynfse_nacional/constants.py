@@ -28,13 +28,3 @@ ENDPOINTS = {
     "events": "/nfse/{chave}/eventos",
 }
 
-# Regime tributario codes
-REGIME_SIMPLES_NACIONAL = "1"
-REGIME_SIMPLES_EXCESSO = "2"
-REGIME_NORMAL = "3"
-REGIME_MEI = "4"
-
-# NFSe status codes
-STATUS_EMITIDA = "emitida"
-STATUS_CANCELADA = "cancelada"
-STATUS_SUBSTITUIDA = "substituida"
