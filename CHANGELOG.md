@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.5] - 2026-03-12
+
+### Fixed
+- `cancel_nfse()` now posts to the correct endpoint `/nfse/{chave}/eventos` instead
+  of `/eventos`, which returned HTTP 404 (resource not found).
+- `infPedReg` `Id` attribute now follows XSD type `TSIdPedRegEvt` pattern
+  `PRE[0-9]{56}`: `PRE` + 50-digit chave + 6-digit event code `101101`. Previously
+  used `PRE{chave}1` (54 chars) which failed SEFIN schema validation with RNG6110.
+- Removed `nPedRegEvento` element from `infPedReg` — it is not part of the schema
+  and caused RNG6110 "invalid child element" errors.
+- `_parse_event_response()` now parses SEFIN's `erro` array format
+  (`[{codigo, descricao, complemento}]`) for proper error messages on 4xx responses.
+
 ## [0.4.4] - 2026-03-11
 
 ### Fixed

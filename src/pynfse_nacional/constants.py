@@ -25,7 +25,7 @@ ENDPOINTS = {
     "submit_dps": "/nfse",
     "query_nfse": "/nfse/{chave}",
     "download_danfse": "/danfse/{chave}",
-    "events": "/eventos",
+    "events": "/nfse/{chave}/eventos",
 }
 
 # Regime tributario codes
