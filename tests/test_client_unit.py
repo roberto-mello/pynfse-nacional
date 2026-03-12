@@ -354,6 +354,111 @@ class TestParseEventResponse:
         assert result.success is False
         assert result.error_code == "500"
 
+    def test_parses_ret_evento_cstat_144(self, mock_client):
+        """cStat 144 in retEvento should produce success with idEvento as protocolo."""
+        mock_response = MockResponse(
+            status_code=200,
+            json_data={
+                "retEvento": {
+                    "cStat": 144,
+                    "xMotivo": "Evento recebido com sucesso",
+                    "idEvento": "EVT_PROT_ABC",
+                }
+            },
+        )
+
+        result = mock_client._parse_event_response(mock_response)
+
+        assert result.success is True
+        assert result.protocolo == "EVT_PROT_ABC"
+
+    def test_parses_ret_evento_non_144_cstat_as_failure(self, mock_client):
+        """Non-144 cStat in retEvento should produce failure."""
+        mock_response = MockResponse(
+            status_code=200,
+            json_data={
+                "retEvento": {
+                    "cStat": 999,
+                    "xMotivo": "Evento rejeitado",
+                }
+            },
+        )
+
+        result = mock_client._parse_event_response(mock_response)
+
+        assert result.success is False
+        assert result.error_code == "999"
+        assert result.error_message == "Evento rejeitado"
+
+    def test_legacy_200_without_ret_evento(self, mock_client):
+        """200 with no retEvento key should use top-level protocolo (legacy shape)."""
+        mock_response = MockResponse(
+            status_code=200,
+            json_data={"protocolo": "LEGACY_PROT_999"},
+        )
+
+        result = mock_client._parse_event_response(mock_response)
+
+        assert result.success is True
+        assert result.protocolo == "LEGACY_PROT_999"
+
+    def test_parses_sefin_erro_array_with_complemento(self, mock_client):
+        """Should parse SEFIN's erro array format with descricao and complemento."""
+        mock_response = MockResponse(
+            status_code=400,
+            json_data={
+                "erro": [
+                    {
+                        "codigo": "NFSE-E-400",
+                        "descricao": "Chave de acesso invalida",
+                        "complemento": "Campo chNFSe nao encontrado",
+                    }
+                ]
+            },
+        )
+
+        result = mock_client._parse_event_response(mock_response)
+
+        assert result.success is False
+        assert result.error_code == "NFSE-E-400"
+        assert result.error_message == "Chave de acesso invalida: Campo chNFSe nao encontrado"
+
+    def test_parses_sefin_erro_array_without_complemento(self, mock_client):
+        """Should parse erro array when complemento is absent or empty."""
+        mock_response = MockResponse(
+            status_code=422,
+            json_data={
+                "erro": [
+                    {
+                        "codigo": "E001",
+                        "descricao": "Schema invalido",
+                        "complemento": "",
+                    }
+                ]
+            },
+        )
+
+        result = mock_client._parse_event_response(mock_response)
+
+        assert result.success is False
+        assert result.error_code == "E001"
+        assert result.error_message == "Schema invalido"
+
+    def test_parses_sefin_erro_array_missing_codigo(self, mock_client):
+        """Should fall back to HTTP status code when erro entry has no codigo."""
+        mock_response = MockResponse(
+            status_code=422,
+            json_data={
+                "erro": [{"descricao": "Erro generico", "complemento": ""}]
+            },
+        )
+
+        result = mock_client._parse_event_response(mock_response)
+
+        assert result.success is False
+        assert result.error_code == "422"
+        assert result.error_message == "Erro generico"
+
 
 # =============================================================================
 # Tests: query_nfse
@@ -410,7 +515,7 @@ class TestQueryNfse:
             mock_get_client.return_value.__enter__ = MagicMock(return_value=mock_http)
             mock_get_client.return_value.__exit__ = MagicMock(return_value=False)
 
-            result = mock_client.query_nfse("test_chave")
+            result = mock_client.query_nfse("11223344556677889900112233445566778899001122334455")
 
             assert result.tomador_documento == "99888777000166"
 
@@ -431,7 +536,7 @@ class TestQueryNfse:
             mock_get_client.return_value.__exit__ = MagicMock(return_value=False)
 
             with pytest.raises(NFSeAPIError) as exc_info:
-                mock_client.query_nfse("invalid_chave")
+                mock_client.query_nfse("12345678901234567890123456789012345678901234567890")
 
             assert exc_info.value.status_code == 404
 
@@ -459,7 +564,7 @@ class TestDownloadDanfse:
             mock_get_client.return_value.__enter__ = MagicMock(return_value=mock_http)
             mock_get_client.return_value.__exit__ = MagicMock(return_value=False)
 
-            result = mock_client.download_danfse("test_chave")
+            result = mock_client.download_danfse("11223344556677889900112233445566778899001122334455")
 
             assert result == pdf_content
 
@@ -473,11 +578,11 @@ class TestDownloadDanfse:
             mock_get_client.return_value.__enter__ = MagicMock(return_value=mock_http)
             mock_get_client.return_value.__exit__ = MagicMock(return_value=False)
 
-            mock_client.download_danfse("test_chave")
+            mock_client.download_danfse("11223344556677889900112233445566778899001122334455")
 
             call_args = mock_http.get.call_args[0][0]
             assert "adn." in call_args
-            assert "test_chave" in call_args
+            assert "11223344556677889900" in call_args
 
     def test_download_danfse_raises_on_error(self, mock_client):
         """Should raise NFSeAPIError on error."""
@@ -495,7 +600,7 @@ class TestDownloadDanfse:
             mock_get_client.return_value.__exit__ = MagicMock(return_value=False)
 
             with pytest.raises(NFSeAPIError) as exc_info:
-                mock_client.download_danfse("test_chave")
+                mock_client.download_danfse("11223344556677889900112233445566778899001122334455")
 
             assert exc_info.value.status_code == 501
 
@@ -968,3 +1073,55 @@ class TestSubstituteNfse:
 
                     assert result.success is False
                     assert result.error_code == "SUBST_ERR"
+
+
+# =============================================================================
+# Tests: chave_acesso validation
+# =============================================================================
+
+
+class TestChaveAcessoValidation:
+    """chave_acesso must be exactly 50 decimal digits in all three methods."""
+
+    VALID_CHAVE = "12345678901234567890123456789012345678901234567890"
+
+    def test_cancel_nfse_rejects_short_chave(self, mock_client):
+        """cancel_nfse should raise ValueError for a short chave_acesso."""
+        with pytest.raises(ValueError, match="50 digitos"):
+            mock_client.cancel_nfse("1234567890", "motivo")
+
+    def test_cancel_nfse_rejects_non_numeric_chave(self, mock_client):
+        """cancel_nfse should raise ValueError for chave_acesso with non-digit characters."""
+        chave_with_slash = "1234567890/234567890123456789012345678901234567890"
+
+        with pytest.raises(ValueError, match="50 digitos"):
+            mock_client.cancel_nfse(chave_with_slash, "motivo")
+
+    def test_cancel_nfse_accepts_valid_chave(self, mock_client):
+        """cancel_nfse should not raise for a valid 50-digit chave_acesso."""
+        mock_response = MockResponse(
+            status_code=200,
+            json_data={"retEvento": {"cStat": 144, "idEvento": "PROT1"}},
+        )
+
+        with patch.object(mock_client, "_get_client") as mock_get_client:
+            mock_http = MagicMock()
+            mock_http.post.return_value = mock_response
+            mock_get_client.return_value.__enter__ = MagicMock(return_value=mock_http)
+            mock_get_client.return_value.__exit__ = MagicMock(return_value=False)
+
+            with patch.object(mock_client._xml_builder, "build_cancel_event", return_value="<xml/>"):
+                with patch.object(mock_client._xml_signer, "sign", return_value="<signed/>"):
+                    result = mock_client.cancel_nfse(self.VALID_CHAVE, "motivo")
+
+        assert result.success is True
+
+    def test_query_nfse_rejects_invalid_chave(self, mock_client):
+        """query_nfse should raise ValueError for an invalid chave_acesso."""
+        with pytest.raises(ValueError, match="50 digitos"):
+            mock_client.query_nfse("abc")
+
+    def test_download_danfse_rejects_invalid_chave(self, mock_client):
+        """download_danfse should raise ValueError for an invalid chave_acesso."""
+        with pytest.raises(ValueError, match="50 digitos"):
+            mock_client.download_danfse("not-50-digits")
