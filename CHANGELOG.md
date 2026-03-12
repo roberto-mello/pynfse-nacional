@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.6] - 2026-03-11
+
 ### Fixed
 - `cancel_nfse()`, `query_nfse()`, and `download_danfse()` now validate that
   `chave_acesso` is exactly 50 numeric digits before URL interpolation, raising
