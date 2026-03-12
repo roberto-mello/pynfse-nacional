@@ -13,6 +13,9 @@ class XMLBuilder:
     NAMESPACE = "http://www.sped.fazenda.gov.br/nfse"
     NAMESPACE_MAP = {"": NAMESPACE}
 
+    # Cancellation event type code (XSD element e101101, TSIdPedRegEvt pattern PRE[0-9]{56})
+    _EVENT_TYPE_CANCEL = "101101"
+
     def __init__(self, ambiente: Ambiente = Ambiente.HOMOLOGACAO):
         self.ambiente = ambiente
 
@@ -87,8 +90,7 @@ class XMLBuilder:
         """
         # Id format: PRE + chNFSe (50 digits) + event type code (6 digits)
         # XSD type TSIdPedRegEvt pattern: PRE[0-9]{56} (total 59 chars)
-        # e101101 → numeric code "101101"
-        event_id = f"PRE{chave_acesso}101101"
+        event_id = f"PRE{chave_acesso}{self._EVENT_TYPE_CANCEL}"
 
         brt = timezone(timedelta(hours=-3))
         dh_evento = datetime.now(tz=brt).strftime("%Y-%m-%dT%H:%M:%S-03:00")
@@ -239,16 +241,6 @@ class XMLBuilder:
 
     def _format_decimal(self, value: Decimal) -> str:
         return f"{value:.2f}"
-
-    def _map_regime(self, regime: str) -> str:
-        mapping = {
-            "simples_nacional": "1",
-            "simples_excesso": "2",
-            "normal": "3",
-            "mei": "4",
-        }
-
-        return mapping.get(regime, "3")
 
     def _map_regime_especial(self, regime: str) -> str:
         """Map special tax regime. 0 = none."""

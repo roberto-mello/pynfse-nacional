@@ -159,6 +159,9 @@ class NFSeClient:
 
         cert_pem = certificate.public_bytes(Encoding.PEM)
 
+        cert_file_path = None
+        key_file_path = None
+
         with tempfile.NamedTemporaryFile(
             mode="wb", suffix=".pem", delete=False
         ) as cert_file:
@@ -185,8 +188,11 @@ class NFSeClient:
             raise NFSeCertificateError(f"Error configuring HTTP client: {str(e)}")
 
         finally:
-            Path(cert_file_path).unlink(missing_ok=True)
-            Path(key_file_path).unlink(missing_ok=True)
+            if cert_file_path:
+                Path(cert_file_path).unlink(missing_ok=True)
+
+            if key_file_path:
+                Path(key_file_path).unlink(missing_ok=True)
 
     def submit_dps(self, dps: DPS) -> NFSeResponse:
         """Submit DPS and receive NFSe."""
@@ -455,7 +461,7 @@ class NFSeClient:
             return EventResponse(
                 success=False,
                 error_code=str(response.status_code),
-                error_message=response.text[:500] if response.text else f"HTTP {response.status_code} sem corpo",
+                error_message=response.text[:500] or f"HTTP {response.status_code} sem corpo",
             )
 
         if response.status_code in (200, 201):
@@ -485,16 +491,18 @@ class NFSeClient:
 
         # Error response — try SEFIN's erro array format first
         erros = data.get("erro")
-        if erros and isinstance(erros, list) and erros:
-            first = erros[0]
-            codigo = first.get("codigo") or str(response.status_code)
-            descricao = first.get("descricao") or ""
-            complemento = first.get("complemento") or ""
-            message = f"{descricao}: {complemento}" if complemento else descricao
+        if isinstance(erros, list) and erros:
+            parts = []
+
+            for e in erros:
+                d = (e.get("descricao") or "")[:255]
+                c = (e.get("complemento") or "")[:255]
+                parts.append(f"{d}: {c}" if c else d)
+
             return EventResponse(
                 success=False,
-                error_code=codigo,
-                error_message=message or "Erro desconhecido",
+                error_code=(erros[0].get("codigo") or str(response.status_code)),
+                error_message="; ".join(p for p in parts if p) or "Erro desconhecido",
             )
 
         return EventResponse(
