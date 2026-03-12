@@ -508,12 +508,19 @@ class TestDownloadDanfse:
 class TestCancelNfse:
     """Tests for cancel_nfse method."""
 
+    # Structurally valid 50-digit chave (no real NFSe — XML structure tests only)
+    CHAVE = "99999999999999999999999999999999999999999999999999"
+
     def test_cancel_nfse_success(self, mock_client):
         """Should cancel NFSe successfully."""
         mock_response = MockResponse(
             status_code=200,
             json_data={
-                "protocolo": "CANCEL_PROT_123",
+                "retEvento": {
+                    "cStat": 144,
+                    "xMotivo": "Evento recebido com sucesso",
+                    "idEvento": "CANCEL_PROT_123",
+                }
             },
         )
 
@@ -523,17 +530,19 @@ class TestCancelNfse:
             mock_get_client.return_value.__enter__ = MagicMock(return_value=mock_http)
             mock_get_client.return_value.__exit__ = MagicMock(return_value=False)
 
-            result = mock_client.cancel_nfse("test_chave", "Erro de digitacao")
+            with patch.object(mock_client._xml_builder, "build_cancel_event", return_value="<xml/>"):
+                with patch.object(mock_client._xml_signer, "sign", return_value="<signed/>"):
+                    result = mock_client.cancel_nfse(self.CHAVE, "Erro de digitacao")
 
-            assert isinstance(result, EventResponse)
-            assert result.success is True
-            assert result.protocolo == "CANCEL_PROT_123"
+        assert isinstance(result, EventResponse)
+        assert result.success is True
+        assert result.protocolo == "CANCEL_PROT_123"
 
-    def test_cancel_nfse_sends_correct_payload(self, mock_client):
-        """Should send correct payload for cancellation."""
+    def test_cancel_nfse_sends_signed_xml_payload(self, mock_client):
+        """Should send pedidoRegistroEventoXmlGZipB64 (not plain JSON fields)."""
         mock_response = MockResponse(
             status_code=200,
-            json_data={"protocolo": "123"},
+            json_data={"retEvento": {"cStat": 144, "xMotivo": "OK"}},
         )
 
         with patch.object(mock_client, "_get_client") as mock_get_client:
@@ -542,14 +551,58 @@ class TestCancelNfse:
             mock_get_client.return_value.__enter__ = MagicMock(return_value=mock_http)
             mock_get_client.return_value.__exit__ = MagicMock(return_value=False)
 
-            mock_client.cancel_nfse("CHAVE123", "Motivo do cancelamento")
+            with patch.object(mock_client._xml_builder, "build_cancel_event", return_value="<xml/>"):
+                with patch.object(mock_client._xml_signer, "sign", return_value="<signed/>"):
+                    mock_client.cancel_nfse(self.CHAVE, "Motivo")
 
             call_kwargs = mock_http.post.call_args[1]
             payload = call_kwargs["json"]
 
-            assert payload["tpEvento"] == "110111"
-            assert payload["chNFSe"] == "CHAVE123"
-            assert payload["xMotivo"] == "Motivo do cancelamento"
+            assert "pedidoRegistroEventoXmlGZipB64" in payload
+            assert "tpEvento" not in payload
+            assert "chNFSe" not in payload
+
+    def test_cancel_nfse_default_codigo_motivo_is_1(self, mock_client):
+        """Should pass codigo_motivo=1 by default to the XML builder."""
+        mock_response = MockResponse(
+            status_code=200,
+            json_data={"retEvento": {"cStat": 144, "xMotivo": "OK"}},
+        )
+
+        with patch.object(mock_client, "_get_client") as mock_get_client:
+            mock_http = MagicMock()
+            mock_http.post.return_value = mock_response
+            mock_get_client.return_value.__enter__ = MagicMock(return_value=mock_http)
+            mock_get_client.return_value.__exit__ = MagicMock(return_value=False)
+
+            with patch.object(
+                mock_client._xml_builder, "build_cancel_event", return_value="<xml/>"
+            ) as mock_build:
+                with patch.object(mock_client._xml_signer, "sign", return_value="<signed/>"):
+                    mock_client.cancel_nfse(self.CHAVE, "Motivo")
+
+            mock_build.assert_called_once_with(self.CHAVE, "Motivo", 1)
+
+    def test_cancel_nfse_custom_codigo_motivo(self, mock_client):
+        """Should forward custom codigo_motivo to the XML builder."""
+        mock_response = MockResponse(
+            status_code=200,
+            json_data={"retEvento": {"cStat": 144, "xMotivo": "OK"}},
+        )
+
+        with patch.object(mock_client, "_get_client") as mock_get_client:
+            mock_http = MagicMock()
+            mock_http.post.return_value = mock_response
+            mock_get_client.return_value.__enter__ = MagicMock(return_value=mock_http)
+            mock_get_client.return_value.__exit__ = MagicMock(return_value=False)
+
+            with patch.object(
+                mock_client._xml_builder, "build_cancel_event", return_value="<xml/>"
+            ) as mock_build:
+                with patch.object(mock_client._xml_signer, "sign", return_value="<signed/>"):
+                    mock_client.cancel_nfse(self.CHAVE, "Duplicidade", codigo_motivo=4)
+
+            mock_build.assert_called_once_with(self.CHAVE, "Duplicidade", 4)
 
     def test_cancel_nfse_error(self, mock_client):
         """Should handle cancellation error."""
@@ -567,10 +620,12 @@ class TestCancelNfse:
             mock_get_client.return_value.__enter__ = MagicMock(return_value=mock_http)
             mock_get_client.return_value.__exit__ = MagicMock(return_value=False)
 
-            result = mock_client.cancel_nfse("test_chave", "Motivo")
+            with patch.object(mock_client._xml_builder, "build_cancel_event", return_value="<xml/>"):
+                with patch.object(mock_client._xml_signer, "sign", return_value="<signed/>"):
+                    result = mock_client.cancel_nfse(self.CHAVE, "Motivo")
 
-            assert result.success is False
-            assert result.error_code == "INVALID"
+        assert result.success is False
+        assert result.error_code == "INVALID"
 
 
 # =============================================================================

@@ -62,8 +62,9 @@ class XMLSignerService:
     def sign(self, xml: str) -> str:
         """Sign XML document with certificate.
 
-        Signs the DPS element with the signature referencing the infDPS Id.
-        Per the XSD schema, the Signature element is a child of DPS, sibling of infDPS.
+        Locates the signed info element (infDPS for DPS, infPedReg for events)
+        and produces an enveloped signature referencing its Id attribute.
+        Per the XSD schema, the Signature element is a sibling of the info element.
         """
 
         if not SIGNXML_AVAILABLE:
@@ -74,12 +75,16 @@ class XMLSignerService:
         try:
             xml_element = etree.fromstring(xml.encode("utf-8"))
 
-            infDPS = xml_element.find(".//{http://www.sped.fazenda.gov.br/nfse}infDPS")
+            ns = "http://www.sped.fazenda.gov.br/nfse"
+            signed_info = xml_element.find(f".//{{{ns}}}infDPS")
 
-            if infDPS is None:
-                raise NFSeCertificateError("infDPS element not found in XML")
+            if signed_info is None:
+                signed_info = xml_element.find(f".//{{{ns}}}infPedReg")
 
-            infDPS_id = infDPS.get("Id")
+            if signed_info is None:
+                raise NFSeCertificateError("Signed info element (infDPS or infPedReg) not found in XML")
+
+            infDPS_id = signed_info.get("Id")
 
             if not infDPS_id:
                 raise NFSeCertificateError("infDPS Id attribute not found")

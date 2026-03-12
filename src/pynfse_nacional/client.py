@@ -383,15 +383,30 @@ class NFSeClient:
 
         return self.submit_dps(dps_with_subst)
 
-    def cancel_nfse(self, chave_acesso: str, reason: str) -> EventResponse:
-        """Cancel NFSe by access key."""
+    def cancel_nfse(
+        self,
+        chave_acesso: str,
+        reason: str,
+        codigo_motivo: int = 1,
+    ) -> EventResponse:
+        """Cancel NFSe by access key.
+
+        Args:
+            chave_acesso: 50-digit NFSe access key.
+            reason: Free-text cancellation reason (max 255 chars).
+            codigo_motivo: Cancellation reason code (1=erro na emissão,
+                2=serviço não prestado, 4=duplicidade). Default 1.
+
+        Returns:
+            EventResponse with protocolo on success.
+        """
         url = f"{self.base_url}{ENDPOINTS['events']}"
 
-        payload = {
-            "tpEvento": "110111",  # Cancelamento
-            "chNFSe": chave_acesso,
-            "xMotivo": reason,
-        }
+        xml = self._xml_builder.build_cancel_event(chave_acesso, reason, codigo_motivo)
+        signed_xml = self._xml_signer.sign(xml)
+        encoded_content = compress_encode(signed_xml)
+
+        payload = {"pedidoRegistroEventoXmlGZipB64": encoded_content}
 
         try:
             with self._get_client() as client:
@@ -405,30 +420,46 @@ class NFSeClient:
             raise NFSeAPIError(f"Erro de comunicacao: {str(e)}", code="COMM_ERROR")
 
     def _parse_event_response(self, response: httpx.Response) -> EventResponse:
-        """Parse API response for event registration."""
-        if response.status_code in (200, 201):
-            data = response.json()
+        """Parse API response for event registration.
 
-            return EventResponse(
-                success=True,
-                protocolo=data.get("protocolo"),
-            )
-
+        SEFIN returns either:
+          - {retEvento: {cStat: 144, xMotivo: "...", idEvento: "..."}, ...}
+          - {protocolo: "..."} (legacy / some environments)
+          - {codigo: "...", mensagem: "..."} on error
+        """
         try:
-            error_data = response.json()
-
-            return EventResponse(
-                success=False,
-                error_code=error_data.get("codigo") or str(response.status_code),
-                error_message=error_data.get("mensagem") or "Erro desconhecido",
-            )
-
+            data = response.json()
         except Exception:
             return EventResponse(
                 success=False,
                 error_code=str(response.status_code),
                 error_message=response.text or "Erro desconhecido",
             )
+
+        if response.status_code in (200, 201):
+            ret_evento = data.get("retEvento", {})
+
+            # cStat 144 = evento recebido com sucesso
+            c_stat = ret_evento.get("cStat")
+            protocolo = ret_evento.get("idEvento") or data.get("protocolo")
+
+            if c_stat and str(c_stat) != "144":
+                return EventResponse(
+                    success=False,
+                    error_code=str(c_stat),
+                    error_message=ret_evento.get("xMotivo") or "Erro no registro do evento",
+                )
+
+            return EventResponse(
+                success=True,
+                protocolo=protocolo,
+            )
+
+        return EventResponse(
+            success=False,
+            error_code=data.get("codigo") or str(response.status_code),
+            error_message=data.get("mensagem") or "Erro desconhecido",
+        )
 
     def query_convenio_municipal(self, codigo_municipio: int) -> ConvenioMunicipal:
         """Consulta se um municipio tem convenio com o sistema nacional.
