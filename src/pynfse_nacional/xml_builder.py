@@ -1,4 +1,5 @@
 import warnings
+from datetime import datetime, timezone, timedelta
 from decimal import Decimal
 from xml.etree import ElementTree as ET
 
@@ -61,6 +62,54 @@ class XMLBuilder:
         self._add_tomador(infDPS, dps)
         self._add_servico(infDPS, dps)
         self._add_valores(infDPS, dps)
+
+        return ET.tostring(root, encoding="unicode", xml_declaration=True)
+
+    def build_cancel_event(
+        self,
+        chave_acesso: str,
+        reason: str,
+        codigo_motivo: int = 1,
+        cnpj_prestador: str = "",
+    ) -> str:
+        """Build pedRegEvento XML for NFSe cancellation (event type e101101).
+
+        Args:
+            chave_acesso: 50-digit NFSe access key.
+            reason: Free-text cancellation reason (max 255 chars).
+            codigo_motivo: Cancellation reason code (1=erro na emissão,
+                2=serviço não prestado, 4=duplicidade). Default 1.
+            cnpj_prestador: CNPJ of the service provider (14 digits).
+                Used in the CNPJAutor field. May be empty if not available.
+
+        Returns:
+            XML string for the cancellation event (unsigned).
+        """
+        # Id format: PRE + chNFSe (50 digits) + nPedRegEvento (1 digit)
+        event_id = f"PRE{chave_acesso}1"
+
+        brt = timezone(timedelta(hours=-3))
+        dh_evento = datetime.now(tz=brt).strftime("%Y-%m-%dT%H:%M:%S-03:00")
+
+        tpAmb = "1" if self.ambiente == Ambiente.PRODUCAO else "2"
+
+        root = ET.Element("pedRegEvento", versao="1.00", xmlns=self.NAMESPACE)
+
+        infPedReg = ET.SubElement(root, "infPedReg", Id=event_id)
+        ET.SubElement(infPedReg, "tpAmb").text = tpAmb
+        ET.SubElement(infPedReg, "verAplic").text = "pynfse-1.0"
+        ET.SubElement(infPedReg, "dhEvento").text = dh_evento
+
+        if cnpj_prestador:
+            ET.SubElement(infPedReg, "CNPJAutor").text = cnpj_prestador
+
+        ET.SubElement(infPedReg, "chNFSe").text = chave_acesso
+        ET.SubElement(infPedReg, "nPedRegEvento").text = "1"
+
+        e101101 = ET.SubElement(infPedReg, "e101101")
+        ET.SubElement(e101101, "xDesc").text = "Cancelamento de NFS-e"
+        ET.SubElement(e101101, "cMotivo").text = str(codigo_motivo)
+        ET.SubElement(e101101, "xMotivo").text = reason[:255]
 
         return ET.tostring(root, encoding="unicode", xml_declaration=True)
 
