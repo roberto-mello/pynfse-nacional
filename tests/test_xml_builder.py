@@ -13,6 +13,9 @@ from pynfse_nacional.xml_builder import XMLBuilder
 
 NS = {"nfse": "http://www.sped.fazenda.gov.br/nfse"}
 
+# Structurally valid 50-digit chave (no real NFSe — used for XML structure tests only)
+SAMPLE_CHAVE = "99999999999999999999999999999999999999999999999999"
+
 
 @pytest.fixture
 def sample_endereco():
@@ -782,3 +785,143 @@ class TestXMLBuilderSubstituicao:
         cMotivo = root.find("nfse:infDPS/nfse:subst1/nfse:cMotivo", NS)
 
         assert cMotivo.text == "1"
+
+
+class TestXMLBuilderCancelEvent:
+    """Tests for build_cancel_event method."""
+
+    def test_returns_valid_xml(self):
+        """build_cancel_event should return parseable XML."""
+        builder = XMLBuilder()
+
+        xml_str = builder.build_cancel_event(SAMPLE_CHAVE, "Erro na emissao")
+
+        assert xml_str.startswith("<?xml")
+        root = ET.fromstring(xml_str)
+        assert root.tag == "{http://www.sped.fazenda.gov.br/nfse}pedRegEvento"
+
+    def test_infpedreg_has_id(self):
+        """infPedReg must have Id attribute for signing."""
+        builder = XMLBuilder()
+
+        xml_str = builder.build_cancel_event(SAMPLE_CHAVE, "Erro na emissao")
+        root = ET.fromstring(xml_str)
+
+        infPedReg = root.find("nfse:infPedReg", NS)
+        assert infPedReg is not None
+        assert infPedReg.get("Id") == f"PRE{SAMPLE_CHAVE}1"
+
+    def test_chNFSe_present(self):
+        """chNFSe must contain the access key."""
+        builder = XMLBuilder()
+
+        xml_str = builder.build_cancel_event(SAMPLE_CHAVE, "Erro na emissao")
+        root = ET.fromstring(xml_str)
+
+        chNFSe = root.find("nfse:infPedReg/nfse:chNFSe", NS)
+        assert chNFSe is not None
+        assert chNFSe.text == SAMPLE_CHAVE
+
+    def test_default_codigo_motivo_is_1(self):
+        """cMotivo should default to 1 (erro na emissão)."""
+        builder = XMLBuilder()
+
+        xml_str = builder.build_cancel_event(SAMPLE_CHAVE, "Erro na emissao")
+        root = ET.fromstring(xml_str)
+
+        cMotivo = root.find("nfse:infPedReg/nfse:e101101/nfse:cMotivo", NS)
+        assert cMotivo is not None
+        assert cMotivo.text == "1"
+
+    def test_custom_codigo_motivo(self):
+        """cMotivo should reflect the provided value."""
+        builder = XMLBuilder()
+
+        xml_str = builder.build_cancel_event(SAMPLE_CHAVE, "Duplicidade", codigo_motivo=4)
+        root = ET.fromstring(xml_str)
+
+        cMotivo = root.find("nfse:infPedReg/nfse:e101101/nfse:cMotivo", NS)
+        assert cMotivo.text == "4"
+
+    def test_xMotivo_present(self):
+        """xMotivo must contain the reason text."""
+        builder = XMLBuilder()
+
+        xml_str = builder.build_cancel_event(SAMPLE_CHAVE, "Servico nao prestado")
+        root = ET.fromstring(xml_str)
+
+        xMotivo = root.find("nfse:infPedReg/nfse:e101101/nfse:xMotivo", NS)
+        assert xMotivo is not None
+        assert xMotivo.text == "Servico nao prestado"
+
+    def test_xMotivo_truncated_to_255(self):
+        """xMotivo must not exceed 255 characters."""
+        builder = XMLBuilder()
+        long_reason = "X" * 300
+
+        xml_str = builder.build_cancel_event(SAMPLE_CHAVE, long_reason)
+        root = ET.fromstring(xml_str)
+
+        xMotivo = root.find("nfse:infPedReg/nfse:e101101/nfse:xMotivo", NS)
+        assert len(xMotivo.text) == 255
+
+    def test_tpAmb_homologacao(self):
+        """tpAmb should be 2 for homologacao."""
+        builder = XMLBuilder(ambiente=Ambiente.HOMOLOGACAO)
+
+        xml_str = builder.build_cancel_event(SAMPLE_CHAVE, "Motivo")
+        root = ET.fromstring(xml_str)
+
+        tpAmb = root.find("nfse:infPedReg/nfse:tpAmb", NS)
+        assert tpAmb.text == "2"
+
+    def test_tpAmb_producao(self):
+        """tpAmb should be 1 for producao."""
+        builder = XMLBuilder(ambiente=Ambiente.PRODUCAO)
+
+        xml_str = builder.build_cancel_event(SAMPLE_CHAVE, "Motivo")
+        root = ET.fromstring(xml_str)
+
+        tpAmb = root.find("nfse:infPedReg/nfse:tpAmb", NS)
+        assert tpAmb.text == "1"
+
+    def test_e101101_xdesc(self):
+        """e101101 must have fixed xDesc."""
+        builder = XMLBuilder()
+
+        xml_str = builder.build_cancel_event(SAMPLE_CHAVE, "Motivo")
+        root = ET.fromstring(xml_str)
+
+        xDesc = root.find("nfse:infPedReg/nfse:e101101/nfse:xDesc", NS)
+        assert xDesc is not None
+        assert xDesc.text == "Cancelamento de NFS-e"
+
+    def test_cnpj_autor_included_when_provided(self):
+        """CNPJAutor should appear when cnpj_prestador is given."""
+        builder = XMLBuilder()
+
+        xml_str = builder.build_cancel_event(
+            SAMPLE_CHAVE, "Motivo", cnpj_prestador="27139240000185"
+        )
+        root = ET.fromstring(xml_str)
+
+        cnpj = root.find("nfse:infPedReg/nfse:CNPJAutor", NS)
+        assert cnpj is not None
+        assert cnpj.text == "27139240000185"
+
+    def test_cnpj_autor_omitted_when_empty(self):
+        """CNPJAutor should be omitted when cnpj_prestador is empty."""
+        builder = XMLBuilder()
+
+        xml_str = builder.build_cancel_event(SAMPLE_CHAVE, "Motivo")
+        root = ET.fromstring(xml_str)
+
+        cnpj = root.find("nfse:infPedReg/nfse:CNPJAutor", NS)
+        assert cnpj is None
+
+    def test_includes_namespace(self):
+        """XML must include the NFSe namespace."""
+        builder = XMLBuilder()
+
+        xml_str = builder.build_cancel_event(SAMPLE_CHAVE, "Motivo")
+        assert "http://www.sped.fazenda.gov.br/nfse" in xml_str
