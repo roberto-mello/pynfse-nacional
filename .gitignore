@@ -81,3 +81,7 @@ venv.bak/
 .DS_Store
 Thumbs.db
 ronald/
+
+# Dolt database files (added by bd init)
+.dolt/
+*.db
