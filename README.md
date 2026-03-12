@@ -142,7 +142,7 @@ Cliente principal para a API do NFSe Nacional.
 - `submit_dps(dps: DPS) -> NFSeResponse` - Envia DPS e recebe NFSe
 - `query_nfse(chave_acesso: str) -> NFSeQueryResult` - Consulta NFSe pela chave de acesso
 - `download_danfse(chave_acesso: str) -> bytes` - Baixa o DANFSe em PDF
-- `cancel_nfse(chave_acesso: str, reason: str) -> EventResponse` - Cancela NFSe
+- `cancel_nfse(chave_acesso, reason, codigo_motivo=1, cnpj_prestador="") -> EventResponse` - Cancela NFSe
 - `substitute_nfse(chave_acesso_original, new_dps, motivo, codigo_motivo) -> NFSeResponse` - Substitui NFSe existente
 
 **Consulta de Convênio Municipal:**
@@ -165,6 +165,37 @@ else:
 ```
 
 **Nota:** A API de parametrização (alíquotas por serviço) está com problemas no ambiente de homologação. Apenas a consulta de convênio municipal está disponível.
+
+### Cancelando NFSe
+
+Para cancelar uma NFSe emitida, utilize a chave de acesso e o CNPJ do prestador (obrigatório para identificação junto à SEFIN):
+
+```python
+result = client.cancel_nfse(
+    chave_acesso="13026032242713924000185000000000010626030410654816",
+    reason="Erro na emissão do serviço prestado",
+    codigo_motivo=1,          # 1=erro na emissão, 2=serviço não prestado, 4=duplicidade
+    cnpj_prestador="42713924000185",  # CNPJ do prestador, somente dígitos
+)
+
+if result.success:
+    print(f"NFS-e cancelada. Protocolo: {result.protocolo}")
+else:
+    print(f"Erro ao cancelar: [{result.error_code}] {result.error_message}")
+```
+
+**Códigos de motivo (`codigo_motivo`):**
+
+| Código | Descrição |
+|--------|-----------|
+| 1 | Erro na emissão |
+| 2 | Serviço não prestado |
+| 4 | Duplicidade |
+
+**Observações:**
+- O `cnpj_prestador` é obrigatório — sem ele, a SEFIN retorna HTTP 404.
+- Alguns municípios configuram um valor máximo para cancelamento via API. Se o valor da NFS-e exceder esse limite, o cancelamento deve ser feito pelo portal municipal.
+- O prazo para cancelamento varia por município.
 
 ### Substituindo NFSe
 
@@ -436,7 +467,7 @@ Main client for NFSe Nacional API.
 - `submit_dps(dps: DPS) -> NFSeResponse` - Submit DPS and receive NFSe
 - `query_nfse(chave_acesso: str) -> NFSeQueryResult` - Query NFSe by access key
 - `download_danfse(chave_acesso: str) -> bytes` - Download DANFSe PDF
-- `cancel_nfse(chave_acesso: str, reason: str) -> EventResponse` - Cancel NFSe
+- `cancel_nfse(chave_acesso, reason, codigo_motivo=1, cnpj_prestador="") -> EventResponse` - Cancel NFSe
 - `substitute_nfse(chave_acesso_original, new_dps, motivo, codigo_motivo) -> NFSeResponse` - Substitute existing NFSe
 
 **Municipal Agreement Query:**
@@ -459,6 +490,36 @@ else:
 ```
 
 **Note:** The parametrization API (service tax rates) has issues in the homologation environment. Only the municipal agreement query is available.
+
+#### Cancelling NFSe
+
+To cancel an issued NFSe, provide the access key and the provider's CNPJ (required by SEFIN to identify the requester):
+
+```python
+result = client.cancel_nfse(
+    chave_acesso="13026032242713924000185000000000010626030410654816",
+    reason="Erro na emissão do serviço prestado",
+    codigo_motivo=1,           # 1=issuance error, 2=service not rendered, 4=duplicate
+    cnpj_prestador="42713924000185",   # Provider CNPJ, digits only
+)
+
+if result.success:
+    print(f"NFSe cancelled. Protocol: {result.protocolo}")
+else:
+    print(f"Cancellation failed: [{result.error_code}] {result.error_message}")
+```
+
+**Cancellation reason codes (`codigo_motivo`):**
+
+| Code | Description |
+|------|-------------|
+| 1 | Issuance error |
+| 2 | Service not rendered |
+| 4 | Duplicate |
+
+**Notes:**
+- `cnpj_prestador` is required — without it SEFIN returns HTTP 404.
+- Some municipalities configure a maximum cancellation value via API. If the NFSe value exceeds that limit, cancellation must be done through the municipal portal.
 
 #### Generating DANFSe (PDF)
 
