@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.3] - 2026-03-11
+
+### Fixed
+- `cancel_nfse()` now accepts and forwards `cnpj_prestador` to `build_cancel_event()`,
+  populating the `CNPJAutor` field in the `pedRegEvento` XML. SEFIN requires this field
+  to identify the cancellation author; omitting it caused HTTP 404 on the `/eventos`
+  endpoint even when the NFS-e existed.
+
 ## [0.4.2] - 2026-03-11
 
 ### Fixed
