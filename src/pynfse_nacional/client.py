@@ -404,7 +404,7 @@ class NFSeClient:
         Returns:
             EventResponse with protocolo on success.
         """
-        url = f"{self.base_url}{ENDPOINTS['events']}"
+        url = f"{self.base_url}{ENDPOINTS['events'].format(chave=chave_acesso)}"
 
         xml = self._xml_builder.build_cancel_event(chave_acesso, reason, codigo_motivo, cnpj_prestador)
         signed_xml = self._xml_signer.sign(xml)
@@ -427,9 +427,10 @@ class NFSeClient:
         """Parse API response for event registration.
 
         SEFIN returns either:
-          - {retEvento: {cStat: 144, xMotivo: "...", idEvento: "..."}, ...}
-          - {protocolo: "..."} (legacy / some environments)
-          - {codigo: "...", mensagem: "..."} on error
+          - 200: {retEvento: {cStat: 144, xMotivo: "...", idEvento: "..."}, ...}
+          - 200: {protocolo: "..."} (legacy)
+          - 4xx: {erro: [{codigo: "...", descricao: "...", complemento: "..."}]}
+          - 4xx: {codigo: "...", mensagem: "..."} (legacy error format)
         """
         try:
             data = response.json()
@@ -437,7 +438,7 @@ class NFSeClient:
             return EventResponse(
                 success=False,
                 error_code=str(response.status_code),
-                error_message=response.text or "Erro desconhecido",
+                error_message=response.text[:500] if response.text else f"HTTP {response.status_code} sem corpo",
             )
 
         if response.status_code in (200, 201):
@@ -457,6 +458,20 @@ class NFSeClient:
             return EventResponse(
                 success=True,
                 protocolo=protocolo,
+            )
+
+        # Error response — try SEFIN's erro array format first
+        erros = data.get("erro")
+        if erros and isinstance(erros, list) and erros:
+            first = erros[0]
+            codigo = first.get("codigo") or str(response.status_code)
+            descricao = first.get("descricao") or ""
+            complemento = first.get("complemento") or ""
+            message = f"{descricao}: {complemento}" if complemento else descricao
+            return EventResponse(
+                success=False,
+                error_code=codigo,
+                error_message=message or "Erro desconhecido",
             )
 
         return EventResponse(

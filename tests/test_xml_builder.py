@@ -809,7 +809,7 @@ class TestXMLBuilderCancelEvent:
 
         infPedReg = root.find("nfse:infPedReg", NS)
         assert infPedReg is not None
-        assert infPedReg.get("Id") == f"PRE{SAMPLE_CHAVE}1"
+        assert infPedReg.get("Id") == f"PRE{SAMPLE_CHAVE}101101"
 
     def test_chNFSe_present(self):
         """chNFSe must contain the access key."""

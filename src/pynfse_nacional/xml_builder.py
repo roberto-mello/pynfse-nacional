@@ -85,8 +85,10 @@ class XMLBuilder:
         Returns:
             XML string for the cancellation event (unsigned).
         """
-        # Id format: PRE + chNFSe (50 digits) + nPedRegEvento (1 digit)
-        event_id = f"PRE{chave_acesso}1"
+        # Id format: PRE + chNFSe (50 digits) + event type code (6 digits)
+        # XSD type TSIdPedRegEvt pattern: PRE[0-9]{56} (total 59 chars)
+        # e101101 → numeric code "101101"
+        event_id = f"PRE{chave_acesso}101101"
 
         brt = timezone(timedelta(hours=-3))
         dh_evento = datetime.now(tz=brt).strftime("%Y-%m-%dT%H:%M:%S-03:00")
@@ -104,7 +106,6 @@ class XMLBuilder:
             ET.SubElement(infPedReg, "CNPJAutor").text = cnpj_prestador
 
         ET.SubElement(infPedReg, "chNFSe").text = chave_acesso
-        ET.SubElement(infPedReg, "nPedRegEvento").text = "1"
 
         e101101 = ET.SubElement(infPedReg, "e101101")
         ET.SubElement(e101101, "xDesc").text = "Cancelamento de NFS-e"
