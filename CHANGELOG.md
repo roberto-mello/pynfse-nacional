@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- `cancel_nfse()`, `query_nfse()`, and `download_danfse()` now validate that
+  `chave_acesso` is exactly 50 numeric digits before URL interpolation, raising
+  `ValueError` on invalid input.
+- `_parse_event_response()` correctly distinguishes a confirmed `retEvento.cStat=144`
+  success from a legacy `{protocolo: "..."}` response — previously both fell through
+  the same code path, producing `success=True` with `protocolo=None` when `retEvento`
+  was absent.
+- `_parse_event_response()` now aggregates all entries in the SEFIN `erro` array into
+  a single joined error message, rather than silently discarding all but the first.
+- `descricao` and `complemento` fields from SEFIN error responses are capped at 255
+  characters to prevent unbounded log entries.
+- `_get_client()` initialises temp file paths to `None` before writing, preventing a
+  potential `NameError` in the `finally` cleanup block if a write fails mid-way.
+
+### Changed
+- Removed unused internal constants `REGIME_SIMPLES_NACIONAL`, `REGIME_SIMPLES_EXCESSO`,
+  `REGIME_NORMAL`, `REGIME_MEI`, `STATUS_EMITIDA`, `STATUS_CANCELADA`, `STATUS_SUBSTITUIDA`
+  from `constants.py` — these were never exported and not referenced anywhere in the library.
+
 ## [0.4.5] - 2026-03-12
 
 ### Fixed
