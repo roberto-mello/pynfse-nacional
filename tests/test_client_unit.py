@@ -581,7 +581,7 @@ class TestCancelNfse:
                 with patch.object(mock_client._xml_signer, "sign", return_value="<signed/>"):
                     mock_client.cancel_nfse(self.CHAVE, "Motivo")
 
-            mock_build.assert_called_once_with(self.CHAVE, "Motivo", 1)
+            mock_build.assert_called_once_with(self.CHAVE, "Motivo", 1, "")
 
     def test_cancel_nfse_custom_codigo_motivo(self, mock_client):
         """Should forward custom codigo_motivo to the XML builder."""
@@ -602,7 +602,30 @@ class TestCancelNfse:
                 with patch.object(mock_client._xml_signer, "sign", return_value="<signed/>"):
                     mock_client.cancel_nfse(self.CHAVE, "Duplicidade", codigo_motivo=4)
 
-            mock_build.assert_called_once_with(self.CHAVE, "Duplicidade", 4)
+            mock_build.assert_called_once_with(self.CHAVE, "Duplicidade", 4, "")
+
+    def test_cancel_nfse_forwards_cnpj_prestador(self, mock_client):
+        """Should forward cnpj_prestador to build_cancel_event for CNPJAutor field."""
+        mock_response = MockResponse(
+            status_code=200,
+            json_data={"retEvento": {"cStat": 144, "xMotivo": "OK"}},
+        )
+
+        with patch.object(mock_client, "_get_client") as mock_get_client:
+            mock_http = MagicMock()
+            mock_http.post.return_value = mock_response
+            mock_get_client.return_value.__enter__ = MagicMock(return_value=mock_http)
+            mock_get_client.return_value.__exit__ = MagicMock(return_value=False)
+
+            with patch.object(
+                mock_client._xml_builder, "build_cancel_event", return_value="<xml/>"
+            ) as mock_build:
+                with patch.object(mock_client._xml_signer, "sign", return_value="<signed/>"):
+                    mock_client.cancel_nfse(
+                        self.CHAVE, "Motivo", cnpj_prestador="27139240000185"
+                    )
+
+            mock_build.assert_called_once_with(self.CHAVE, "Motivo", 1, "27139240000185")
 
     def test_cancel_nfse_error(self, mock_client):
         """Should handle cancellation error."""
