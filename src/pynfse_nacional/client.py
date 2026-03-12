@@ -388,6 +388,7 @@ class NFSeClient:
         chave_acesso: str,
         reason: str,
         codigo_motivo: int = 1,
+        cnpj_prestador: str = "",
     ) -> EventResponse:
         """Cancel NFSe by access key.
 
@@ -396,13 +397,16 @@ class NFSeClient:
             reason: Free-text cancellation reason (max 255 chars).
             codigo_motivo: Cancellation reason code (1=erro na emissão,
                 2=serviço não prestado, 4=duplicidade). Default 1.
+            cnpj_prestador: CNPJ of the service provider (14 digits, digits only).
+                Required by SEFIN to identify the cancellation author. Without
+                this, SEFIN returns 404 on the /eventos endpoint.
 
         Returns:
             EventResponse with protocolo on success.
         """
         url = f"{self.base_url}{ENDPOINTS['events']}"
 
-        xml = self._xml_builder.build_cancel_event(chave_acesso, reason, codigo_motivo)
+        xml = self._xml_builder.build_cancel_event(chave_acesso, reason, codigo_motivo, cnpj_prestador)
         signed_xml = self._xml_signer.sign(xml)
         encoded_content = compress_encode(signed_xml)
 
