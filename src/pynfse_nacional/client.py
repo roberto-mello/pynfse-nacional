@@ -1,3 +1,4 @@
+import re
 import tempfile
 from contextlib import contextmanager
 from pathlib import Path
@@ -22,6 +23,18 @@ from .utils import compress_encode, decode_decompress
 
 # NFSe namespace for XML parsing
 _NFSE_NS = {"nfse": "http://www.sped.fazenda.gov.br/nfse"}
+
+_CHAVE_RE = re.compile(r"^\d{50}$")
+
+
+def _validate_chave_acesso(chave: str) -> None:
+    """Valida que chave_acesso contém exatamente 50 dígitos numéricos."""
+
+    if not _CHAVE_RE.match(chave):
+        raise ValueError(
+            f"chave_acesso deve conter exatamente 50 digitos numericos, "
+            f"recebido: '{chave[:20]}{'...' if len(chave) > 20 else ''}' ({len(chave)} caracteres)"
+        )
 
 
 def _extract_nfse_number_from_xml(xml_content: str) -> Optional[str]:
@@ -248,6 +261,7 @@ class NFSeClient:
 
     def query_nfse(self, chave_acesso: str) -> NFSeQueryResult:
         """Query NFSe by access key."""
+        _validate_chave_acesso(chave_acesso)
         url = f"{self.base_url}{ENDPOINTS['query_nfse'].format(chave=chave_acesso)}"
 
         try:
@@ -309,6 +323,8 @@ class NFSeClient:
         The local generator requires optional dependencies:
             pip install pynfse-nacional[pdf]
         """
+        _validate_chave_acesso(chave_acesso)
+
         # DANFSE API is on a different domain than SEFIN
         danfse_base_url = self.base_url.replace("sefin.", "adn.").replace("/SefinNacional", "")
         url = f"{danfse_base_url}{ENDPOINTS['download_danfse'].format(chave=chave_acesso)}"
@@ -404,6 +420,7 @@ class NFSeClient:
         Returns:
             EventResponse with protocolo on success.
         """
+        _validate_chave_acesso(chave_acesso)
         url = f"{self.base_url}{ENDPOINTS['events'].format(chave=chave_acesso)}"
 
         xml = self._xml_builder.build_cancel_event(chave_acesso, reason, codigo_motivo, cnpj_prestador)
@@ -442,22 +459,28 @@ class NFSeClient:
             )
 
         if response.status_code in (200, 201):
-            ret_evento = data.get("retEvento", {})
+            ret_evento = data.get("retEvento")
 
-            # cStat 144 = evento recebido com sucesso
-            c_stat = ret_evento.get("cStat")
-            protocolo = ret_evento.get("idEvento") or data.get("protocolo")
+            if ret_evento is not None:
+                # cStat 144 = evento recebido com sucesso
+                c_stat = ret_evento.get("cStat")
 
-            if c_stat and str(c_stat) != "144":
+                if c_stat is not None and str(c_stat) != "144":
+                    return EventResponse(
+                        success=False,
+                        error_code=str(c_stat),
+                        error_message=ret_evento.get("xMotivo") or "Erro no registro do evento",
+                    )
+
                 return EventResponse(
-                    success=False,
-                    error_code=str(c_stat),
-                    error_message=ret_evento.get("xMotivo") or "Erro no registro do evento",
+                    success=True,
+                    protocolo=ret_evento.get("idEvento"),
                 )
 
+            # Legacy shape: {protocolo: "..."}
             return EventResponse(
                 success=True,
-                protocolo=protocolo,
+                protocolo=data.get("protocolo"),
             )
 
         # Error response — try SEFIN's erro array format first
