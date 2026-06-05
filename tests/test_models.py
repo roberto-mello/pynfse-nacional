@@ -823,3 +823,18 @@ class TestDPSSubstituicao:
         )
 
         assert dps.substituicao is None
+
+
+class TestPrestadorInscricaoMunicipal:
+    """Testes para a IM do prestador."""
+
+    def test_accepts_none_inscricao_municipal(self, valid_endereco):
+        """Deve aceitar IM ausente para prestador."""
+        prestador = Prestador(
+            cnpj="11222333000181",
+            inscricao_municipal=None,
+            razao_social="Empresa Teste LTDA",
+            endereco=valid_endereco,
+        )
+
+        assert prestador.inscricao_municipal is None

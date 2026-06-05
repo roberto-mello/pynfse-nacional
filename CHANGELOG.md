@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- `Prestador.inscricao_municipal` is now optional and the DPS XML builder
+  omits `<IM>` when the field is not provided, matching the official NFSe
+  layout.
+
+## [0.4.7] - 2026-06-04
+
+### Fixed
+- `_get_client()` context manager no longer swallows httpx network errors
+  (`RemoteProtocolError`, `ConnectError`, etc.) from the yield body and
+  misclassifies them as `NFSeCertificateError`. Only `httpx.Client()`
+  construction errors are wrapped as `NFSeCertificateError`; errors during
+  request execution now propagate to the correct `except httpx.TimeoutException`
+  / `except httpx.RequestError` handlers in `submit_dps()`, `cancel_nfse()`,
+  `query_nfse()`, `download_danfse()`, and `query_convenio_municipal()`.
+
+### Changed
+- All E501 line-length violations in `client.py` resolved for ruff compliance.
+- Imports sorted for isort/ruff compliance.
+
 ## [0.4.6] - 2026-03-11
 
 ### Fixed
@@ -123,8 +143,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - XML builder and XML signer using `lxml` and `signxml`.
 - Support for homologação and produção environments.
 
-[Unreleased]: https://github.com/robmello/pynfse-nacional/compare/v0.4.2...HEAD
-[0.4.2]: https://github.com/robmello/pynfse-nacional/compare/v0.4.1...v0.4.2
+[Unreleased]: https://github.com/robmello/pynfse-nacional/compare/v0.4.7...HEAD
+[0.4.7]: https://github.com/robmello/pynfse-nacional/compare/v0.4.6...v0.4.7
+[0.4.6]: https://github.com/robmello/pynfse-nacional/compare/v0.4.5...v0.4.6
+[0.4.5]: https://github.com/robmello/pynfse-nacional/compare/v0.4.4...v0.4.5
 [0.4.1]: https://github.com/robmello/pynfse-nacional/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/robmello/pynfse-nacional/compare/v0.3.2...v0.4.0
 [0.3.2]: https://github.com/robmello/pynfse-nacional/compare/v0.3.0...v0.3.2
