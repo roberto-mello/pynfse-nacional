@@ -23,7 +23,11 @@ echo "$COMMAND" | grep -qE 'SKIP:' && exit 0
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=sanitize-content.sh
-source "$SCRIPT_DIR/sanitize-content.sh"
+if [[ -f "$SCRIPT_DIR/sanitize-content.sh" ]]; then
+  source "$SCRIPT_DIR/sanitize-content.sh"
+else
+  sanitize_untrusted_content() { cat; }
+fi
 
 # Validate CLAUDE_PROJECT_DIR to prevent redirect attacks
 # Placed AFTER early-exit guards (PostToolUse fires very frequently; this runs on ~1% of calls)
@@ -157,12 +161,6 @@ if [[ "$LINE_COUNT" -gt 5000 ]]; then
   head -2500 "$KNOWLEDGE_FILE" >> "$ARCHIVE_FILE"
   tail -n +2501 "$KNOWLEDGE_FILE" > "$KNOWLEDGE_FILE.tmp"
   mv "$KNOWLEDGE_FILE.tmp" "$KNOWLEDGE_FILE"
-fi
-
-# Curate active knowledge in the background. Keep this off the hot path:
-# the scheduler only marks memory as dirty and spawns a sanitizer if idle.
-if [[ -f "$SCRIPT_DIR/memory-sanitize.sh" ]]; then
-  "$SCRIPT_DIR/memory-sanitize.sh" --schedule memory-capture "$MEMORY_DIR" >/dev/null 2>&1 || true
 fi
 
 exit 0
