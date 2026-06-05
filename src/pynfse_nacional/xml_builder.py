@@ -133,8 +133,9 @@ class XMLBuilder:
         ET.SubElement(prest, "CNPJ").text = dps.prestador.cnpj
 
         # IM padded with spaces to 15 chars as seen in real NFSe
-        im_padded = dps.prestador.inscricao_municipal.rjust(15)
-        ET.SubElement(prest, "IM").text = im_padded
+        if dps.prestador.inscricao_municipal:
+            im_padded = dps.prestador.inscricao_municipal.rjust(15)
+            ET.SubElement(prest, "IM").text = im_padded
 
         if dps.prestador.telefone:
             ET.SubElement(prest, "fone").text = dps.prestador.telefone

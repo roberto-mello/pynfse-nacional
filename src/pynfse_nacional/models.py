@@ -102,7 +102,7 @@ class Endereco(BaseModel):
 
 class Prestador(BaseModel):
     cnpj: str = Field(..., description="CNPJ com 14 digitos, sem formatacao")
-    inscricao_municipal: str = Field(..., min_length=1, max_length=15)
+    inscricao_municipal: Optional[str] = Field(None, min_length=1, max_length=15)
     razao_social: str = Field(..., min_length=1, max_length=300)
     nome_fantasia: Optional[str] = Field(None, max_length=150)
     endereco: Endereco
