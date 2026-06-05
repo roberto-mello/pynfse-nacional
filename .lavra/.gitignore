@@ -1,0 +1,20 @@
+# SQLite FTS cache (rebuilt from knowledge.jsonl on first use)
+memory/knowledge.db
+memory/knowledge.db-journal
+memory/knowledge.db-wal
+memory/knowledge.db-shm
+
+# Ephemeral session state (survives compaction, recalled once, then deleted)
+memory/session-state.md
+
+# Curated local knowledge cache (rebuilt from append-only JSONL)
+memory/knowledge.active.jsonl
+memory/knowledge.audit.jsonl
+memory/knowledge.active.db
+memory/knowledge.active.db-journal
+memory/knowledge.active.db-wal
+memory/knowledge.active.db-shm
+memory/.memory-sanitize-go
+memory/.sanitize-needed
+memory/.sanitize.last-run
+memory/.sanitize.lock
