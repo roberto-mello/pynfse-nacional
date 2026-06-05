@@ -1,7 +1,7 @@
 {
   "database": "dolt",
   "backend": "dolt",
-  "dolt_mode": "server",
+  "dolt_mode": "embedded",
   "dolt_database": "pynfse",
   "project_id": "a8dfdaee-ed74-466d-a2ca-cc79cc61fb7d"
 }
