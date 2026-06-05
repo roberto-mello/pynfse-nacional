@@ -11,15 +11,15 @@ from .constants import API_URLS, ENDPOINTS, PARAMETRIZACAO_URLS, Ambiente
 from .exceptions import NFSeAPIError, NFSeCertificateError
 from .models import (
     DPS,
-    NFSeResponse,
+    ConvenioMunicipal,
     EventResponse,
     NFSeQueryResult,
-    ConvenioMunicipal,
+    NFSeResponse,
     SubstituicaoNFSe,
 )
+from .utils import compress_encode, decode_decompress
 from .xml_builder import XMLBuilder
 from .xml_signer import XMLSignerService
-from .utils import compress_encode, decode_decompress
 
 # NFSe namespace for XML parsing
 _NFSE_NS = {"nfse": "http://www.sped.fazenda.gov.br/nfse"}
@@ -31,9 +31,11 @@ def _validate_chave_acesso(chave: str) -> None:
     """Valida que chave_acesso contém exatamente 50 dígitos numéricos."""
 
     if not _CHAVE_RE.match(chave):
+        received = f"{chave[:20]}..." if len(chave) > 20 else chave
         raise ValueError(
-            f"chave_acesso deve conter exatamente 50 digitos numericos, "
-            f"recebido: '{chave[:20]}{'...' if len(chave) > 20 else ''}' ({len(chave)} caracteres)"
+            f"chave_acesso deve conter exatamente 50 digitos "
+            f"numericos, recebido: '{received}' "
+            f"({len(chave)} caracteres)"
         )
 
 
@@ -63,7 +65,12 @@ def _extract_nfse_number_from_xml(xml_content: str) -> Optional[str]:
     return None
 
 try:
-    from cryptography.hazmat.primitives.serialization import pkcs12, Encoding, PrivateFormat, NoEncryption
+    from cryptography.hazmat.primitives.serialization import (
+        Encoding,
+        NoEncryption,
+        PrivateFormat,
+        pkcs12,
+    )
 
     CRYPTOGRAPHY_AVAILABLE = True
 except ImportError:
@@ -119,7 +126,10 @@ class NFSeClient:
             cert_path = Path(self.cert_path)
 
             if not cert_path.exists():
-                raise NFSeCertificateError(f"Certificate file not found: {self.cert_path}")
+                raise NFSeCertificateError(
+                    f"Certificate file not found: "
+                    f"{self.cert_path}"
+                )
 
             with open(cert_path, "rb") as f:
                 pkcs12_data = f.read()
@@ -180,17 +190,15 @@ class NFSeClient:
                 verify=True,
                 timeout=self.timeout,
             )
-
-            yield client
-            client.close()
-
         except Exception as e:
             raise NFSeCertificateError(f"Error configuring HTTP client: {str(e)}")
 
+        try:
+            yield client
         finally:
+            client.close()
             if cert_file_path:
                 Path(cert_file_path).unlink(missing_ok=True)
-
             if key_file_path:
                 Path(key_file_path).unlink(missing_ok=True)
 
@@ -228,7 +236,8 @@ class NFSeClient:
                 error_message=response.text or "Erro desconhecido",
             )
 
-        # Check for chaveAcesso to determine success (API may return success on non-200 status)
+        # Check for chaveAcesso to determine success
+        # (API may return success on non-200 status)
         if data.get("chaveAcesso"):
             nfse_xml = None
             nfse_xml_b64 = data.get("nfseXmlGZipB64")
@@ -332,8 +341,14 @@ class NFSeClient:
         _validate_chave_acesso(chave_acesso)
 
         # DANFSE API is on a different domain than SEFIN
-        danfse_base_url = self.base_url.replace("sefin.", "adn.").replace("/SefinNacional", "")
-        url = f"{danfse_base_url}{ENDPOINTS['download_danfse'].format(chave=chave_acesso)}"
+        danfse_base_url = (
+            self.base_url.replace("sefin.", "adn.")
+            .replace("/SefinNacional", "")
+        )
+        url = (
+            f"{danfse_base_url}"
+            f"{ENDPOINTS['download_danfse'].format(chave=chave_acesso)}"
+        )
 
         try:
             with self._get_client() as client:
@@ -347,8 +362,12 @@ class NFSeClient:
                     except Exception:
                         pass
 
+                    msg = error_data.get("mensagem") or (
+                        f"Erro ao baixar DANFSe: "
+                        f"HTTP {response.status_code}"
+                    )
                     raise NFSeAPIError(
-                        error_data.get("mensagem", f"Erro ao baixar DANFSe: HTTP {response.status_code}"),
+                        msg,
                         code=error_data.get("codigo"),
                         status_code=response.status_code,
                     )
@@ -429,7 +448,9 @@ class NFSeClient:
         _validate_chave_acesso(chave_acesso)
         url = f"{self.base_url}{ENDPOINTS['events'].format(chave=chave_acesso)}"
 
-        xml = self._xml_builder.build_cancel_event(chave_acesso, reason, codigo_motivo, cnpj_prestador)
+        xml = self._xml_builder.build_cancel_event(
+            chave_acesso, reason, codigo_motivo, cnpj_prestador
+        )
         signed_xml = self._xml_signer.sign(xml)
         encoded_content = compress_encode(signed_xml)
 
@@ -461,7 +482,10 @@ class NFSeClient:
             return EventResponse(
                 success=False,
                 error_code=str(response.status_code),
-                error_message=response.text[:500] or f"HTTP {response.status_code} sem corpo",
+                error_message=(
+                    response.text[:500]
+                    or f"HTTP {response.status_code} sem corpo"
+                ),
             )
 
         if response.status_code in (200, 201):
@@ -475,7 +499,10 @@ class NFSeClient:
                     return EventResponse(
                         success=False,
                         error_code=str(c_stat),
-                        error_message=ret_evento.get("xMotivo") or "Erro no registro do evento",
+                        error_message=(
+                        ret_evento.get("xMotivo")
+                        or "Erro no registro do evento"
+                    ),
                     )
 
                 return EventResponse(
@@ -543,8 +570,12 @@ class NFSeClient:
                     except Exception:
                         pass
 
+                    msg = error_data.get("mensagem") or (
+                        f"Erro ao consultar convenio: "
+                        f"HTTP {response.status_code}"
+                    )
                     raise NFSeAPIError(
-                        error_data.get("mensagem", f"Erro ao consultar convenio: HTTP {response.status_code}"),
+                        msg,
                         code=error_data.get("codigo"),
                         status_code=response.status_code,
                     )

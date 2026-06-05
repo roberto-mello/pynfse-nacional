@@ -295,6 +295,19 @@ class TestXMLBuilderPrestador:
         assert im.text == "          12345"
         assert len(im.text) == 15
 
+    def test_build_dps_omits_im_when_missing(self, sample_dps):
+        """Prestador section should omit IM when inscricao_municipal is not provided."""
+        sample_dps.prestador.inscricao_municipal = None
+        builder = XMLBuilder()
+
+        xml_str = builder.build_dps(sample_dps)
+        root = ET.fromstring(xml_str)
+
+        prest = root.find("nfse:infDPS/nfse:prest", NS)
+        im = prest.find("nfse:IM", NS)
+
+        assert im is None
+
     def test_build_dps_includes_prestador_fone(self, sample_dps):
         """Prestador section should include fone."""
         builder = XMLBuilder()
