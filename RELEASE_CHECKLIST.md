@@ -18,6 +18,19 @@ package metadata in the repository.
 
 ## Release Steps
 
+For a normal release, the one-command path is:
+
+```bash
+uv run release
+```
+
+The command reads the upload token from `UV_PUBLISH_TOKEN` or from
+`~/.pypirc` if you have a `[pypi]` or `[testpypi]` section with
+`username = __token__` and `password = <token>`.
+
+Use `--repository testpypi --dry-run` first if you want to validate the build
+and upload flow against TestPyPI.
+
 1. Update version metadata and changelog if they are not already aligned.
 2. Run the required quality gates.
 3. Close the release bead and file any remaining follow-up beads.
