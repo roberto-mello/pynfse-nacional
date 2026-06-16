@@ -134,4 +134,10 @@ bd close <id>         # Complete work
 - NEVER stop before pushing - that leaves work stranded locally
 - NEVER say "ready to push when you are" - YOU must push
 - If push fails, resolve and retry until it succeeds
+
+## Release Checklist
+
+Use [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md) before cutting a release.
+It contains the pre-release checks, tagging steps, and post-release verification
+needed to ship a version safely.
 <!-- END BEADS INTEGRATION -->
