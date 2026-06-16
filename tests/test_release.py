@@ -94,3 +94,23 @@ def test_load_pypi_token_reads_pypirc(tmp_path, monkeypatch):
     monkeypatch.delenv("UV_PUBLISH_TOKEN", raising=False)
 
     assert release.load_pypi_token("pypi") == "secret-token"
+
+
+def test_load_pypi_token_prefers_matching_repository_url(tmp_path, monkeypatch):
+    pypirc = tmp_path / ".pypirc"
+    pypirc.write_text(
+        (
+            "[pypi]\n"
+            "username = __token__\n"
+            "password = # placeholder value\n\n"
+            "[pynfse-nacional]\n"
+            "repository = https://upload.pypi.org/legacy/\n"
+            "username = __token__\n"
+            "password = pypi-secret-token\n"
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(release, "pypirc_path", lambda: pypirc)
+    monkeypatch.delenv("UV_PUBLISH_TOKEN", raising=False)
+
+    assert release.load_pypi_token("pypi") == "pypi-secret-token"

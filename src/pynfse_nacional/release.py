@@ -44,15 +44,24 @@ def load_pypi_token(repository: str) -> str | None:
     if not path.exists():
         return None
 
-    parser = configparser.ConfigParser()
+    parser = configparser.ConfigParser(inline_comment_prefixes=("#", ";"))
     parser.read(path)
-    if not parser.has_section(repository):
-        return None
 
-    username = parser.get(repository, "username", fallback="")
-    password = parser.get(repository, "password", fallback="")
-    if username == "__token__" and password:
-        return password
+    repo_config = REPOSITORIES[repository]
+    candidates = [repository]
+    for section in parser.sections():
+        if section not in candidates:
+            configured_url = parser.get(section, "repository", fallback="")
+            if configured_url == repo_config["publish_url"]:
+                candidates.append(section)
+
+    for section in candidates:
+        if not parser.has_section(section):
+            continue
+        username = parser.get(section, "username", fallback="")
+        password = parser.get(section, "password", fallback="")
+        if username == "__token__" and password:
+            return password
     return None
 
 
