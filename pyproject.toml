@@ -52,6 +52,9 @@ Homepage = "https://github.com/robmello/pynfse-nacional"
 Repository = "https://github.com/robmello/pynfse-nacional"
 Documentation = "https://github.com/robmello/pynfse-nacional#readme"
 
+[project.scripts]
+release = "pynfse_nacional.release:main"
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/pynfse_nacional"]
 
