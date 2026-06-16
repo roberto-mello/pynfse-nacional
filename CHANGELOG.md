@@ -7,11 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed
-- `Prestador.inscricao_municipal` is now optional and the DPS XML builder
-  omits `<IM>` when the field is not provided, matching the official NFSe
-  layout.
-
 ## [0.4.7] - 2026-06-15
 
 ### Fixed
@@ -22,6 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   request execution now propagate to the correct `except httpx.TimeoutException`
   / `except httpx.RequestError` handlers in `submit_dps()`, `cancel_nfse()`,
   `query_nfse()`, `download_danfse()`, and `query_convenio_municipal()`.
+- `Prestador.inscricao_municipal` is now optional and the DPS XML builder
+  omits `<IM>` when the field is not provided, matching the official NFSe
+  layout.
 
 ### Changed
 - All E501 line-length violations in `client.py` resolved for ruff compliance.
