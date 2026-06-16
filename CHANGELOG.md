@@ -12,13 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   omits `<IM>` when the field is not provided, matching the official NFSe
   layout.
 
-### Changed
-- Added a dedicated release checklist in `RELEASE_CHECKLIST.md` and linked it
-  from `AGENTS.md` and `CLAUDE.md` so release steps stay centralized.
-- Cleaned lint debt in the touched release files without changing NFSe
-  transport behavior.
-
-## [0.4.7] - 2026-06-04
+## [0.4.7] - 2026-06-15
 
 ### Fixed
 - `_get_client()` context manager no longer swallows httpx network errors
@@ -32,6 +26,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - All E501 line-length violations in `client.py` resolved for ruff compliance.
 - Imports sorted for isort/ruff compliance.
+- Added a dedicated release checklist in `RELEASE_CHECKLIST.md` and linked it
+  from `AGENTS.md` and `CLAUDE.md` so release steps stay centralized.
+- Cleaned lint debt in the touched release files without changing NFSe
+  transport behavior.
 
 ## [0.4.6] - 2026-03-11
 
