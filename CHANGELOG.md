@@ -12,6 +12,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   omits `<IM>` when the field is not provided, matching the official NFSe
   layout.
 
+### Changed
+- Added a dedicated release checklist in `RELEASE_CHECKLIST.md` and linked it
+  from `AGENTS.md` and `CLAUDE.md` so release steps stay centralized.
+- Cleaned lint debt in the touched release files without changing NFSe
+  transport behavior.
+
 ## [0.4.7] - 2026-06-04
 
 ### Fixed
