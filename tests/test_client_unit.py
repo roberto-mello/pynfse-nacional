@@ -4,30 +4,33 @@ These tests mock HTTP responses to test the client logic without
 making real API calls.
 """
 
+import base64
+import gzip
 from decimal import Decimal
 from unittest.mock import MagicMock, patch
 
 import httpx
 import pytest
 
-from pynfse_nacional import NFSeClient, NFSeAPIError
+from pynfse_nacional import NFSeAPIError, NFSeClient
 from pynfse_nacional.models import (
     DPS,
     Endereco,
-    Prestador,
-    Tomador,
-    Servico,
-    NFSeResponse,
     EventResponse,
     NFSeQueryResult,
-    SubstituicaoNFSe,
+    NFSeResponse,
+    Prestador,
+    Servico,
+    Tomador,
 )
 
 
 class MockResponse:
     """Mock httpx.Response for testing."""
 
-    def __init__(self, status_code: int, json_data=None, text: str = "", content: bytes = b""):
+    def __init__(
+        self, status_code: int, json_data=None, text: str = "", content: bytes = b""
+    ):
         self.status_code = status_code
         self._json_data = json_data
         self.text = text
@@ -72,20 +75,17 @@ def mock_client():
 
 def _make_nfse_xml(nfse_number: str) -> str:
     """Create a sample NFSe XML with the given nNFSe value."""
-    return f'''<?xml version="1.0" encoding="UTF-8"?>
+    return f"""<?xml version="1.0" encoding="UTF-8"?>
 <NFSe xmlns="http://www.sped.fazenda.gov.br/nfse">
     <infNFSe Id="NFS12345678901234567890123456789012345678901234567890">
         <nNFSe>{nfse_number}</nNFSe>
         <dhProc>2026-01-15T10:30:00-03:00</dhProc>
     </infNFSe>
-</NFSe>'''
+</NFSe>"""
 
 
 def _compress_encode(xml_content: str) -> str:
     """Compress and base64 encode XML content."""
-    import gzip
-    import base64
-
     compressed = gzip.compress(xml_content.encode("utf-8"))
     return base64.b64encode(compressed).decode("utf-8")
 
@@ -185,12 +185,12 @@ class TestParseDpsResponseNfseNumberExtraction:
     def test_handles_xml_without_nfse_element(self, mock_client):
         """Should fall back to JSON when XML lacks nNFSe element."""
         chave_acesso = "12345678901234567890123456789012345678901234567890"
-        xml_content = '''<?xml version="1.0" encoding="UTF-8"?>
+        xml_content = """<?xml version="1.0" encoding="UTF-8"?>
 <NFSe xmlns="http://www.sped.fazenda.gov.br/nfse">
     <infNFSe Id="NFS123">
         <dhProc>2026-01-15T10:30:00-03:00</dhProc>
     </infNFSe>
-</NFSe>'''
+</NFSe>"""
         encoded_xml = _compress_encode(xml_content)
 
         mock_response = MockResponse(
@@ -432,7 +432,10 @@ class TestParseEventResponse:
 
         assert result.success is False
         assert result.error_code == "NFSE-E-400"
-        assert result.error_message == "Chave de acesso invalida: Campo chNFSe nao encontrado"
+        assert (
+            result.error_message
+            == "Chave de acesso invalida: Campo chNFSe nao encontrado"
+        )
 
     def test_parses_sefin_erro_array_without_complemento(self, mock_client):
         """Should parse erro array when complemento is absent or empty."""
@@ -459,9 +462,7 @@ class TestParseEventResponse:
         """Should fall back to HTTP status code when erro entry has no codigo."""
         mock_response = MockResponse(
             status_code=422,
-            json_data={
-                "erro": [{"descricao": "Erro generico", "complemento": ""}]
-            },
+            json_data={"erro": [{"descricao": "Erro generico", "complemento": ""}]},
         )
 
         result = mock_client._parse_event_response(mock_response)
@@ -500,7 +501,9 @@ class TestQueryNfse:
             mock_get_client.return_value.__enter__ = MagicMock(return_value=mock_http)
             mock_get_client.return_value.__exit__ = MagicMock(return_value=False)
 
-            result = mock_client.query_nfse("12345678901234567890123456789012345678901234567890")
+            result = mock_client.query_nfse(
+                "12345678901234567890123456789012345678901234567890"
+            )
 
             assert isinstance(result, NFSeQueryResult)
             assert result.nfse_number == "1234"
@@ -526,7 +529,9 @@ class TestQueryNfse:
             mock_get_client.return_value.__enter__ = MagicMock(return_value=mock_http)
             mock_get_client.return_value.__exit__ = MagicMock(return_value=False)
 
-            result = mock_client.query_nfse("11223344556677889900112233445566778899001122334455")
+            result = mock_client.query_nfse(
+                "11223344556677889900112233445566778899001122334455"
+            )
 
             assert result.tomador_documento == "99888777000166"
 
@@ -547,7 +552,9 @@ class TestQueryNfse:
             mock_get_client.return_value.__exit__ = MagicMock(return_value=False)
 
             with pytest.raises(NFSeAPIError) as exc_info:
-                mock_client.query_nfse("12345678901234567890123456789012345678901234567890")
+                mock_client.query_nfse(
+                    "12345678901234567890123456789012345678901234567890"
+                )
 
             assert exc_info.value.status_code == 404
 
@@ -575,7 +582,9 @@ class TestDownloadDanfse:
             mock_get_client.return_value.__enter__ = MagicMock(return_value=mock_http)
             mock_get_client.return_value.__exit__ = MagicMock(return_value=False)
 
-            result = mock_client.download_danfse("11223344556677889900112233445566778899001122334455")
+            result = mock_client.download_danfse(
+                "11223344556677889900112233445566778899001122334455"
+            )
 
             assert result == pdf_content
 
@@ -589,7 +598,9 @@ class TestDownloadDanfse:
             mock_get_client.return_value.__enter__ = MagicMock(return_value=mock_http)
             mock_get_client.return_value.__exit__ = MagicMock(return_value=False)
 
-            mock_client.download_danfse("11223344556677889900112233445566778899001122334455")
+            mock_client.download_danfse(
+                "11223344556677889900112233445566778899001122334455"
+            )
 
             call_args = mock_http.get.call_args[0][0]
             assert "adn." in call_args
@@ -611,7 +622,9 @@ class TestDownloadDanfse:
             mock_get_client.return_value.__exit__ = MagicMock(return_value=False)
 
             with pytest.raises(NFSeAPIError) as exc_info:
-                mock_client.download_danfse("11223344556677889900112233445566778899001122334455")
+                mock_client.download_danfse(
+                    "11223344556677889900112233445566778899001122334455"
+                )
 
             assert exc_info.value.status_code == 501
 
@@ -646,8 +659,12 @@ class TestCancelNfse:
             mock_get_client.return_value.__enter__ = MagicMock(return_value=mock_http)
             mock_get_client.return_value.__exit__ = MagicMock(return_value=False)
 
-            with patch.object(mock_client._xml_builder, "build_cancel_event", return_value="<xml/>"):
-                with patch.object(mock_client._xml_signer, "sign", return_value="<signed/>"):
+            with patch.object(
+                mock_client._xml_builder, "build_cancel_event", return_value="<xml/>"
+            ):
+                with patch.object(
+                    mock_client._xml_signer, "sign", return_value="<signed/>"
+                ):
                     result = mock_client.cancel_nfse(self.CHAVE, "Erro de digitacao")
 
         assert isinstance(result, EventResponse)
@@ -667,8 +684,12 @@ class TestCancelNfse:
             mock_get_client.return_value.__enter__ = MagicMock(return_value=mock_http)
             mock_get_client.return_value.__exit__ = MagicMock(return_value=False)
 
-            with patch.object(mock_client._xml_builder, "build_cancel_event", return_value="<xml/>"):
-                with patch.object(mock_client._xml_signer, "sign", return_value="<signed/>"):
+            with patch.object(
+                mock_client._xml_builder, "build_cancel_event", return_value="<xml/>"
+            ):
+                with patch.object(
+                    mock_client._xml_signer, "sign", return_value="<signed/>"
+                ):
                     mock_client.cancel_nfse(self.CHAVE, "Motivo")
 
             call_kwargs = mock_http.post.call_args[1]
@@ -694,7 +715,9 @@ class TestCancelNfse:
             with patch.object(
                 mock_client._xml_builder, "build_cancel_event", return_value="<xml/>"
             ) as mock_build:
-                with patch.object(mock_client._xml_signer, "sign", return_value="<signed/>"):
+                with patch.object(
+                    mock_client._xml_signer, "sign", return_value="<signed/>"
+                ):
                     mock_client.cancel_nfse(self.CHAVE, "Motivo")
 
             mock_build.assert_called_once_with(self.CHAVE, "Motivo", 1, "")
@@ -715,7 +738,9 @@ class TestCancelNfse:
             with patch.object(
                 mock_client._xml_builder, "build_cancel_event", return_value="<xml/>"
             ) as mock_build:
-                with patch.object(mock_client._xml_signer, "sign", return_value="<signed/>"):
+                with patch.object(
+                    mock_client._xml_signer, "sign", return_value="<signed/>"
+                ):
                     mock_client.cancel_nfse(self.CHAVE, "Duplicidade", codigo_motivo=4)
 
             mock_build.assert_called_once_with(self.CHAVE, "Duplicidade", 4, "")
@@ -736,12 +761,16 @@ class TestCancelNfse:
             with patch.object(
                 mock_client._xml_builder, "build_cancel_event", return_value="<xml/>"
             ) as mock_build:
-                with patch.object(mock_client._xml_signer, "sign", return_value="<signed/>"):
+                with patch.object(
+                    mock_client._xml_signer, "sign", return_value="<signed/>"
+                ):
                     mock_client.cancel_nfse(
                         self.CHAVE, "Motivo", cnpj_prestador="27139240000185"
                     )
 
-            mock_build.assert_called_once_with(self.CHAVE, "Motivo", 1, "27139240000185")
+            mock_build.assert_called_once_with(
+                self.CHAVE, "Motivo", 1, "27139240000185"
+            )
 
     def test_cancel_nfse_error(self, mock_client):
         """Should handle cancellation error."""
@@ -762,7 +791,9 @@ class TestCancelNfse:
             with patch.object(
                 mock_client._xml_builder, "build_cancel_event", return_value="<xml/>"
             ):
-                with patch.object(mock_client._xml_signer, "sign", return_value="<signed/>"):
+                with patch.object(
+                    mock_client._xml_signer, "sign", return_value="<signed/>"
+                ):
                     result = mock_client.cancel_nfse(self.CHAVE, "Motivo")
 
         assert result.success is False
@@ -859,8 +890,12 @@ class TestSubmitDps:
             mock_get_client.return_value.__enter__ = MagicMock(return_value=mock_http)
             mock_get_client.return_value.__exit__ = MagicMock(return_value=False)
 
-            with patch.object(mock_client._xml_builder, "build_dps", return_value="<xml/>"):
-                with patch.object(mock_client._xml_signer, "sign", return_value="<signed/>"):
+            with patch.object(
+                mock_client._xml_builder, "build_dps", return_value="<xml/>"
+            ):
+                with patch.object(
+                    mock_client._xml_signer, "sign", return_value="<signed/>"
+                ):
                     result = mock_client.submit_dps(sample_dps)
 
                     assert isinstance(result, NFSeResponse)
@@ -883,8 +918,12 @@ class TestSubmitDps:
             mock_get_client.return_value.__enter__ = MagicMock(return_value=mock_http)
             mock_get_client.return_value.__exit__ = MagicMock(return_value=False)
 
-            with patch.object(mock_client._xml_builder, "build_dps", return_value="<xml/>"):
-                with patch.object(mock_client._xml_signer, "sign", return_value="<signed/>"):
+            with patch.object(
+                mock_client._xml_builder, "build_dps", return_value="<xml/>"
+            ):
+                with patch.object(
+                    mock_client._xml_signer, "sign", return_value="<signed/>"
+                ):
                     mock_client.submit_dps(sample_dps)
 
                     call_kwargs = mock_http.post.call_args[1]
@@ -897,9 +936,7 @@ class TestSubmitDps:
                     decoded = base64.b64decode(payload["dpsXmlGZipB64"])
                     assert decoded  # Should be valid base64
 
-    def test_submit_dps_request_error_becomes_api_error(
-        self, mock_client, sample_dps
-    ):
+    def test_submit_dps_request_error_becomes_api_error(self, mock_client, sample_dps):
         """Request-time disconnects should hit the submit_dps RequestError handler."""
         with patch("pynfse_nacional.client.httpx.Client") as mock_httpx_client:
             mock_http = MagicMock()
@@ -991,8 +1028,12 @@ class TestSubstituteNfse:
             mock_get_client.return_value.__enter__ = MagicMock(return_value=mock_http)
             mock_get_client.return_value.__exit__ = MagicMock(return_value=False)
 
-            with patch.object(mock_client._xml_builder, "build_dps", return_value="<xml/>"):
-                with patch.object(mock_client._xml_signer, "sign", return_value="<signed/>"):
+            with patch.object(
+                mock_client._xml_builder, "build_dps", return_value="<xml/>"
+            ):
+                with patch.object(
+                    mock_client._xml_signer, "sign", return_value="<signed/>"
+                ):
                     result = mock_client.substitute_nfse(
                         chave_acesso_original=original_chave,
                         new_dps=sample_dps,
@@ -1003,7 +1044,9 @@ class TestSubstituteNfse:
                     assert result.success is True
                     assert result.chave_acesso == new_chave
 
-    def test_substitute_nfse_creates_dps_with_substituicao(self, mock_client, sample_dps):
+    def test_substitute_nfse_creates_dps_with_substituicao(
+        self, mock_client, sample_dps
+    ):
         """Should create DPS with substituicao info."""
         original_chave = "12345678901234567890123456789012345678901234567890"
         new_chave = "98765432109876543210987654321098765432109876543210"
@@ -1026,8 +1069,12 @@ class TestSubstituteNfse:
             mock_get_client.return_value.__enter__ = MagicMock(return_value=mock_http)
             mock_get_client.return_value.__exit__ = MagicMock(return_value=False)
 
-            with patch.object(mock_client._xml_builder, "build_dps", side_effect=capture_build_dps):
-                with patch.object(mock_client._xml_signer, "sign", return_value="<signed/>"):
+            with patch.object(
+                mock_client._xml_builder, "build_dps", side_effect=capture_build_dps
+            ):
+                with patch.object(
+                    mock_client._xml_signer, "sign", return_value="<signed/>"
+                ):
                     mock_client.substitute_nfse(
                         chave_acesso_original=original_chave,
                         new_dps=sample_dps,
@@ -1037,11 +1084,16 @@ class TestSubstituteNfse:
 
                     assert captured_dps is not None
                     assert captured_dps.substituicao is not None
-                    assert captured_dps.substituicao.chave_nfse_substituida == original_chave
+                    assert (
+                        captured_dps.substituicao.chave_nfse_substituida
+                        == original_chave
+                    )
                     assert captured_dps.substituicao.codigo_motivo == 99
                     assert "Correcao" in captured_dps.substituicao.motivo
 
-    def test_substitute_nfse_does_not_modify_original_dps(self, mock_client, sample_dps):
+    def test_substitute_nfse_does_not_modify_original_dps(
+        self, mock_client, sample_dps
+    ):
         """Should not modify the original DPS object."""
         original_chave = "12345678901234567890123456789012345678901234567890"
         new_chave = "98765432109876543210987654321098765432109876543210"
@@ -1057,8 +1109,12 @@ class TestSubstituteNfse:
             mock_get_client.return_value.__enter__ = MagicMock(return_value=mock_http)
             mock_get_client.return_value.__exit__ = MagicMock(return_value=False)
 
-            with patch.object(mock_client._xml_builder, "build_dps", return_value="<xml/>"):
-                with patch.object(mock_client._xml_signer, "sign", return_value="<signed/>"):
+            with patch.object(
+                mock_client._xml_builder, "build_dps", return_value="<xml/>"
+            ):
+                with patch.object(
+                    mock_client._xml_signer, "sign", return_value="<signed/>"
+                ):
                     mock_client.substitute_nfse(
                         chave_acesso_original=original_chave,
                         new_dps=sample_dps,
@@ -1091,8 +1147,12 @@ class TestSubstituteNfse:
             mock_get_client.return_value.__enter__ = MagicMock(return_value=mock_http)
             mock_get_client.return_value.__exit__ = MagicMock(return_value=False)
 
-            with patch.object(mock_client._xml_builder, "build_dps", side_effect=capture_build_dps):
-                with patch.object(mock_client._xml_signer, "sign", return_value="<signed/>"):
+            with patch.object(
+                mock_client._xml_builder, "build_dps", side_effect=capture_build_dps
+            ):
+                with patch.object(
+                    mock_client._xml_signer, "sign", return_value="<signed/>"
+                ):
                     mock_client.substitute_nfse(
                         chave_acesso_original=original_chave,
                         new_dps=sample_dps,
@@ -1120,8 +1180,12 @@ class TestSubstituteNfse:
             mock_get_client.return_value.__enter__ = MagicMock(return_value=mock_http)
             mock_get_client.return_value.__exit__ = MagicMock(return_value=False)
 
-            with patch.object(mock_client._xml_builder, "build_dps", return_value="<xml/>"):
-                with patch.object(mock_client._xml_signer, "sign", return_value="<signed/>"):
+            with patch.object(
+                mock_client._xml_builder, "build_dps", return_value="<xml/>"
+            ):
+                with patch.object(
+                    mock_client._xml_signer, "sign", return_value="<signed/>"
+                ):
                     result = mock_client.substitute_nfse(
                         chave_acesso_original=original_chave,
                         new_dps=sample_dps,
@@ -1148,7 +1212,9 @@ class TestChaveAcessoValidation:
             mock_client.cancel_nfse("1234567890", "motivo")
 
     def test_cancel_nfse_rejects_non_numeric_chave(self, mock_client):
-        """cancel_nfse should raise ValueError for chave_acesso with non-digit characters."""
+        """cancel_nfse should raise ValueError for chave_acesso
+        with non-digit characters.
+        """
         chave_with_slash = "1234567890/234567890123456789012345678901234567890"
 
         with pytest.raises(ValueError, match="50 digitos"):
@@ -1167,8 +1233,12 @@ class TestChaveAcessoValidation:
             mock_get_client.return_value.__enter__ = MagicMock(return_value=mock_http)
             mock_get_client.return_value.__exit__ = MagicMock(return_value=False)
 
-            with patch.object(mock_client._xml_builder, "build_cancel_event", return_value="<xml/>"):
-                with patch.object(mock_client._xml_signer, "sign", return_value="<signed/>"):
+            with patch.object(
+                mock_client._xml_builder, "build_cancel_event", return_value="<xml/>"
+            ):
+                with patch.object(
+                    mock_client._xml_signer, "sign", return_value="<signed/>"
+                ):
                     result = mock_client.cancel_nfse(self.VALID_CHAVE, "motivo")
 
         assert result.success is True

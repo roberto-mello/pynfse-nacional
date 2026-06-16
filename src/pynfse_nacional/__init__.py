@@ -6,57 +6,57 @@ API for electronic service invoice issuance in Brazil.
 """
 
 from .client import NFSeClient
-from .models import (
-    DPS,
-    NFSe,
-    Prestador,
-    Tomador,
-    Servico,
-    Endereco,
-    ValoresServico,
-    NFSeResponse,
-    EventResponse,
-    NFSeQueryResult,
-    ConvenioMunicipal,
-    SubstituicaoNFSe,
-)
-from .exceptions import (
-    NFSeError,
-    NFSeAPIError,
-    NFSeValidationError,
-    NFSeCertificateError,
-    NFSeXMLError,
-)
 from .constants import (
-    Ambiente,
     AMBIENTE_HOMOLOGACAO,
     AMBIENTE_PRODUCAO,
     API_URLS,
     ENDPOINTS,
+    Ambiente,
+)
+from .exceptions import (
+    NFSeAPIError,
+    NFSeCertificateError,
+    NFSeError,
+    NFSeValidationError,
+    NFSeXMLError,
+)
+from .models import (
+    DPS,
+    ConvenioMunicipal,
+    Endereco,
+    EventResponse,
+    NFSe,
+    NFSeQueryResult,
+    NFSeResponse,
+    Prestador,
+    Servico,
+    SubstituicaoNFSe,
+    Tomador,
+    ValoresServico,
 )
 from .utils import (
-    compress_encode,
+    clean_document,
     compress_and_encode,
-    decode_decompress,
+    compress_encode,
     decode_and_decompress,
-    validate_cnpj,
-    validate_cpf,
+    decode_decompress,
     format_cnpj,
     format_cpf,
     normalize_document,
-    clean_document,
+    validate_cnpj,
+    validate_cpf,
 )
 
 # PDF generation (optional dependency)
 try:
-    from .pdf_generator import (
-        HeaderConfig,
-        NFSeData,
-        parse_nfse_xml,
-        generate_danfse_pdf,
-        generate_danfse_from_xml,
-        generate_danfse_from_base64,
-    )
+    from . import pdf_generator as _pdf_generator
+
+    HeaderConfig = _pdf_generator.HeaderConfig
+    NFSeData = _pdf_generator.NFSeData
+    parse_nfse_xml = _pdf_generator.parse_nfse_xml
+    generate_danfse_pdf = _pdf_generator.generate_danfse_pdf
+    generate_danfse_from_xml = _pdf_generator.generate_danfse_from_xml
+    generate_danfse_from_base64 = _pdf_generator.generate_danfse_from_base64
 
     _PDF_AVAILABLE = True
 except ImportError:
@@ -107,11 +107,13 @@ __all__ = [
 
 # Add PDF exports if available
 if _PDF_AVAILABLE:
-    __all__.extend([
-        "HeaderConfig",
-        "NFSeData",
-        "parse_nfse_xml",
-        "generate_danfse_pdf",
-        "generate_danfse_from_xml",
-        "generate_danfse_from_base64",
-    ])
+    __all__.extend(
+        [
+            "HeaderConfig",
+            "NFSeData",
+            "parse_nfse_xml",
+            "generate_danfse_pdf",
+            "generate_danfse_from_xml",
+            "generate_danfse_from_base64",
+        ]
+    )
