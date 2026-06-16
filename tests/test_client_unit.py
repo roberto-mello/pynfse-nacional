@@ -4,9 +4,10 @@ These tests mock HTTP responses to test the client logic without
 making real API calls.
 """
 
-from unittest.mock import MagicMock, patch
 from decimal import Decimal
+from unittest.mock import MagicMock, patch
 
+import httpx
 import pytest
 
 from pynfse_nacional import NFSeClient, NFSeAPIError
@@ -39,11 +40,21 @@ class MockResponse:
         return self._json_data
 
 
+class _FakePrivateKey:
+    def private_bytes(self, encoding, format, encryption_algorithm):
+        return b"-----BEGIN PRIVATE KEY-----\nfake\n-----END PRIVATE KEY-----\n"
+
+
+class _FakeCertificate:
+    def public_bytes(self, encoding):
+        return b"-----BEGIN CERTIFICATE-----\nfake\n-----END CERTIFICATE-----\n"
+
+
 @pytest.fixture
 def mock_client():
     """Create a mock NFSeClient without certificate loading."""
     with patch.object(NFSeClient, "_load_pkcs12") as mock_load:
-        mock_load.return_value = (MagicMock(), MagicMock())
+        mock_load.return_value = (_FakePrivateKey(), _FakeCertificate())
 
         client = NFSeClient(
             cert_path="/fake/cert.pfx",
@@ -748,12 +759,35 @@ class TestCancelNfse:
             mock_get_client.return_value.__enter__ = MagicMock(return_value=mock_http)
             mock_get_client.return_value.__exit__ = MagicMock(return_value=False)
 
-            with patch.object(mock_client._xml_builder, "build_cancel_event", return_value="<xml/>"):
+            with patch.object(
+                mock_client._xml_builder, "build_cancel_event", return_value="<xml/>"
+            ):
                 with patch.object(mock_client._xml_signer, "sign", return_value="<signed/>"):
                     result = mock_client.cancel_nfse(self.CHAVE, "Motivo")
 
         assert result.success is False
         assert result.error_code == "INVALID"
+
+    def test_cancel_nfse_request_error_becomes_api_error(self, mock_client):
+        """Request-time disconnects should hit the cancel_nfse RequestError handler."""
+        with patch("pynfse_nacional.client.httpx.Client") as mock_httpx_client:
+            mock_http = MagicMock()
+            mock_http.post.side_effect = httpx.RemoteProtocolError(
+                "Server disconnected"
+            )
+            mock_httpx_client.return_value = mock_http
+
+            with patch.object(
+                mock_client._xml_builder, "build_cancel_event", return_value="<xml/>"
+            ):
+                with patch.object(
+                    mock_client._xml_signer, "sign", return_value="<signed/>"
+                ):
+                    with pytest.raises(NFSeAPIError) as exc_info:
+                        mock_client.cancel_nfse(self.CHAVE, "Motivo")
+
+        assert exc_info.value.code == "COMM_ERROR"
+        assert "Server disconnected" in exc_info.value.message
 
 
 # =============================================================================
@@ -862,6 +896,29 @@ class TestSubmitDps:
 
                     decoded = base64.b64decode(payload["dpsXmlGZipB64"])
                     assert decoded  # Should be valid base64
+
+    def test_submit_dps_request_error_becomes_api_error(
+        self, mock_client, sample_dps
+    ):
+        """Request-time disconnects should hit the submit_dps RequestError handler."""
+        with patch("pynfse_nacional.client.httpx.Client") as mock_httpx_client:
+            mock_http = MagicMock()
+            mock_http.post.side_effect = httpx.RemoteProtocolError(
+                "Server disconnected"
+            )
+            mock_httpx_client.return_value = mock_http
+
+            with patch.object(
+                mock_client._xml_builder, "build_dps", return_value="<xml/>"
+            ):
+                with patch.object(
+                    mock_client._xml_signer, "sign", return_value="<signed/>"
+                ):
+                    with pytest.raises(NFSeAPIError) as exc_info:
+                        mock_client.submit_dps(sample_dps)
+
+        assert exc_info.value.code == "COMM_ERROR"
+        assert "Server disconnected" in exc_info.value.message
 
 
 # =============================================================================
