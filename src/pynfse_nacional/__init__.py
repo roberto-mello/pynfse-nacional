@@ -34,6 +34,18 @@ from .models import (
     Tomador,
     ValoresServico,
 )
+from .models_ibscbs import (
+    GIBSCBS,
+    IBSCBS,
+    DestIBSCBS,
+    GDifIBSCBS,
+    GTribRegularIBSCBS,
+    ImovelIBSCBS,
+    RefNFSe,
+    TribIBSCBS,
+    ValoresIBSCBS,
+)
+from .types import Money15V2, Percent2V2, Percent3V2
 from .utils import (
     clean_document,
     compress_and_encode,
@@ -80,6 +92,18 @@ __all__ = [
     "NFSeQueryResult",
     "ConvenioMunicipal",
     "SubstituicaoNFSe",
+    "IBSCBS",
+    "RefNFSe",
+    "DestIBSCBS",
+    "ImovelIBSCBS",
+    "ValoresIBSCBS",
+    "TribIBSCBS",
+    "GIBSCBS",
+    "GTribRegularIBSCBS",
+    "GDifIBSCBS",
+    "Percent2V2",
+    "Money15V2",
+    "Percent3V2",
     # Exceptions
     "NFSeError",
     "NFSeAPIError",
