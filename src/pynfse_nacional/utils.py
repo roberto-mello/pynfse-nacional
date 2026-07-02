@@ -1,6 +1,12 @@
 import base64
+import binascii
 import gzip
+import io
 import re
+
+from .exceptions import NFSeAPIError
+
+MAX_DECOMPRESSED_BYTES = 8 * 1024 * 1024
 
 
 def compress_encode(data: str) -> str:
@@ -14,9 +20,44 @@ compress_and_encode = compress_encode
 
 
 def decode_decompress(data: str) -> str:
-    """Decode Base64 and decompress GZip."""
-    decoded = base64.b64decode(data)
-    return gzip.decompress(decoded).decode("utf-8")
+    """Decode Base64 and decompress GZip with a safety cap."""
+
+    try:
+        decoded = base64.b64decode(data, validate=True)
+        output = io.BytesIO()
+
+        with gzip.GzipFile(fileobj=io.BytesIO(decoded), mode="rb") as gz_file:
+            while True:
+                chunk = gz_file.read(8192)
+                if not chunk:
+                    break
+
+                output.write(chunk)
+                if output.tell() > MAX_DECOMPRESSED_BYTES:
+                    raise NFSeAPIError(
+                        "Conteúdo NFSe excede o limite permitido de descompressão.",
+                        code="PAYLOAD_TOO_LARGE",
+                    )
+
+        return output.getvalue().decode("utf-8")
+
+    except NFSeAPIError:
+        raise
+
+    except (ValueError, OSError, EOFError, gzip.BadGzipFile, binascii.Error):
+        raise NFSeAPIError(
+            "Falha ao decodificar conteúdo NFSe comprimido.",
+            code="DECODE_ERROR",
+        )
+
+
+def _redacted_repr(label: str, value: str | None) -> str:
+    """Build a non-sensitive value label for validation errors."""
+
+    if value is None:
+        return f"{label} redigido"
+
+    return f"{label} redigido ({len(value)} caracteres)"
 
 
 # Alias for consistency with __init__.py exports

@@ -1,16 +1,41 @@
 import re
 from datetime import datetime
 from decimal import Decimal
-from typing import Optional
+from typing import Literal, Optional
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from .models_ibscbs import IBSCBS
 
 # Valid Brazilian UF codes
 VALID_UFS = {
-    "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS",
-    "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC",
-    "SP", "SE", "TO",
+    "AC",
+    "AL",
+    "AP",
+    "AM",
+    "BA",
+    "CE",
+    "DF",
+    "ES",
+    "GO",
+    "MA",
+    "MT",
+    "MS",
+    "MG",
+    "PA",
+    "PB",
+    "PR",
+    "PE",
+    "PI",
+    "RJ",
+    "RN",
+    "RS",
+    "RO",
+    "RR",
+    "SC",
+    "SP",
+    "SE",
+    "TO",
 }
 
 
@@ -49,11 +74,15 @@ def _validate_cnpj_digits(cnpj: str) -> bool:
 
 
 class Endereco(BaseModel):
+    model_config = ConfigDict(hide_input_in_errors=True)
+
     logradouro: str = Field(..., min_length=1, max_length=255)
     numero: str = Field(..., min_length=1, max_length=60)
     complemento: Optional[str] = Field(None, max_length=156)
     bairro: str = Field(..., min_length=1, max_length=60)
-    codigo_municipio: int = Field(..., description="Codigo IBGE do municipio (7 digitos)")
+    codigo_municipio: int = Field(
+        ..., description="Codigo IBGE do municipio (7 digitos)"
+    )
     uf: str = Field(..., description="Sigla da UF (ex: SP, RJ, MG)")
     cep: str = Field(..., description="CEP com 8 digitos, sem formatacao")
 
@@ -63,10 +92,7 @@ class Endereco(BaseModel):
         """Valida codigo IBGE do municipio (7 digitos)."""
 
         if not 1000000 <= v <= 9999999:
-            raise ValueError(
-                f"codigo_municipio deve ter 7 digitos (codigo IBGE), recebido: {v}. "
-                "Consulte a tabela de municipios em: https://github.com/kelvins/municipios-brasileiros"
-            )
+            raise ValueError("codigo_municipio deve ter 7 dígitos (código IBGE).")
 
         return v
 
@@ -79,7 +105,7 @@ class Endereco(BaseModel):
 
         if v_upper not in VALID_UFS:
             raise ValueError(
-                f"UF invalida: '{v}'. Use uma sigla valida: {', '.join(sorted(VALID_UFS))}"
+                f"UF inválida. Use uma sigla válida: {', '.join(sorted(VALID_UFS))}"
             )
 
         return v_upper
@@ -92,15 +118,14 @@ class Endereco(BaseModel):
         cep_clean = re.sub(r"[.\-]", "", v)
 
         if not re.match(r"^[0-9]{8}$", cep_clean):
-            raise ValueError(
-                f"CEP deve conter 8 digitos numericos, recebido: '{v}'. "
-                "Informe sem formatacao (ex: '01310100') ou com formatacao (ex: '01310-100')."
-            )
+            raise ValueError("CEP deve conter 8 dígitos numéricos.")
 
         return cep_clean
 
 
 class Prestador(BaseModel):
+    model_config = ConfigDict(hide_input_in_errors=True)
+
     cnpj: str = Field(..., description="CNPJ com 14 digitos, sem formatacao")
     inscricao_municipal: Optional[str] = Field(None, min_length=1, max_length=15)
     razao_social: str = Field(..., min_length=1, max_length=300)
@@ -117,16 +142,10 @@ class Prestador(BaseModel):
         cnpj_clean = re.sub(r"[.\-/]", "", v)
 
         if not re.match(r"^[0-9]{14}$", cnpj_clean):
-            raise ValueError(
-                f"CNPJ deve conter 14 digitos numericos, recebido: '{v}'. "
-                "Informe sem formatacao (ex: '12345678000199')."
-            )
+            raise ValueError("CNPJ deve conter 14 dígitos numéricos.")
 
         if not _validate_cnpj_digits(cnpj_clean):
-            raise ValueError(
-                f"CNPJ invalido (digitos verificadores incorretos): '{v}'. "
-                "Verifique se o CNPJ foi digitado corretamente."
-            )
+            raise ValueError("CNPJ inválido (dígitos verificadores incorretos).")
 
         return cnpj_clean
 
@@ -141,15 +160,14 @@ class Prestador(BaseModel):
         tel_clean = re.sub(r"[+\-() ]", "", v)
 
         if not re.match(r"^[0-9]{6,20}$", tel_clean):
-            raise ValueError(
-                f"Telefone deve conter entre 6 e 20 digitos, recebido: '{v}'. "
-                "Informe apenas numeros (ex: '11999999999')."
-            )
+            raise ValueError("Telefone deve conter entre 6 e 20 dígitos.")
 
         return tel_clean
 
 
 class Tomador(BaseModel):
+    model_config = ConfigDict(hide_input_in_errors=True)
+
     cpf: Optional[str] = Field(None, description="CPF com 11 digitos, sem formatacao")
     cnpj: Optional[str] = Field(None, description="CNPJ com 14 digitos, sem formatacao")
     razao_social: str = Field(..., min_length=1, max_length=300)
@@ -168,16 +186,10 @@ class Tomador(BaseModel):
         cpf_clean = re.sub(r"[.\-]", "", v)
 
         if not re.match(r"^[0-9]{11}$", cpf_clean):
-            raise ValueError(
-                f"CPF deve conter 11 digitos numericos, recebido: '{v}'. "
-                "Informe sem formatacao (ex: '12345678901')."
-            )
+            raise ValueError("CPF deve conter 11 dígitos numéricos.")
 
         if not _validate_cpf_digits(cpf_clean):
-            raise ValueError(
-                f"CPF invalido (digitos verificadores incorretos): '{v}'. "
-                "Verifique se o CPF foi digitado corretamente."
-            )
+            raise ValueError("CPF inválido (dígitos verificadores incorretos).")
 
         return cpf_clean
 
@@ -192,16 +204,10 @@ class Tomador(BaseModel):
         cnpj_clean = re.sub(r"[.\-/]", "", v)
 
         if not re.match(r"^[0-9]{14}$", cnpj_clean):
-            raise ValueError(
-                f"CNPJ deve conter 14 digitos numericos, recebido: '{v}'. "
-                "Informe sem formatacao (ex: '12345678000199')."
-            )
+            raise ValueError("CNPJ deve conter 14 dígitos numéricos.")
 
         if not _validate_cnpj_digits(cnpj_clean):
-            raise ValueError(
-                f"CNPJ invalido (digitos verificadores incorretos): '{v}'. "
-                "Verifique se o CNPJ foi digitado corretamente."
-            )
+            raise ValueError("CNPJ inválido (dígitos verificadores incorretos).")
 
         return cnpj_clean
 
@@ -216,10 +222,7 @@ class Tomador(BaseModel):
         tel_clean = re.sub(r"[+\-() ]", "", v)
 
         if not re.match(r"^[0-9]{6,20}$", tel_clean):
-            raise ValueError(
-                f"Telefone deve conter entre 6 e 20 digitos, recebido: '{v}'. "
-                "Informe apenas numeros (ex: '11999999999')."
-            )
+            raise ValueError("Telefone deve conter entre 6 e 20 dígitos.")
 
         return tel_clean
 
@@ -254,18 +257,29 @@ class ValoresServico(BaseModel):
 
 
 class Servico(BaseModel):
+    model_config = ConfigDict(hide_input_in_errors=True)
+
     codigo_cnae: Optional[str] = None
     codigo_lc116: str = Field(
         ...,
-        description="Item da lista de servicos LC 116 com subitem (ex: '04.03.01', '01.01.01')"
+        description=(
+            "Item da lista de servicos LC 116 com subitem "
+            "(ex: '04.03.01', '01.01.01')"
+        ),
     )
-    codigo_tributacao_municipal: Optional[str] = Field(None, description="Codigo tributacao municipal")
-    codigo_nbs: Optional[str] = Field(None, description="Codigo NBS do servico (9 digitos)")
+    codigo_tributacao_municipal: Optional[str] = Field(
+        None, description="Codigo tributacao municipal"
+    )
+    codigo_nbs: Optional[str] = Field(
+        None, description="Codigo NBS do servico (9 digitos)"
+    )
     discriminacao: str = Field(..., min_length=1, max_length=2000)
     valor_servicos: Decimal
     iss_retido: bool = False
     aliquota_iss: Optional[Decimal] = None
-    aliquota_simples: Optional[Decimal] = Field(None, description="Aliquota Simples Nacional (ex: 18.83)")
+    aliquota_simples: Optional[Decimal] = Field(
+        None, description="Aliquota Simples Nacional (ex: 18.83)"
+    )
     valor_deducoes: Decimal = Decimal("0.00")
     valor_pis: Decimal = Decimal("0.00")
     valor_cofins: Decimal = Decimal("0.00")
@@ -282,9 +296,10 @@ class Servico(BaseModel):
 
         if re.match(r"^\d{1,2}\.\d{2}$", v) or re.match(r"^\d{3,4}$", code_clean):
             raise ValueError(
-                f"codigo_lc116 deve incluir o subitem completo (ex: '04.03.01'), recebido: '{v}'. "
-                "O formato correto e XX.XX.XX (item.subitem.detalhe). "
-                "Consulte a lista de servicos em: https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/"
+                "codigo_lc116 deve incluir o subitem completo "
+                f"(ex: '04.03.01'), recebido: '{v}'. "
+                "O formato correto é XX.XX.XX (item.subitem.detalhe). "
+                "Consulte a lista de serviços em: https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/"
             )
 
         if not re.match(r"^\d{1,2}\.\d{2}\.\d{2}$", v):
@@ -292,8 +307,8 @@ class Servico(BaseModel):
                 return v
 
             raise ValueError(
-                f"codigo_lc116 deve estar no formato XX.XX.XX (ex: '04.03.01'), recebido: '{v}'. "
-                "Use o codigo completo da Lista de Servicos LC 116 com subitem."
+                "codigo_lc116 deve estar no formato XX.XX.XX "
+                "(ex: '04.03.01')."
             )
 
         return v
@@ -309,10 +324,7 @@ class Servico(BaseModel):
         nbs_clean = v.replace(".", "")
 
         if not re.match(r"^[0-9]{9}$", nbs_clean):
-            raise ValueError(
-                f"codigo_nbs deve conter 9 digitos, recebido: '{v}'. "
-                "Informe o codigo NBS completo (ex: '101010100')."
-            )
+            raise ValueError("codigo_nbs deve conter 9 dígitos.")
 
         return v
 
@@ -322,9 +334,7 @@ class Servico(BaseModel):
         """Valida valor dos servicos (deve ser positivo)."""
 
         if v <= 0:
-            raise ValueError(
-                f"valor_servicos deve ser maior que zero, recebido: {v}."
-            )
+            raise ValueError("valor_servicos deve ser maior que zero.")
 
         return v
 
@@ -332,23 +342,25 @@ class Servico(BaseModel):
 class SubstituicaoNFSe(BaseModel):
     """Informacoes de substituicao de NFSe."""
 
+    model_config = ConfigDict(hide_input_in_errors=True)
+
     chave_nfse_substituida: str = Field(
         ...,
         min_length=50,
         max_length=50,
-        description="Chave de acesso da NFSe que sera substituida (50 caracteres)"
+        description="Chave de acesso da NFSe que sera substituida (50 caracteres)",
     )
     codigo_motivo: int = Field(
         default=99,
         ge=1,
         le=99,
-        description="Codigo do motivo da substituicao (1-99, 99=outros)"
+        description="Codigo do motivo da substituicao (1-99, 99=outros)",
     )
     motivo: str = Field(
         ...,
         min_length=15,
         max_length=255,
-        description="Descricao do motivo da substituicao (15-255 caracteres)"
+        description="Descricao do motivo da substituicao (15-255 caracteres)",
     )
 
     @field_validator("chave_nfse_substituida")
@@ -357,21 +369,28 @@ class SubstituicaoNFSe(BaseModel):
         """Valida chave de acesso da NFSe (50 digitos)."""
 
         if not re.match(r"^[0-9]{50}$", v):
-            raise ValueError(
-                f"chave_nfse_substituida deve conter 50 digitos numericos, recebido: '{v}' ({len(v)} caracteres). "
-                "A chave de acesso e retornada na emissao da NFSe original."
-            )
+            raise ValueError("chave_nfse_substituida deve conter 50 dígitos numéricos.")
 
         return v
 
 
 class DPS(BaseModel):
-    """Declaracao de Prestacao de Servicos."""
+    """Declaracao de Prestacao de Servicos.
 
-    id_dps: Optional[str] = Field(None, description="DPS ID (gerado automaticamente se nao informado)")
-    serie: str = Field(default="900", description="Serie numerica (1-5 digitos)")
-    numero: int = Field(..., gt=0, description="Numero do DPS (deve ser maior que zero)")
-    competencia: str = Field(..., description="Competencia no formato YYYY-MM")
+    The regApTribSN/regApIBSCBSSN rules follow the IBSCBS regulations:
+    E0162, R294, R295, E0710, E0712, and E0713.
+    """
+
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
+
+    id_dps: Optional[str] = Field(
+        None, description="DPS ID (gerado automaticamente se não informado)"
+    )
+    serie: str = Field(default="900", description="Série numérica (1-5 dígitos)")
+    numero: int = Field(
+        ..., gt=0, description="Número do DPS (deve ser maior que zero)"
+    )
+    competencia: str = Field(..., description="Competência no formato YYYY-MM")
     data_emissao: datetime
     prestador: Prestador
     tomador: Tomador
@@ -379,11 +398,20 @@ class DPS(BaseModel):
     regime_tributario: str = Field(
         ..., description="simples_nacional|simples_excesso|normal|mei"
     )
-    optante_simples: bool = False
+    op_simp_nac: Literal["1", "2", "3", "4"] = "1"
+    reg_ap_trib_sn: Optional[Literal["1", "2", "3"]] = None
+    reg_ap_ibs_cbs_sn: Optional[Literal["1", "2", "3"]] = None
     incentivador_cultural: bool = False
+    ibscbs: Optional[IBSCBS] = Field(
+        None,
+        description="Grupo IBSCBS da DPS (sinaliza o uso do layout RTC)",
+    )
     substituicao: Optional[SubstituicaoNFSe] = Field(
         None,
-        description="Informacoes de substituicao (preencher apenas para substituir NFSe existente)"
+        description=(
+            "Informações de substituição "
+            "(preencher apenas para substituir NFSe existente)"
+        ),
     )
 
     @field_validator("serie")
@@ -392,10 +420,7 @@ class DPS(BaseModel):
         """Valida serie (1-5 digitos numericos)."""
 
         if not re.match(r"^0{0,4}\d{1,5}$", v):
-            raise ValueError(
-                f"serie deve ser numerica (1-5 digitos), recebido: '{v}'. "
-                "Use valores como '1', '900', '00001'. Series alfabeticas como 'NF' nao sao permitidas."
-            )
+            raise ValueError("serie deve ser numérica (1-5 dígitos).")
 
         return v
 
@@ -408,13 +433,20 @@ class DPS(BaseModel):
             return v
 
         if not re.match(r"^DPS[0-9]{42}$", v):
-            raise ValueError(
-                f"id_dps deve seguir o padrao 'DPS' + 42 digitos (45 caracteres), recebido: '{v}' ({len(v)} caracteres). "
-                "Formato: DPS + cLocEmi(7) + tpInsc(1) + CNPJ(14) + serie(5) + nDPS(15). "
-                "Deixe id_dps vazio para geracao automatica."
-            )
+            raise ValueError("id_dps deve seguir o padrão 'DPS' + 42 dígitos.")
 
         return v
+
+    def build_dps_id(self) -> str:
+        """Build the official DPS identifier from model data."""
+
+        c_loc_emi = str(self.prestador.endereco.codigo_municipio).zfill(7)
+        tp_insc = "2"  # CNPJ
+        cnpj = self.prestador.cnpj.zfill(14)
+        serie = self.serie.zfill(5)
+        n_dps = str(self.numero).zfill(15)
+
+        return f"DPS{c_loc_emi}{tp_insc}{cnpj}{serie}{n_dps}"
 
     @field_validator("competencia")
     @classmethod
@@ -423,7 +455,8 @@ class DPS(BaseModel):
 
         if not re.match(r"^\d{4}-(0[1-9]|1[0-2])$", v):
             raise ValueError(
-                f"competencia deve estar no formato YYYY-MM (ex: '2026-01'), recebido: '{v}'."
+                "competência deve estar no formato YYYY-MM "
+                f"(ex: '2026-01'), recebido: '{v}'."
             )
 
         return v
@@ -437,11 +470,29 @@ class DPS(BaseModel):
 
         if v not in valid_regimes:
             raise ValueError(
-                f"regime_tributario invalido: '{v}'. "
+                f"regime_tributário inválido: '{v}'. "
                 f"Use um dos valores: {', '.join(sorted(valid_regimes))}"
             )
 
         return v
+
+    @model_validator(mode="after")
+    def validate_regime_tributario_rules(self) -> "DPS":
+        """Validate opSimpNac-dependent regTrib flags."""
+
+        if self.op_simp_nac in {"1", "2"} and self.reg_ap_trib_sn is not None:
+            raise ValueError("regApTribSN é proibido para opSimpNac 1/2.")
+
+        if self.op_simp_nac in {"1", "2"} and self.reg_ap_ibs_cbs_sn is not None:
+            raise ValueError("regApIBSCBSSN é proibido para opSimpNac 1/2.")
+
+        if self.op_simp_nac in {"3", "4"} and self.reg_ap_trib_sn is None:
+            raise ValueError("regApTribSN é obrigatório para opSimpNac 3/4.")
+
+        if self.op_simp_nac in {"3", "4"} and self.reg_ap_ibs_cbs_sn is None:
+            raise ValueError("regApIBSCBSSN é obrigatório para opSimpNac 3/4.")
+
+        return self
 
 
 class NFSeResponse(BaseModel):
@@ -450,7 +501,9 @@ class NFSeResponse(BaseModel):
     success: bool
     chave_acesso: Optional[str] = None
     nfse_number: Optional[str] = None
-    nfse_xml_gzip_b64: Optional[str] = Field(None, description="Base64-encoded gzipped NFSe XML from API")
+    nfse_xml_gzip_b64: Optional[str] = Field(
+        None, description="Base64-encoded gzipped NFSe XML from API"
+    )
     xml_nfse: Optional[str] = Field(None, description="Decoded NFSe XML")
     error_code: Optional[str] = None
     error_message: Optional[str] = None
@@ -476,6 +529,7 @@ class NFSeQueryResult(BaseModel):
     prestador_cnpj: str
     tomador_documento: Optional[str] = None
     xml_nfse: Optional[str] = None
+    ibscbs: Optional[IBSCBS] = None
 
 
 class NFSe(BaseModel):
@@ -491,7 +545,10 @@ class NFSe(BaseModel):
     servico: Servico
     valores: ValoresServico
     status: str = Field(default="emitida", description="emitida|cancelada|substituida")
-    xml_original: Optional[str] = Field(None, description="Original signed XML (Base64)")
+    xml_original: Optional[str] = Field(
+        None, description="Original signed XML (Base64)"
+    )
+    ibscbs: Optional[IBSCBS] = None
     data_cancelamento: Optional[datetime] = None
     motivo_cancelamento: Optional[str] = None
 

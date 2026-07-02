@@ -96,7 +96,7 @@ def publish_command(
     repository: str,
     *,
     dry_run: bool,
-    token: str | None,
+    token: str | None = None,
 ) -> list[str]:
     """Return the uv publish command."""
 

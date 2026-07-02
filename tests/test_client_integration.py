@@ -18,25 +18,28 @@ from decimal import Decimal
 import pytest
 
 from pynfse_nacional import (
-    NFSeClient,
     NFSeAPIError,
     NFSeCertificateError,
+    NFSeClient,
 )
 from pynfse_nacional.models import (
     DPS,
-    Prestador,
-    Tomador,
-    Servico,
     Endereco,
+    Prestador,
+    Servico,
+    Tomador,
 )
-
+from pynfse_nacional.models_ibscbs import GIBSCBS, IBSCBS, TribIBSCBS, ValoresIBSCBS
 
 CERT_PATH = os.environ.get("NFSE_TEST_CERT_PATH", "")
 CERT_PASSWORD = os.environ.get("NFSE_TEST_CERT_PASSWORD", "")
 
 pytestmark = pytest.mark.skipif(
     not CERT_PATH or not os.path.exists(CERT_PATH),
-    reason="Test certificate not configured. Set NFSE_TEST_CERT_PATH and NFSE_TEST_CERT_PASSWORD.",
+    reason=(
+        "Test certificate not configured. Set NFSE_TEST_CERT_PATH and "
+        "NFSE_TEST_CERT_PASSWORD."
+    ),
 )
 
 
@@ -96,6 +99,20 @@ def sample_dps():
     now = datetime.now(timezone.utc)
     competencia = now.strftime("%Y-%m")
 
+    ibscbs = IBSCBS(
+        fin_nfse="0",
+        c_ind_op="020101",
+        ind_dest="0",
+        valores=ValoresIBSCBS(
+            trib=TribIBSCBS(
+                g_ibscbs=GIBSCBS(
+                    cst="001",
+                    c_class_trib="123456",
+                )
+            )
+        ),
+    )
+
     return DPS(
         serie="900",
         numero=int(now.timestamp()),
@@ -105,7 +122,9 @@ def sample_dps():
         tomador=tomador,
         servico=servico,
         regime_tributario="simples_nacional",
-        optante_simples=True,
+        op_simp_nac="3",
+        reg_ap_ibs_cbs_sn="1",
+        ibscbs=ibscbs,
         incentivador_cultural=False,
     )
 
@@ -186,7 +205,10 @@ class TestNFSeClientSubmitDPS:
                 print(f"  Error Code: {response.error_code}")
                 print(f"  Error Message: {response.error_message}")
 
-                assert response.error_code is not None or response.error_message is not None
+                assert (
+                    response.error_code is not None
+                    or response.error_message is not None
+                )
 
         except NFSeAPIError as e:
             print(f"API Error: {e.code} - {e.message}")
@@ -211,7 +233,9 @@ class TestNFSeClientQueryNFSe:
         with pytest.raises(NFSeAPIError) as exc_info:
             client.query_nfse(fake_chave)
 
-        print(f"Query error (expected): {exc_info.value.code} - {exc_info.value.message}")
+        print(
+            f"Query error (expected): {exc_info.value.code} - {exc_info.value.message}"
+        )
 
 
 class TestNFSeClientDownloadDANFSe:
@@ -228,7 +252,11 @@ class TestNFSeClientDownloadDANFSe:
         with pytest.raises(NFSeAPIError) as exc_info:
             client.download_danfse(fake_chave)
 
-        print(f"Download error (expected): {exc_info.value.code} - {exc_info.value.message}")
+        error_message = (
+            f"Download error (expected): {exc_info.value.code} - "
+            f"{exc_info.value.message}"
+        )
+        print(error_message)
 
 
 class TestNFSeClientCancelNFSe:
@@ -245,7 +273,9 @@ class TestNFSeClientCancelNFSe:
         response = client.cancel_nfse(fake_chave, "Teste de cancelamento")
 
         assert response.success is False
-        print(f"Cancel error (expected): {response.error_code} - {response.error_message}")
+        print(
+            f"Cancel error (expected): {response.error_code} - {response.error_message}"
+        )
 
 
 class TestNFSeClientEnvironments:

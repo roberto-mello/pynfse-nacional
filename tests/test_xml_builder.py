@@ -1,5 +1,7 @@
 """Tests for XMLBuilder."""
 
+# ruff: noqa: N802, N806
+
 import warnings
 from datetime import datetime
 from decimal import Decimal
@@ -8,7 +10,14 @@ from xml.etree import ElementTree as ET
 import pytest
 
 from pynfse_nacional.constants import Ambiente
-from pynfse_nacional.models import DPS, Endereco, Prestador, Servico, Tomador, SubstituicaoNFSe
+from pynfse_nacional.models import DPS, SubstituicaoNFSe
+from pynfse_nacional.models_ibscbs import (
+    GIBSCBS,
+    IBSCBS,
+    RefNFSe,
+    TribIBSCBS,
+    ValoresIBSCBS,
+)
 from pynfse_nacional.xml_builder import XMLBuilder
 
 NS = {"nfse": "http://www.sped.fazenda.gov.br/nfse"}
@@ -18,69 +27,24 @@ SAMPLE_CHAVE = "99999999999999999999999999999999999999999999999999"
 
 
 @pytest.fixture
-def sample_endereco():
-    """Sample address for testing."""
-    return Endereco(
-        logradouro="Rua Teste",
-        numero="100",
-        complemento="Sala 1",
-        bairro="Centro",
-        codigo_municipio=3509502,
-        uf="SP",
-        cep="13000000",
+def sample_ibscbs():
+    return IBSCBS(
+        fin_nfse="0",
+        c_ind_op="020101",
+        ind_dest="0",
+        valores=ValoresIBSCBS(
+            trib=TribIBSCBS(
+                g_ibscbs=GIBSCBS(
+                    cst="001",
+                    c_class_trib="123456",
+                )
+            )
+        ),
     )
 
 
 @pytest.fixture
-def sample_prestador(sample_endereco):
-    """Sample service provider for testing."""
-    return Prestador(
-        cnpj="11222333000181",
-        inscricao_municipal="12345",
-        razao_social="Clinica Teste LTDA",
-        nome_fantasia="Clinica Teste",
-        endereco=sample_endereco,
-        email="contato@clinica.com",
-        telefone="1999999999",
-    )
-
-
-@pytest.fixture
-def sample_tomador(sample_endereco):
-    """Sample service taker (patient) for testing."""
-    return Tomador(
-        cpf="52998224725",
-        razao_social="Joao Silva",
-        email="paciente@email.com",
-        telefone="1988888888",
-        endereco=sample_endereco,
-    )
-
-
-@pytest.fixture
-def sample_servico():
-    """Sample service for testing."""
-    return Servico(
-        codigo_cnae="8630503",
-        codigo_lc116="04.03.03",
-        codigo_tributacao_municipal="123456",
-        codigo_nbs="101010100",
-        discriminacao="Consulta medica",
-        valor_servicos=Decimal("500.00"),
-        iss_retido=False,
-        aliquota_iss=Decimal("2.00"),
-        aliquota_simples=Decimal("15.50"),
-        valor_deducoes=Decimal("0.00"),
-        valor_pis=Decimal("0.00"),
-        valor_cofins=Decimal("0.00"),
-        valor_inss=Decimal("0.00"),
-        valor_ir=Decimal("0.00"),
-        valor_csll=Decimal("0.00"),
-    )
-
-
-@pytest.fixture
-def sample_dps(sample_prestador, sample_tomador, sample_servico):
+def sample_dps(sample_prestador, sample_tomador, sample_servico, sample_ibscbs):
     """Sample DPS for testing."""
     return DPS(
         serie="900",
@@ -91,7 +55,10 @@ def sample_dps(sample_prestador, sample_tomador, sample_servico):
         tomador=sample_tomador,
         servico=sample_servico,
         regime_tributario="simples_nacional",
-        optante_simples=True,
+        op_simp_nac="3",
+        reg_ap_trib_sn="1",
+        reg_ap_ibs_cbs_sn="1",
+        ibscbs=sample_ibscbs,
         incentivador_cultural=False,
     )
 
@@ -214,7 +181,9 @@ class TestXMLBuilderBuildDPS:
 
         infDPS = root.find("nfse:infDPS", NS)
 
-        assert infDPS.attrib.get("Id") == "DPS350950221122233300018100900000000000000001"
+        assert (
+            infDPS.attrib.get("Id") == "DPS350950221122233300018100900000000000000001"
+        )
 
     def test_build_dps_includes_emission_date_with_timezone(self, sample_dps):
         """build_dps should include dhEmi with ISO format and timezone."""
@@ -346,7 +315,6 @@ class TestXMLBuilderPrestador:
 
     def test_build_dps_opsimpnac_for_simples(self, sample_dps):
         """opSimpNac should be 3 for optante simples (ME/EPP)."""
-        sample_dps.optante_simples = True
         builder = XMLBuilder()
 
         xml_str = builder.build_dps(sample_dps)
@@ -358,7 +326,8 @@ class TestXMLBuilderPrestador:
 
     def test_build_dps_opsimpnac_for_non_simples(self, sample_dps):
         """opSimpNac should be 1 for non-optante."""
-        sample_dps.optante_simples = False
+        sample_dps.op_simp_nac = "1"
+        sample_dps.reg_ap_ibs_cbs_sn = None
         builder = XMLBuilder()
 
         xml_str = builder.build_dps(sample_dps)
@@ -370,27 +339,60 @@ class TestXMLBuilderPrestador:
 
     def test_build_dps_regaptribsn_for_simples(self, sample_dps):
         """regApTribSN should be 1 for Simples Nacional."""
-        sample_dps.optante_simples = True
         builder = XMLBuilder()
 
         xml_str = builder.build_dps(sample_dps)
         root = ET.fromstring(xml_str)
 
-        regApTribSN = root.find("nfse:infDPS/nfse:prest/nfse:regTrib/nfse:regApTribSN", NS)
+        regApTribSN = root.find(
+            "nfse:infDPS/nfse:prest/nfse:regTrib/nfse:regApTribSN", NS
+        )
 
         assert regApTribSN.text == "1"
 
-    def test_build_dps_regaptribsn_absent_for_non_simples(self, sample_dps):
-        """regApTribSN should not be present for non-Simples."""
-        sample_dps.optante_simples = False
+    def test_build_dps_regapibscbssn_for_me_epp(self, sample_dps):
+        """regApIBSCBSSN should be emitted for Simples Nacional ME/EPP."""
+        sample_dps.reg_ap_ibs_cbs_sn = "2"
         builder = XMLBuilder()
 
         xml_str = builder.build_dps(sample_dps)
         root = ET.fromstring(xml_str)
 
-        regApTribSN = root.find("nfse:infDPS/nfse:prest/nfse:regTrib/nfse:regApTribSN", NS)
+        regApIBSCBSSN = root.find(
+            "nfse:infDPS/nfse:prest/nfse:regTrib/nfse:regApIBSCBSSN", NS
+        )
+
+        assert regApIBSCBSSN.text == "2"
+
+    def test_build_dps_regaptribsn_absent_for_non_simples(self, sample_dps):
+        """regApTribSN should not be present for non-Simples."""
+        sample_dps.op_simp_nac = "1"
+        sample_dps.reg_ap_ibs_cbs_sn = None
+        builder = XMLBuilder()
+
+        xml_str = builder.build_dps(sample_dps)
+        root = ET.fromstring(xml_str)
+
+        regApTribSN = root.find(
+            "nfse:infDPS/nfse:prest/nfse:regTrib/nfse:regApTribSN", NS
+        )
 
         assert regApTribSN is None
+
+    def test_build_dps_regapibscbssn_absent_for_non_simples(self, sample_dps):
+        """regApIBSCBSSN should not be present for non-Simples."""
+        sample_dps.op_simp_nac = "1"
+        sample_dps.reg_ap_ibs_cbs_sn = None
+        builder = XMLBuilder()
+
+        xml_str = builder.build_dps(sample_dps)
+        root = ET.fromstring(xml_str)
+
+        regApIBSCBSSN = root.find(
+            "nfse:infDPS/nfse:prest/nfse:regTrib/nfse:regApIBSCBSSN", NS
+        )
+
+        assert regApIBSCBSSN is None
 
     def test_build_dps_regesptrib_default(self, sample_dps):
         """regEspTrib should default to 0."""
@@ -400,7 +402,9 @@ class TestXMLBuilderPrestador:
         xml_str = builder.build_dps(sample_dps)
         root = ET.fromstring(xml_str)
 
-        regEspTrib = root.find("nfse:infDPS/nfse:prest/nfse:regTrib/nfse:regEspTrib", NS)
+        regEspTrib = root.find(
+            "nfse:infDPS/nfse:prest/nfse:regTrib/nfse:regEspTrib", NS
+        )
 
         assert regEspTrib.text == "0"
 
@@ -412,7 +416,9 @@ class TestXMLBuilderPrestador:
         xml_str = builder.build_dps(sample_dps)
         root = ET.fromstring(xml_str)
 
-        regEspTrib = root.find("nfse:infDPS/nfse:prest/nfse:regTrib/nfse:regEspTrib", NS)
+        regEspTrib = root.find(
+            "nfse:infDPS/nfse:prest/nfse:regTrib/nfse:regEspTrib", NS
+        )
 
         assert regEspTrib.text == "4"
 
@@ -507,7 +513,10 @@ class TestXMLBuilderServico:
         assert cLocPrestacao.text == "3509502"
 
     def test_build_dps_includes_ctribnac(self, sample_dps):
-        """Servico section should include cTribNac (LC116 code without dots, 6 digits)."""
+        """Servico section should include cTribNac.
+
+        LC116 code without dots, 6 digits.
+        """
         builder = XMLBuilder()
 
         xml_str = builder.build_dps(sample_dps)
@@ -637,7 +646,8 @@ class TestXMLBuilderValores:
 
     def test_build_dps_ptottribsn_for_simples(self, sample_dps):
         """pTotTribSN should be set for Simples Nacional."""
-        sample_dps.optante_simples = True
+        sample_dps.op_simp_nac = "3"
+        sample_dps.reg_ap_ibs_cbs_sn = "1"
         sample_dps.servico.aliquota_simples = Decimal("15.50")
         builder = XMLBuilder()
 
@@ -651,7 +661,8 @@ class TestXMLBuilderValores:
 
     def test_build_dps_ptottribsn_default_with_warning(self, sample_dps):
         """pTotTribSN should default to 18.83 with warning when not provided."""
-        sample_dps.optante_simples = True
+        sample_dps.op_simp_nac = "3"
+        sample_dps.reg_ap_ibs_cbs_sn = "1"
         sample_dps.servico.aliquota_simples = None
         builder = XMLBuilder()
 
@@ -666,11 +677,12 @@ class TestXMLBuilderValores:
 
             assert pTotTribSN.text == "18.83"
             assert len(w) == 1
-            assert "aliquota_simples not provided" in str(w[0].message)
+            assert "alíquota_simples não informada" in str(w[0].message)
 
     def test_build_dps_ptottrib_for_non_simples(self, sample_dps):
         """pTotTrib should be set for non-Simples Nacional."""
-        sample_dps.optante_simples = False
+        sample_dps.op_simp_nac = "1"
+        sample_dps.reg_ap_ibs_cbs_sn = None
         builder = XMLBuilder()
 
         xml_str = builder.build_dps(sample_dps)
@@ -684,6 +696,51 @@ class TestXMLBuilderValores:
         assert pTotTrib.find("nfse:pTotTribMun", NS).text == "0"
 
 
+class TestXMLBuilderIBSCBS:
+    def test_build_dps_includes_ibscbs_after_valores(self, sample_dps):
+        builder = XMLBuilder()
+
+        xml_str = builder.build_dps(sample_dps)
+        root = ET.fromstring(xml_str)
+
+        infDPS = root.find("nfse:infDPS", NS)
+        children = list(infDPS)
+
+        assert children[-2].tag.endswith("valores")
+        assert children[-1].tag.endswith("IBSCBS")
+
+    def test_build_dps_includes_ibscbs_core_fields(self, sample_dps):
+        builder = XMLBuilder()
+
+        xml_str = builder.build_dps(sample_dps)
+        root = ET.fromstring(xml_str)
+
+        ibscbs = root.find("nfse:infDPS/nfse:IBSCBS", NS)
+
+        assert ibscbs.find("nfse:finNFSe", NS).text == "0"
+        assert ibscbs.find("nfse:cIndOp", NS).text == "020101"
+        assert ibscbs.find("nfse:indDest", NS).text == "0"
+        assert ibscbs.find("nfse:gRefNFSe", NS) is None
+
+    def test_build_dps_includes_ibscbs_reference_group(self, sample_dps):
+        sample_dps.ibscbs.tp_oper = "2"
+        sample_dps.ibscbs.g_ref_nfse = RefNFSe(
+            ref_nfse=[
+                "12345678901234567890123456789012345678901234567890",
+            ]
+        )
+        builder = XMLBuilder()
+
+        xml_str = builder.build_dps(sample_dps)
+        root = ET.fromstring(xml_str)
+
+        gRefNFSe = root.find("nfse:infDPS/nfse:IBSCBS/nfse:gRefNFSe", NS)
+        refs = gRefNFSe.findall("nfse:refNFSe", NS)
+
+        assert len(refs) == 1
+        assert refs[0].text == "12345678901234567890123456789012345678901234567890"
+
+
 class TestXMLBuilderSubstituicao:
     """Tests for substituicao (substitution) section."""
 
@@ -693,7 +750,7 @@ class TestXMLBuilderSubstituicao:
         return SubstituicaoNFSe(
             chave_nfse_substituida="12345678901234567890123456789012345678901234567890",
             codigo_motivo=99,
-            motivo="Correcao da descricao do servico prestado",
+            motivo="Correção da descrição do serviço prestado",
         )
 
     def test_build_dps_includes_subst_when_substituicao_present(
@@ -744,7 +801,7 @@ class TestXMLBuilderSubstituicao:
 
         xMotivo = root.find("nfse:infDPS/nfse:subst/nfse:xMotivo", NS)
 
-        assert xMotivo.text == "Correcao da descricao do servico prestado"
+        assert xMotivo.text == "Correção da descrição do serviço prestado"
 
     def test_build_dps_subst_comes_before_prest(self, sample_dps, sample_substituicao):
         """subst element should come before prest in XML structure."""
@@ -788,7 +845,7 @@ class TestXMLBuilderSubstituicao:
         sample_dps.substituicao = SubstituicaoNFSe(
             chave_nfse_substituida="12345678901234567890123456789012345678901234567890",
             codigo_motivo=1,
-            motivo="Alteracao de valor do servico",
+            motivo="Alteração de valor do serviço",
         )
         builder = XMLBuilder()
 
@@ -807,7 +864,7 @@ class TestXMLBuilderCancelEvent:
         """build_cancel_event should return parseable XML."""
         builder = XMLBuilder()
 
-        xml_str = builder.build_cancel_event(SAMPLE_CHAVE, "Erro na emissao")
+        xml_str = builder.build_cancel_event(SAMPLE_CHAVE, "Erro na emissão")
 
         assert xml_str.startswith("<?xml")
         root = ET.fromstring(xml_str)
@@ -817,7 +874,7 @@ class TestXMLBuilderCancelEvent:
         """infPedReg must have Id attribute for signing."""
         builder = XMLBuilder()
 
-        xml_str = builder.build_cancel_event(SAMPLE_CHAVE, "Erro na emissao")
+        xml_str = builder.build_cancel_event(SAMPLE_CHAVE, "Erro na emissão")
         root = ET.fromstring(xml_str)
 
         infPedReg = root.find("nfse:infPedReg", NS)
@@ -828,7 +885,7 @@ class TestXMLBuilderCancelEvent:
         """chNFSe must contain the access key."""
         builder = XMLBuilder()
 
-        xml_str = builder.build_cancel_event(SAMPLE_CHAVE, "Erro na emissao")
+        xml_str = builder.build_cancel_event(SAMPLE_CHAVE, "Erro na emissão")
         root = ET.fromstring(xml_str)
 
         chNFSe = root.find("nfse:infPedReg/nfse:chNFSe", NS)
@@ -839,7 +896,7 @@ class TestXMLBuilderCancelEvent:
         """cMotivo should default to 1 (erro na emissão)."""
         builder = XMLBuilder()
 
-        xml_str = builder.build_cancel_event(SAMPLE_CHAVE, "Erro na emissao")
+        xml_str = builder.build_cancel_event(SAMPLE_CHAVE, "Erro na emissão")
         root = ET.fromstring(xml_str)
 
         cMotivo = root.find("nfse:infPedReg/nfse:e101101/nfse:cMotivo", NS)
@@ -850,7 +907,9 @@ class TestXMLBuilderCancelEvent:
         """cMotivo should reflect the provided value."""
         builder = XMLBuilder()
 
-        xml_str = builder.build_cancel_event(SAMPLE_CHAVE, "Duplicidade", codigo_motivo=4)
+        xml_str = builder.build_cancel_event(
+            SAMPLE_CHAVE, "Duplicidade", codigo_motivo=4
+        )
         root = ET.fromstring(xml_str)
 
         cMotivo = root.find("nfse:infPedReg/nfse:e101101/nfse:cMotivo", NS)
@@ -860,12 +919,12 @@ class TestXMLBuilderCancelEvent:
         """xMotivo must contain the reason text."""
         builder = XMLBuilder()
 
-        xml_str = builder.build_cancel_event(SAMPLE_CHAVE, "Servico nao prestado")
+        xml_str = builder.build_cancel_event(SAMPLE_CHAVE, "Serviço não prestado")
         root = ET.fromstring(xml_str)
 
         xMotivo = root.find("nfse:infPedReg/nfse:e101101/nfse:xMotivo", NS)
         assert xMotivo is not None
-        assert xMotivo.text == "Servico nao prestado"
+        assert xMotivo.text == "Serviço não prestado"
 
     def test_xMotivo_truncated_to_255(self):
         """xMotivo must not exceed 255 characters."""

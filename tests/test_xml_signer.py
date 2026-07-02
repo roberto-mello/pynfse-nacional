@@ -7,6 +7,8 @@ import tempfile
 from unittest.mock import MagicMock, patch
 
 import pytest
+from lxml import etree
+from lxml.etree import XMLParser as RealXMLParser
 
 from pynfse_nacional.exceptions import NFSeCertificateError
 from pynfse_nacional.xml_signer import (
@@ -14,7 +16,6 @@ from pynfse_nacional.xml_signer import (
     SIGNXML_AVAILABLE,
     XMLSignerService,
 )
-
 
 SAMPLE_XML = """<?xml version='1.0' encoding='utf-8'?>
 <DPS xmlns="http://www.sped.fazenda.gov.br/nfse">
@@ -101,9 +102,7 @@ class TestXMLSignerServiceCompressEncode:
 class TestXMLSignerServiceLoadCertificate:
     """Tests for _load_certificate method."""
 
-    @pytest.mark.skipif(
-        not CRYPTOGRAPHY_AVAILABLE, reason="cryptography not installed"
-    )
+    @pytest.mark.skipif(not CRYPTOGRAPHY_AVAILABLE, reason="cryptography not installed")
     def test_load_certificate_raises_on_missing_file(self):
         """_load_certificate should raise NFSeCertificateError for missing file."""
         signer = XMLSignerService(
@@ -115,9 +114,7 @@ class TestXMLSignerServiceLoadCertificate:
 
         assert "nao encontrado" in str(exc_info.value.message)
 
-    @pytest.mark.skipif(
-        not CRYPTOGRAPHY_AVAILABLE, reason="cryptography not installed"
-    )
+    @pytest.mark.skipif(not CRYPTOGRAPHY_AVAILABLE, reason="cryptography not installed")
     def test_load_certificate_raises_on_invalid_password(self):
         """_load_certificate should raise NFSeCertificateError for wrong password."""
         with tempfile.NamedTemporaryFile(suffix=".pfx", delete=False) as f:
@@ -139,17 +136,13 @@ class TestXMLSignerServiceLoadCertificate:
         """_load_certificate should raise if cryptography not available."""
         signer = XMLSignerService(cert_path="/path/to/cert.pfx", cert_password="secret")
 
-        with patch(
-            "pynfse_nacional.xml_signer.CRYPTOGRAPHY_AVAILABLE", False
-        ):
+        with patch("pynfse_nacional.xml_signer.CRYPTOGRAPHY_AVAILABLE", False):
             with pytest.raises(NFSeCertificateError) as exc_info:
                 signer._load_certificate()
 
             assert "cryptography" in str(exc_info.value.message).lower()
 
-    @pytest.mark.skipif(
-        not CRYPTOGRAPHY_AVAILABLE, reason="cryptography not installed"
-    )
+    @pytest.mark.skipif(not CRYPTOGRAPHY_AVAILABLE, reason="cryptography not installed")
     def test_load_certificate_caches_result(self):
         """_load_certificate should only load once."""
         signer = XMLSignerService(cert_path="/path/to/cert.pfx", cert_password="secret")
@@ -193,6 +186,33 @@ class TestXMLSignerServiceSign:
 
             mock_load.assert_called_once()
 
+    @pytest.mark.skipif(
+        not (CRYPTOGRAPHY_AVAILABLE and SIGNXML_AVAILABLE),
+        reason="cryptography or signxml not installed",
+    )
+    @patch("pynfse_nacional.xml_signer.XMLSigner")
+    @patch("pynfse_nacional.xml_signer.etree.XMLParser")
+    def test_sign_uses_hardened_xml_parser(self, mock_xmlparser, mock_xmlsigner):
+        """sign should parse XML with external entities disabled."""
+        signer = XMLSignerService(cert_path="/path/to/cert.pfx", cert_password="secret")
+        signer._private_key = MagicMock()
+        signer._certificate = MagicMock()
+        mock_xmlparser.side_effect = RealXMLParser
+
+        signed_root = etree.fromstring(SAMPLE_XML.encode("utf-8"))
+        mock_signer_instance = MagicMock()
+        mock_signer_instance.sign.return_value = signed_root
+        mock_xmlsigner.return_value = mock_signer_instance
+
+        with patch.object(signer, "_load_certificate"):
+            signer.sign(SAMPLE_XML)
+
+        mock_xmlparser.assert_called_once_with(
+            resolve_entities=False,
+            no_network=True,
+            huge_tree=False,
+        )
+
 
 class TestXMLSignerServiceSignAndEncode:
     """Tests for sign_and_encode method."""
@@ -204,7 +224,7 @@ class TestXMLSignerServiceSignAndEncode:
         signed_xml = "<signed>content</signed>"
 
         with patch.object(signer, "sign", return_value=signed_xml) as mock_sign:
-            result = signer.sign_and_encode(SAMPLE_XML)
+            signer.sign_and_encode(SAMPLE_XML)
 
             mock_sign.assert_called_once_with(SAMPLE_XML)
 
@@ -251,7 +271,9 @@ class TestXMLSignerServiceIntegration:
         password = os.environ.get("NFSE_TEST_CERT_PASSWORD")
 
         if not password:
-            pytest.skip("Test certificate password not set (set NFSE_TEST_CERT_PASSWORD)")
+            pytest.skip(
+                "Test certificate password not set (set NFSE_TEST_CERT_PASSWORD)"
+            )
 
         return password
 
