@@ -6,6 +6,7 @@ making real API calls.
 
 import base64
 import gzip
+from contextlib import contextmanager
 from datetime import datetime
 from decimal import Decimal
 from unittest.mock import MagicMock, patch
@@ -14,7 +15,7 @@ from xml.etree import ElementTree as ET
 import httpx
 import pytest
 
-from pynfse_nacional import NFSeAPIError, NFSeClient
+from pynfse_nacional import NFSeAPIError, NFSeCertificateError, NFSeClient
 from pynfse_nacional.client import _extract_nfse_number_from_xml
 from pynfse_nacional.models import (
     DPS,
@@ -312,6 +313,33 @@ class TestParseDpsResponseError:
         assert result.success is True
         assert result.xml_nfse is None
         assert result.nfse_number is None
+
+
+class TestClientCertificateHandling:
+    def test_cert_tempfile_cleanup_on_error(self, mock_client, tmp_path):
+        cert_path = tmp_path / "cert.pem"
+        key_path = tmp_path / "key.pem"
+
+        @contextmanager
+        def fake_named_tempfile(*, mode, suffix, delete):
+            path = cert_path if not cert_path.exists() else key_path
+            with open(path, mode) as fh:
+                yield fh
+
+        with patch(
+            "pynfse_nacional.client.tempfile.NamedTemporaryFile"
+        ) as mock_tmp, patch(
+            "pynfse_nacional.client.httpx.Client",
+            side_effect=RuntimeError("ssl setup failed"),
+        ):
+            mock_tmp.side_effect = fake_named_tempfile
+
+            with pytest.raises(NFSeCertificateError, match="ssl setup failed"):
+                with mock_client._get_client():
+                    pass
+
+        assert not cert_path.exists()
+        assert not key_path.exists()
 
 
 # =============================================================================
