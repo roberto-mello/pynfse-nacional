@@ -141,9 +141,30 @@ Cliente principal para a API do NFSe Nacional.
 
 - `submit_dps(dps: DPS) -> NFSeResponse` - Envia DPS e recebe NFSe
 - `query_nfse(chave_acesso: str) -> NFSeQueryResult` - Consulta NFSe pela chave de acesso
+- `query_nfse_by_dps(id_dps: str) -> NFSeQueryResult` - Recupera a NFSe pelo identificador da DPS
+- `has_nfse_by_dps(id_dps: str) -> bool` - Verifica se a DPS já gerou uma NFSe
 - `download_danfse(chave_acesso: str) -> bytes` - Baixa o DANFSe em PDF
 - `cancel_nfse(chave_acesso, reason, codigo_motivo=1, cnpj_prestador="") -> EventResponse` - Cancela NFSe
 - `substitute_nfse(chave_acesso_original, new_dps, motivo, codigo_motivo) -> NFSeResponse` - Substitui NFSe existente
+
+**Consulta por DPS:**
+
+Se você só tiver o identificador da DPS, use a consulta por DPS para recuperar
+a chave de acesso e depois obter os dados completos da NFSe:
+
+```python
+result = client.query_nfse_by_dps(dps.id_dps)
+
+print(result.chave_acesso)
+print(result.nfse_number)
+```
+
+Se você só quiser verificar se a NFSe já foi gerada:
+
+```python
+if client.has_nfse_by_dps(dps.id_dps):
+    print("NFSe já gerada")
+```
 
 **Consulta de Convênio Municipal:**
 
@@ -466,6 +487,8 @@ Main client for NFSe Nacional API.
 
 - `submit_dps(dps: DPS) -> NFSeResponse` - Submit DPS and receive NFSe
 - `query_nfse(chave_acesso: str) -> NFSeQueryResult` - Query NFSe by access key
+- `query_nfse_by_dps(id_dps: str) -> NFSeQueryResult` - Recover NFSe by DPS identifier
+- `has_nfse_by_dps(id_dps: str) -> bool` - Check whether a DPS already generated an NFSe
 - `download_danfse(chave_acesso: str) -> bytes` - Download DANFSe PDF
 - `cancel_nfse(chave_acesso, reason, codigo_motivo=1, cnpj_prestador="") -> EventResponse` - Cancel NFSe
 - `substitute_nfse(chave_acesso_original, new_dps, motivo, codigo_motivo) -> NFSeResponse` - Substitute existing NFSe
