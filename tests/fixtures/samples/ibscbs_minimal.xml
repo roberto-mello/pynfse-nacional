@@ -14,6 +14,7 @@
 			<regTrib>
 				<opSimpNac>3</opSimpNac>
 				<regApTribSN>1</regApTribSN>
+				<regApIBSCBSSN>1</regApIBSCBSSN>
 				<regEspTrib>0</regEspTrib>
 			</regTrib>
 		</prest>
@@ -62,12 +63,12 @@
 		<IBSCBS>
 			<finNFSe>0</finNFSe>
 			<indFinal>0</indFinal>
-			<cIndOp>000001</cIndOp>
+			<cIndOp>020101</cIndOp>
 			<indDest>0</indDest>
 			<valores>
 				<trib>
 					<gIBSCBS>
-						<CST>000</CST>
+						<CST>001</CST>
 						<cClassTrib>000001</cClassTrib>
 					</gIBSCBS>
 				</trib>
