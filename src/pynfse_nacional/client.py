@@ -548,17 +548,9 @@ class NFSeClient:
 
         Note: The official DANFSE API at adn.nfse.gov.br may not be available
         or may return errors (501, 502, 429). As an alternative, use the local
-        PDF generator:
-
-            from pynfse_nacional.pdf_generator import generate_danfse_from_base64
-
-            # After submit_dps():
-            response = client.submit_dps(dps)
-            if response.success and response.nfse_xml_gzip_b64:
-                pdf_bytes = generate_danfse_from_base64(response.nfse_xml_gzip_b64)
-
-        The local generator requires optional dependencies:
-            pip install pynfse-nacional[pdf]
+        PDF generator helper from ``pynfse_nacional.pdf_generator`` when the
+        submit response includes ``nfse_xml_gzip_b64``. That path requires the
+        optional ``pynfse-nacional[pdf]`` extra.
         """
         _validate_chave_acesso(chave_acesso)
 

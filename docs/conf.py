@@ -35,14 +35,17 @@ html_title = "pynfse-nacional"
 html_baseurl = "https://robmello.github.io/pynfse-nacional/"
 html_static_path = []
 html_css_files = []
+html_extra_path = ["llms.txt"]
 
 autosummary_generate = False
 autodoc_default_options = {
     "members": True,
-    "undoc-members": True,
     "show-inheritance": True,
     "member-order": "bysource",
 }
+autodoc_typehints = "description"
+autodoc_typehints_format = "short"
+autodoc_class_signature = "separated"
 
 autodoc_mock_imports = [
     "reportlab",

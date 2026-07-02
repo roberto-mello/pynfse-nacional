@@ -34,6 +34,27 @@ client = NFSeClient(
 - Separe um certificado de homologação e outro de produção.
 - Teste o arquivo antes do primeiro `submit_dps`.
 
+## Padrão recomendado
+
+Se a sua aplicação já tem uma camada própria de certificados, uma recomendação
+é usar um serviço único para localizar o arquivo, ler a senha de um 
+cofre/secret manager e devolver o cliente NFSe já configurado.
+
+Isso costuma funcionar bem porque:
+
+- evita espalhar `cert_path` e `cert_password` pela aplicação
+- deixa a rotação do certificado concentrada em um só ponto
+- facilita separar homologação e produção
+- reduz o risco de log acidental de senha
+- simplifica troca de certificado sem mexer no restante do código
+
+O formato mais simples é:
+
+- guardar o `.pfx`/`.p12` fora do repositório
+- manter a senha em variável de ambiente, secret do CI ou cofre da plataforma
+- carregar o certificado uma vez por processo, não a cada requisição
+- criar um adapter central que entregue `NFSeClient` pronto para uso
+
 ## Segurança
 
 Certificado de cliente não é só "um arquivo para passar no construtor". Ele
@@ -48,16 +69,15 @@ No `pynfse_nacional`, o certificado fica no seu ambiente local. A biblioteca:
 
 Na prática, isso quer dizer:
 
-- não commite o certificado nem a senha;
-- não imprima `cert_path` nem `cert_password` em log;
-- use permissões de arquivo restritas;
-- troque o certificado se ele vazar ou se alguém da equipe sair com acesso a ele;
-- mantenha homologação e produção separados.
+- não coloque o certificado nem a senha no seu repositório de código
+- não imprima `cert_path` nem `cert_password` em log
+- use permissões de arquivo restritas
+- troque o certificado se ele vazar ou se alguém da equipe sair com acesso a ele
+- mantenha homologação e produção separados
 
 Se você usa segredo de ambiente, prefira o que sua infraestrutura já protege
 bem, como secret manager, cofre da plataforma ou variáveis injetadas no CI.
-O ponto é simples: o código não precisa ver a senha mais vezes do que o
-necessário.
+O código não precisa ver a senha mais vezes do que o necessário.
 
 ## Erros comuns
 

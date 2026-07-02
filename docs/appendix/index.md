@@ -1,12 +1,12 @@
 # Apêndice
 
-Material de apoio para operação e manutenção da documentação.
+Material de apoio para operar o projeto sem adivinhar nada no escuro.
 
 ## Páginas
 
-- [Troubleshooting](troubleshooting)
-- [Matriz de ambiente](environment-matrix)
-- [Release e versionamento](release-versioning)
+- [Troubleshooting](troubleshooting) - erros comuns e como sair deles rápido
+- [Matriz de ambiente](environment-matrix) - Python, PDF, mTLS e perfis suportados
+- [Release e versionamento](release-versioning) - versão, docs, CI e publicação
 
 ```{toctree}
 :maxdepth: 1

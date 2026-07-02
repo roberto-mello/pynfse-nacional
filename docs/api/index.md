@@ -2,15 +2,11 @@
 
 As páginas desta seção saem dos docstrings do código-fonte.
 
-## Módulos
+## Visão geral
 
-- [Cliente](client)
-- [Modelos](models)
-- [XML Builder](xml-builder)
-- [XML Signer](xml-signer)
-- [PDF Generator](pdf-generator)
-- [Exceções](exceptions)
-- [Utilitários](utils)
+- [Visão Geral da API](overview)
+
+## Módulos
 
 ## Regra
 
@@ -20,6 +16,7 @@ Cada módulo fica em uma página própria para manter a documentação perto da 
 :maxdepth: 1
 :caption: Módulos
 
+overview
 client
 models
 xml-builder

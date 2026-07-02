@@ -1,16 +1,16 @@
 # Consulta
 
-Use este fluxo quando a NFSe já saiu, mas você ainda precisa puxar o registro
-para o seu sistema.
+Use este fluxo quando a NFSe já foi emitida, mas você precisa puxar o registro
+para sua aplicação cliente.
 
 ## Quando usar cada método
 
 | Método | Quando usar |
 | --- | --- |
-| `query_nfse` | Você já tem a chave de acesso |
-| `query_nfse_by_dps` | Você só tem o `id_dps` |
-| `has_nfse_by_dps` | Você quer só saber se a DPS já gerou NFSe |
-| `recover_nfse_by_dps` | Você perdeu a chave e quer tentar recuperar tudo de uma vez |
+| `query_nfse()` | Você já tem a chave de acesso |
+| `query_nfse_by_dps()` | Você só tem o `id_dps` |
+| `has_nfse_by_dps()` | Você quer só saber se a DPS já gerou NFSe |
+| `recover_nfse_by_dps()` | Você perdeu a chave e quer tentar recuperar tudo de uma vez |
 
 ## Exemplo por DPS
 
