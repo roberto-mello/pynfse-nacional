@@ -90,6 +90,11 @@ class TestIBSCBSOptionalModels:
 
         assert imovel.c_cib == "12345678"
 
+    def test_accepts_imovel_with_non_digit_cib(self):
+        imovel = ImovelIBSCBS(c_cib="AB12CD34")
+
+        assert imovel.c_cib == "AB12CD34"
+
     def test_accepts_valid_uf(self):
         endereco = EnderecoIBSCBS(
             logradouro="Rua Teste",
