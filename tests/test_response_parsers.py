@@ -5,7 +5,6 @@ import pytest
 from pynfse_nacional import response_parsers
 from pynfse_nacional.response_parsers import parse_ibscbs
 
-
 SAMPLE_IBSCBS_XML = """\
 <NFSe xmlns="http://www.sped.fazenda.gov.br/nfse">
   <infNFSe>
