@@ -14,7 +14,7 @@ from cryptography.hazmat.primitives.serialization import pkcs12
 from cryptography.x509.oid import NameOID
 from lxml import etree
 
-from pynfse_nacional.models import DPS
+from pynfse_nacional.models import DPS, Prestador, Servico, Tomador
 from pynfse_nacional.models_ibscbs import (
     GIBSCBS,
     IBSCBS,
