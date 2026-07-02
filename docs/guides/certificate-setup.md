@@ -34,6 +34,31 @@ client = NFSeClient(
 - Separe um certificado de homologação e outro de produção.
 - Teste o arquivo antes do primeiro `submit_dps`.
 
+## Segurança
+
+Certificado de cliente não é só "um arquivo para passar no construtor". Ele
+vale como identidade da empresa perante a SEFIN.
+
+No `pynfse_nacional`, o certificado fica no seu ambiente local. A biblioteca:
+
+- lê o `.pfx` ou `.p12` da máquina onde está rodando;
+- usa a chave para assinar o XML;
+- cria arquivos PEM temporários só para montar a conexão mTLS;
+- apaga esses arquivos temporários no fim da chamada.
+
+Na prática, isso quer dizer:
+
+- não commite o certificado nem a senha;
+- não imprima `cert_path` nem `cert_password` em log;
+- use permissões de arquivo restritas;
+- troque o certificado se ele vazar ou se alguém da equipe sair com acesso a ele;
+- mantenha homologação e produção separados.
+
+Se você usa segredo de ambiente, prefira o que sua infraestrutura já protege
+bem, como secret manager, cofre da plataforma ou variáveis injetadas no CI.
+O ponto é simples: o código não precisa ver a senha mais vezes do que o
+necessário.
+
 ## Erros comuns
 
 | Sintoma | Causa provável | O que verificar |
