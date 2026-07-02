@@ -1,6 +1,7 @@
 # Primeira emissão
 
-Este fluxo cobre a criação da DPS, o envio e a leitura da resposta da SEFIN.
+Aqui está o fluxo que normalmente funciona: montar a DPS, enviar e guardar a
+resposta que vier da SEFIN.
 
 ## Passos
 
@@ -65,20 +66,19 @@ else:
     print(response.error_code, response.error_message)
 ```
 
-## O que acontece por trás
+## Por baixo dos panos
 
 - A DPS vira XML.
 - O XML é assinado com o certificado.
-- O conteúdo é compactado em GZip e codificado em Base64.
-- A API responde com a chave de acesso e, quando disponível, o número da NFSe.
+- O conteúdo vai compactado em GZip e codificado em Base64.
+- A API devolve a chave de acesso e, quando disponível, o número da NFSe.
 
 ## Se houver IBSCBS
 
-Se o prestador for optante pelo Simples Nacional e o caso exigir IBSCBS,
+Se o prestador for optante pelo Simples Nacional e o caso pedir IBSCBS,
 preencha `dps.ibscbs` e use `op_simp_nac="3"` ou `"4"`, com os campos de
-apuração correspondentes.
+apuração corretos.
 
 - `op_simp_nac="1"` e `"2"` não aceitam `reg_ap_trib_sn` nem
   `reg_ap_ibs_cbs_sn`.
 - `op_simp_nac="3"` e `"4"` exigem os dois campos.
-

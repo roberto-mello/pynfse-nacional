@@ -1,7 +1,7 @@
 # Configuração de certificado
 
-Para assinar e transmitir XMLs para o NFSe Nacional, você precisa informar um
-certificado em formato PKCS#12.
+Para assinar XML e abrir a conexão mTLS com o NFSe Nacional, a biblioteca
+precisa de um certificado PKCS#12.
 
 ## O que a biblioteca espera
 
@@ -9,10 +9,9 @@ certificado em formato PKCS#12.
 - `cert_password`: senha do certificado
 - `ambiente`: `homologacao` ou `producao`
 
-O certificado só é carregado quando a biblioteca precisa assinar um XML ou
-abrir a conexão mTLS. Se o arquivo estiver ausente, a senha estiver errada ou
-o pacote não tiver a chave privada, o erro aparece como
-`NFSeCertificateError`.
+O arquivo só é lido quando a biblioteca precisa assinar XML ou abrir a
+conexão mTLS. Se o caminho estiver errado, a senha não bater ou o arquivo não
+tiver a chave privada, o erro aparece como `NFSeCertificateError`.
 
 ## Exemplo mínimo
 
@@ -28,19 +27,17 @@ client = NFSeClient(
 )
 ```
 
-## Boas práticas
+## O que costuma dar errado
 
 - Guarde o certificado fora do repositório.
-- Prefira variáveis de ambiente para o caminho e a senha.
-- Use um certificado específico para homologação e outro para produção.
-- Valide o arquivo antes do primeiro envio, para não descobrir o erro só no
-  `submit_dps`.
+- Use variáveis de ambiente para o caminho e a senha.
+- Separe um certificado de homologação e outro de produção.
+- Teste o arquivo antes do primeiro `submit_dps`.
 
 ## Erros comuns
 
 | Sintoma | Causa provável | O que verificar |
 | --- | --- | --- |
 | `Arquivo de certificado nao encontrado` | Caminho incorreto | Confirme `cert_path` |
-| `Private key not found in certificate` | Arquivo sem chave privada | Verifique se o `.pfx`/`.p12` exportou a chave |
+| `Private key not found in certificate` | Arquivo sem chave privada | Veja se o `.pfx` ou `.p12` saiu com a chave |
 | `Erro ao carregar certificado` | Senha errada ou arquivo corrompido | Reexporte o certificado e teste a senha |
-

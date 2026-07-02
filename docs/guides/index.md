@@ -1,6 +1,6 @@
 # Guias
 
-Coleção de guias práticos para o fluxo diário da biblioteca.
+Guia de uso diário da biblioteca.
 
 ## Ordem recomendada
 
@@ -14,9 +14,9 @@ Coleção de guias práticos para o fluxo diário da biblioteca.
 
 ## O que entra aqui
 
-- Fluxos de ponta a ponta.
-- Exemplos com foco em tarefa, não em classe.
-- Observações operacionais que não pertencem à referência da API.
+- Fluxos completos, do começo ao fim.
+- Exemplos focados na tarefa, não na classe.
+- Observações que ajudam na operação do dia a dia.
 
 ```{toctree}
 :maxdepth: 1
