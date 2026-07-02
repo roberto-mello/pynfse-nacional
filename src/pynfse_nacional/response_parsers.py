@@ -36,6 +36,21 @@ def _text(element: ET.Element, path: str) -> str:
     return ""
 
 
+def _parse_endereco(end: ET.Element) -> Optional[dict[str, object]]:
+    end_nac = _find(end, ".//nfse:endNac")
+    if end_nac is None:
+        return None
+
+    return {
+        "codigo_municipio": int(_text(end_nac, ".//nfse:cMun") or "0"),
+        "cep": _text(end_nac, ".//nfse:CEP"),
+        "logradouro": _text(end, ".//nfse:xLgr"),
+        "numero": _text(end, ".//nfse:nro"),
+        "bairro": _text(end, ".//nfse:xBairro"),
+        "complemento": _text(end, ".//nfse:xCpl") or None,
+    }
+
+
 def extract_nfse_number(root: ET.Element) -> Optional[str]:
     """Extract nNFSe from a parsed response XML tree."""
 
@@ -221,16 +236,9 @@ def parse_ibscbs(
 
             end = _find(dest, ".//nfse:end")
             if end is not None:
-                end_nac = _find(end, ".//nfse:endNac")
-                if end_nac is not None:
-                    dest_data["end"] = {
-                        "codigo_municipio": int(_text(end_nac, ".//nfse:cMun") or "0"),
-                        "cep": _text(end_nac, ".//nfse:CEP"),
-                        "logradouro": _text(end, ".//nfse:xLgr"),
-                        "numero": _text(end, ".//nfse:nro"),
-                        "bairro": _text(end, ".//nfse:xBairro"),
-                        "complemento": _text(end, ".//nfse:xCpl") or None,
-                    }
+                endereco_data = _parse_endereco(end)
+                if endereco_data is not None:
+                    dest_data["end"] = endereco_data
 
             fone = _text(dest, ".//nfse:fone")
             if fone:
@@ -256,18 +264,9 @@ def parse_ibscbs(
             else:
                 end = _find(imovel, ".//nfse:end")
                 if end is not None:
-                    end_nac = _find(end, ".//nfse:endNac")
-                    if end_nac is not None:
-                        imovel_data["end"] = {
-                            "codigo_municipio": int(
-                                _text(end_nac, ".//nfse:cMun") or "0"
-                            ),
-                            "cep": _text(end_nac, ".//nfse:CEP"),
-                            "logradouro": _text(end, ".//nfse:xLgr"),
-                            "numero": _text(end, ".//nfse:nro"),
-                            "bairro": _text(end, ".//nfse:xBairro"),
-                            "complemento": _text(end, ".//nfse:xCpl") or None,
-                        }
+                    endereco_data = _parse_endereco(end)
+                    if endereco_data is not None:
+                        imovel_data["end"] = endereco_data
 
             if imovel_data:
                 data["imovel"] = imovel_data
