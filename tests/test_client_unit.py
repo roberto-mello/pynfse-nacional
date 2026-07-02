@@ -6,13 +6,16 @@ making real API calls.
 
 import base64
 import gzip
+from datetime import datetime
 from decimal import Decimal
 from unittest.mock import MagicMock, patch
+from xml.etree import ElementTree as ET
 
 import httpx
 import pytest
 
 from pynfse_nacional import NFSeAPIError, NFSeClient
+from pynfse_nacional.client import _extract_nfse_number_from_xml
 from pynfse_nacional.models import (
     DPS,
     Endereco,
@@ -92,6 +95,16 @@ def _compress_encode(xml_content: str) -> str:
 
 class TestParseDpsResponseNfseNumberExtraction:
     """Tests for nfse_number extraction from XML."""
+
+    def test_extract_uses_hardened_xml_parser(self):
+        """The XML extraction helper should disable external entity expansion."""
+        with patch(
+            "pynfse_nacional.response_parsers.ET.fromstring",
+            wraps=ET.fromstring,
+        ) as mock_fromstring:
+            assert _extract_nfse_number_from_xml(_make_nfse_xml("42")) == "42"
+
+        assert mock_fromstring.call_count == 1
 
     def test_extracts_nfse_number_from_xml(self, mock_client):
         """Should extract nfse_number from the XML content (priority 1)."""
@@ -480,6 +493,56 @@ class TestParseEventResponse:
 class TestQueryNfse:
     """Tests for query_nfse method."""
 
+    def test_query_nfse_parses_ibscbs_without_double_parse(self, mock_client):
+        """Should parse IBSCBS from NFSe XML while parsing the XML once."""
+        xml_content = _make_nfse_xml("1234").replace(
+            "</infNFSe>",
+            """
+            <IBSCBS>
+                <finNFSe>0</finNFSe>
+                <indFinal>0</indFinal>
+                <cIndOp>020101</cIndOp>
+                <indDest>0</indDest>
+                <valores>
+                    <trib>
+                        <gIBSCBS>
+                            <CST>001</CST>
+                            <cClassTrib>123456</cClassTrib>
+                        </gIBSCBS>
+                    </trib>
+                </valores>
+            </IBSCBS>
+            </infNFSe>""",
+        )
+        encoded_xml = _compress_encode(xml_content)
+
+        mock_response = MockResponse(
+            status_code=200,
+            json_data={
+                "chaveAcesso": "12345678901234567890123456789012345678901234567890",
+                "nfse": encoded_xml,
+                "dhEmi": "2026-01-15T10:30:00-03:00",
+            },
+        )
+
+        with patch.object(mock_client, "_get_client") as mock_get_client, patch(
+            "pynfse_nacional.response_parsers.ET.fromstring",
+            wraps=ET.fromstring,
+        ) as mock_fromstring:
+            mock_http = MagicMock()
+            mock_http.get.return_value = mock_response
+            mock_get_client.return_value.__enter__ = MagicMock(return_value=mock_http)
+            mock_get_client.return_value.__exit__ = MagicMock(return_value=False)
+
+            result = mock_client.query_nfse(
+                "12345678901234567890123456789012345678901234567890"
+            )
+
+        assert result.ibscbs is not None
+        assert result.ibscbs.c_ind_op == "020101"
+        assert result.ibscbs.valores.trib.g_ibscbs.cst == "001"
+        assert mock_fromstring.call_count == 1
+
     def test_query_nfse_success(self, mock_client):
         """Should query NFSe successfully."""
         mock_response = MockResponse(
@@ -557,6 +620,123 @@ class TestQueryNfse:
                 )
 
             assert exc_info.value.status_code == 404
+
+
+class TestQueryNfseByDps:
+    """Tests for query_nfse_by_dps and has_nfse_by_dps."""
+
+    DPS_ID = "DPS350950221122233300018100900000000000000001"
+    CHAVE_ACESSO = "12345678901234567890123456789012345678901234567890"
+
+    def test_query_nfse_by_dps_success(self, mock_client):
+        mock_response = MockResponse(
+            status_code=200,
+            json_data={"chaveAcesso": self.CHAVE_ACESSO},
+        )
+        expected = NFSeQueryResult(
+            chave_acesso=self.CHAVE_ACESSO,
+            nfse_number="1234",
+            status="emitida",
+            data_emissao=datetime(2026, 1, 15, 10, 30, 0),
+            valor_servicos=Decimal("500.00"),
+            prestador_cnpj="11222333000181",
+        )
+
+        with patch.object(mock_client, "_get_client") as mock_get_client, patch.object(
+            mock_client,
+            "_query_nfse_with_client",
+            return_value=expected,
+        ) as mock_query:
+            mock_http = MagicMock()
+            mock_http.get.return_value = mock_response
+            mock_get_client.return_value.__enter__ = MagicMock(return_value=mock_http)
+            mock_get_client.return_value.__exit__ = MagicMock(return_value=False)
+
+            result = mock_client.query_nfse_by_dps(self.DPS_ID)
+
+        assert result == expected
+        mock_query.assert_called_once_with(mock_http, self.CHAVE_ACESSO)
+
+    def test_query_nfse_by_dps_rejects_invalid_id(self, mock_client):
+        with pytest.raises(ValueError):
+            mock_client.query_nfse_by_dps("DPS123")
+
+    def test_query_nfse_by_dps_rejects_not_found(self, mock_client):
+        mock_response = MockResponse(
+            status_code=404,
+            json_data={"codigo": "NOT_FOUND", "mensagem": "DPS nao encontrada"},
+        )
+
+        with patch.object(mock_client, "_get_client") as mock_get_client:
+            mock_http = MagicMock()
+            mock_http.get.return_value = mock_response
+            mock_get_client.return_value.__enter__ = MagicMock(return_value=mock_http)
+            mock_get_client.return_value.__exit__ = MagicMock(return_value=False)
+
+            with pytest.raises(NFSeAPIError) as exc_info:
+                mock_client.query_nfse_by_dps(self.DPS_ID)
+
+        assert exc_info.value.status_code == 404
+
+    def test_query_nfse_by_dps_rejects_still_processing(self, mock_client):
+        mock_response = MockResponse(
+            status_code=202,
+            json_data={"codigo": "PROCESSING", "mensagem": "DPS em processamento"},
+        )
+
+        with patch.object(mock_client, "_get_client") as mock_get_client:
+            mock_http = MagicMock()
+            mock_http.get.return_value = mock_response
+            mock_get_client.return_value.__enter__ = MagicMock(return_value=mock_http)
+            mock_get_client.return_value.__exit__ = MagicMock(return_value=False)
+
+            with pytest.raises(NFSeAPIError) as exc_info:
+                mock_client.query_nfse_by_dps(self.DPS_ID)
+
+        assert exc_info.value.status_code == 202
+
+    def test_query_nfse_by_dps_times_out(self, mock_client):
+        with patch.object(mock_client, "_get_client") as mock_get_client:
+            mock_http = MagicMock()
+            mock_http.get.side_effect = httpx.TimeoutException("timeout")
+            mock_get_client.return_value.__enter__ = MagicMock(return_value=mock_http)
+            mock_get_client.return_value.__exit__ = MagicMock(return_value=False)
+
+            with pytest.raises(NFSeAPIError) as exc_info:
+                mock_client.query_nfse_by_dps(self.DPS_ID)
+
+        assert exc_info.value.code == "TIMEOUT"
+
+    def test_query_nfse_by_dps_normalizes_request_error(self, mock_client):
+        request = httpx.Request("GET", "https://example.com")
+
+        with patch.object(mock_client, "_get_client") as mock_get_client:
+            mock_http = MagicMock()
+            mock_http.get.side_effect = httpx.RequestError("boom", request=request)
+            mock_get_client.return_value.__enter__ = MagicMock(return_value=mock_http)
+            mock_get_client.return_value.__exit__ = MagicMock(return_value=False)
+
+            with pytest.raises(NFSeAPIError) as exc_info:
+                mock_client.query_nfse_by_dps(self.DPS_ID)
+
+        assert exc_info.value.code == "COMM_ERROR"
+
+    def test_has_nfse_by_dps_returns_boolean(self, mock_client):
+        with patch.object(mock_client, "_get_client") as mock_get_client:
+            mock_http = MagicMock()
+            mock_http.head.return_value = MockResponse(status_code=204)
+            mock_get_client.return_value.__enter__ = MagicMock(return_value=mock_http)
+            mock_get_client.return_value.__exit__ = MagicMock(return_value=False)
+
+            assert mock_client.has_nfse_by_dps(self.DPS_ID) is True
+
+        with patch.object(mock_client, "_get_client") as mock_get_client:
+            mock_http = MagicMock()
+            mock_http.head.return_value = MockResponse(status_code=404)
+            mock_get_client.return_value.__enter__ = MagicMock(return_value=mock_http)
+            mock_get_client.return_value.__exit__ = MagicMock(return_value=False)
+
+            assert mock_client.has_nfse_by_dps(self.DPS_ID) is False
 
 
 # =============================================================================

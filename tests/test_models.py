@@ -239,9 +239,11 @@ class TestPrestadorCNPJ:
                 inscricao_municipal="12345",
                 razao_social="Empresa Teste",
                 endereco=valid_endereco,
-            )
+        )
 
         assert "CNPJ inválido (dígitos verificadores incorretos)" in str(exc_info.value)
+        assert "11222333000199" not in str(exc_info.value)
+        assert "11222333000199" not in str(exc_info.value)
 
     def test_rejects_cnpj_with_wrong_length(self, valid_endereco):
         """Deve rejeitar CNPJ com tamanho errado."""
@@ -251,9 +253,11 @@ class TestPrestadorCNPJ:
                 inscricao_municipal="12345",
                 razao_social="Empresa Teste",
                 endereco=valid_endereco,
-            )
+        )
 
         assert "CNPJ deve conter 14 dígitos" in str(exc_info.value)
+        assert "1122233300018" not in str(exc_info.value)
+        assert "1122233300018" not in str(exc_info.value)
 
 
 class TestPrestadorTelefone:
@@ -292,9 +296,11 @@ class TestPrestadorTelefone:
                 razao_social="Empresa Teste",
                 endereco=valid_endereco,
                 telefone="12345",
-            )
+        )
 
         assert "Telefone deve conter entre 6 e 20 dígitos" in str(exc_info.value)
+        assert "12345" not in str(exc_info.value)
+        assert "12345" not in str(exc_info.value)
 
 
 # =============================================================================
@@ -329,9 +335,11 @@ class TestTomadorCPF:
             Tomador(
                 cpf="12345678901",
                 razao_social="Joao Silva",
-            )
+        )
 
         assert "CPF inválido (dígitos verificadores incorretos)" in str(exc_info.value)
+        assert "12345678901" not in str(exc_info.value)
+        assert "12345678901" not in str(exc_info.value)
 
     def test_rejects_cpf_with_all_same_digits(self):
         """Deve rejeitar CPF com todos os digitos iguais."""
@@ -339,9 +347,11 @@ class TestTomadorCPF:
             Tomador(
                 cpf="11111111111",
                 razao_social="Joao Silva",
-            )
+        )
 
         assert "CPF inválido" in str(exc_info.value)
+        assert "11111111111" not in str(exc_info.value)
+        assert "11111111111" not in str(exc_info.value)
 
 
 class TestTomadorCPFOrCNPJ:
@@ -501,9 +511,11 @@ class TestDPSSerie:
                 tomador=valid_tomador,
                 servico=valid_servico,
                 regime_tributario="simples_nacional",
-            )
+        )
 
         assert "serie deve ser numérica" in str(exc_info.value)
+        assert "NF" not in str(exc_info.value)
+        assert "NF" not in str(exc_info.value)
 
 
 class TestDPSCompetencia:
@@ -647,9 +659,15 @@ class TestDPSIdDps:
                 tomador=valid_tomador,
                 servico=valid_servico,
                 regime_tributario="simples_nacional",
-            )
+        )
 
         assert "id_dps deve seguir o padrão" in str(exc_info.value)
+        assert "350950221122233300018100900000000000000001" not in str(
+            exc_info.value
+        )
+        assert "350950221122233300018100900000000000000001" not in str(
+            exc_info.value
+        )
 
     def test_rejects_wrong_length(self, valid_prestador, valid_tomador, valid_servico):
         """Deve rejeitar id com tamanho errado."""
@@ -664,9 +682,11 @@ class TestDPSIdDps:
                 tomador=valid_tomador,
                 servico=valid_servico,
                 regime_tributario="simples_nacional",
-            )
+        )
 
-        assert "45 caracteres" in str(exc_info.value)
+        assert "id_dps deve seguir o padrão" in str(exc_info.value)
+        assert "DPS12345" not in str(exc_info.value)
+        assert "DPS12345" not in str(exc_info.value)
 
 
 class TestDPSOpSimpNac:
@@ -802,19 +822,25 @@ class TestSubstituicaoNFSeChaveNfse:
             SubstituicaoNFSe(
                 chave_nfse_substituida="1234567890123456789012345678901234567890",
                 motivo="Correção da descrição do serviço prestado",
-            )
+        )
 
         assert "at least 50 characters" in str(exc_info.value)
+        assert "1234567890123456789012345678901234567890" not in str(exc_info.value)
+        assert "1234567890123456789012345678901234567890" not in str(exc_info.value)
 
     def test_rejects_chave_with_more_than_50_digits(self):
         """Deve rejeitar chave com mais de 50 digitos."""
+        long_chave = (
+            "123456789012345678901234567890123456789012345678901234567890"
+        )
         with pytest.raises(ValidationError) as exc_info:
             SubstituicaoNFSe(
-                chave_nfse_substituida="123456789012345678901234567890123456789012345678901234567890",
+                chave_nfse_substituida=long_chave,
                 motivo="Correção da descrição do serviço prestado",
             )
 
         assert "String should have at most 50 characters" in str(exc_info.value)
+        assert long_chave not in str(exc_info.value)
 
     def test_rejects_chave_with_non_numeric_characters(self):
         """Deve rejeitar chave com caracteres nao numericos."""
@@ -822,9 +848,15 @@ class TestSubstituicaoNFSeChaveNfse:
             SubstituicaoNFSe(
                 chave_nfse_substituida="1234567890123456789012345678901234567890123456789X",
                 motivo="Correção da descrição do serviço prestado",
-            )
+        )
 
         assert "chave_nfse_substituida deve conter 50 dígitos numéricos" in str(
+            exc_info.value
+        )
+        assert "1234567890123456789012345678901234567890123456789X" not in str(
+            exc_info.value
+        )
+        assert "1234567890123456789012345678901234567890123456789X" not in str(
             exc_info.value
         )
 

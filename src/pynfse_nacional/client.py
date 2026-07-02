@@ -3,7 +3,7 @@ import tempfile
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Generator, Optional
-from xml.etree import ElementTree as ET
+from xml.etree.ElementTree import ParseError as XMLParseError
 
 import httpx
 
@@ -17,25 +17,36 @@ from .models import (
     NFSeResponse,
     SubstituicaoNFSe,
 )
-from .utils import compress_encode, decode_decompress
+from .response_parsers import (
+    extract_nfse_number,
+    parse_ibscbs,
+    parse_nfse_root,
+)
+from .utils import _redacted_repr, compress_encode, decode_decompress
 from .xml_builder import XMLBuilder
 from .xml_signer import XMLSignerService
 
-# NFSe namespace for XML parsing
-_NFSE_NS = {"nfse": "http://www.sped.fazenda.gov.br/nfse"}
-
 _CHAVE_RE = re.compile(r"^\d{50}$")
+_ID_DPS_RE = re.compile(r"^DPS\d{42}$")
 
 
 def _validate_chave_acesso(chave: str) -> None:
     """Valida que chave_acesso contém exatamente 50 dígitos numéricos."""
 
     if not _CHAVE_RE.match(chave):
-        received = f"{chave[:20]}..." if len(chave) > 20 else chave
         raise ValueError(
-            f"chave_acesso deve conter exatamente 50 digitos "
-            f"numericos, recebido: '{received}' "
-            f"({len(chave)} caracteres)"
+            "chave_acesso deve conter exatamente 50 digitos numericos; "
+            f"{_redacted_repr('valor', chave)}."
+        )
+
+
+def _validate_id_dps(id_dps: str) -> None:
+    """Valida que id_dps segue o padrão DPS + 42 dígitos."""
+
+    if not _ID_DPS_RE.match(id_dps):
+        raise ValueError(
+            "id_dps deve seguir o padrão 'DPS' + 42 digitos; "
+            f"{_redacted_repr('valor', id_dps)}."
         )
 
 
@@ -49,18 +60,33 @@ def _extract_nfse_number_from_xml(xml_content: str) -> Optional[str]:
         The NFSe number as string, or None if not found.
     """
     try:
-        root = ET.fromstring(xml_content)
-
-        nfse_elem = root.find(".//nfse:nNFSe", _NFSE_NS)
-
-        if nfse_elem is None:
-            nfse_elem = root.find(".//{http://www.sped.fazenda.gov.br/nfse}nNFSe")
-
-        if nfse_elem is not None and nfse_elem.text:
-            return nfse_elem.text.strip()
-
-    except ET.ParseError:
+        root = parse_nfse_root(xml_content)
+        return extract_nfse_number(root)
+    except XMLParseError:
         pass
+
+    return None
+
+
+def _extract_chave_acesso_from_dps_response(
+    response: httpx.Response,
+) -> Optional[str]:
+    """Extract the NFSe access key from a DPS lookup response."""
+
+    try:
+        data = response.json()
+    except Exception:
+        text = response.text.strip()
+        return text if _CHAVE_RE.fullmatch(text) else None
+
+    if isinstance(data, dict):
+        for key in ("chaveAcesso", "chave_acesso", "chNFSe", "chave"):
+            value = data.get(key)
+            if isinstance(value, str) and _CHAVE_RE.fullmatch(value):
+                return value
+
+    if isinstance(data, str) and _CHAVE_RE.fullmatch(data.strip()):
+        return data.strip()
 
     return None
 
@@ -274,49 +300,165 @@ class NFSeClient:
             error_message=data.get("mensagem") or str(data),
         )
 
+    def _query_nfse_with_client(
+        self, client: httpx.Client, chave_acesso: str
+    ) -> NFSeQueryResult:
+        """Query NFSe by access key using an existing HTTP client."""
+
+        url = f"{self.base_url}{ENDPOINTS['query_nfse'].format(chave=chave_acesso)}"
+        response = client.get(url)
+
+        if response.status_code != 200:
+            error_data = {}
+
+            try:
+                error_data = response.json()
+            except Exception:
+                pass
+
+            if not isinstance(error_data, dict):
+                error_data = {}
+
+            raise NFSeAPIError(
+                error_data.get("mensagem", "Erro ao consultar NFSe"),
+                code=error_data.get("codigo"),
+                status_code=response.status_code,
+            )
+
+        data = response.json()
+
+        xml_nfse = None
+        xml_root = None
+
+        if data.get("nfse"):
+            try:
+                xml_nfse = decode_decompress(data["nfse"])
+            except Exception:
+                xml_nfse = data.get("nfse")
+
+        if xml_nfse:
+            try:
+                xml_root = parse_nfse_root(xml_nfse)
+            except XMLParseError:
+                xml_root = None
+
+        return NFSeQueryResult(
+            chave_acesso=data["chaveAcesso"],
+            nfse_number=(
+                extract_nfse_number(xml_root) if xml_root is not None else None
+            )
+            or data["nNFSe"],
+            status=data.get("situacao", "emitida"),
+            data_emissao=data["dhEmi"],
+            valor_servicos=data.get("vServPrest", 0),
+            prestador_cnpj=data.get("CNPJPrest", ""),
+            tomador_documento=data.get("CPFToma") or data.get("CNPJToma"),
+            xml_nfse=xml_nfse,
+            ibscbs=(
+                parse_ibscbs(root=xml_root) if xml_root is not None else None
+            ),
+        )
+
     def query_nfse(self, chave_acesso: str) -> NFSeQueryResult:
         """Query NFSe by access key."""
         _validate_chave_acesso(chave_acesso)
-        url = f"{self.base_url}{ENDPOINTS['query_nfse'].format(chave=chave_acesso)}"
 
         try:
             with self._get_client() as client:
-                response = client.get(url)
-
-                if response.status_code != 200:
-                    error_data = response.json() if response.text else {}
-                    raise NFSeAPIError(
-                        error_data.get("mensagem", "Erro ao consultar NFSe"),
-                        code=error_data.get("codigo"),
-                        status_code=response.status_code,
-                    )
-
-                data = response.json()
-
-                xml_nfse = None
-
-                if data.get("nfse"):
-                    try:
-                        xml_nfse = decode_decompress(data["nfse"])
-                    except Exception:
-                        xml_nfse = data.get("nfse")
-
-                return NFSeQueryResult(
-                    chave_acesso=data["chaveAcesso"],
-                    nfse_number=data["nNFSe"],
-                    status=data.get("situacao", "emitida"),
-                    data_emissao=data["dhEmi"],
-                    valor_servicos=data.get("vServPrest", 0),
-                    prestador_cnpj=data.get("CNPJPrest", ""),
-                    tomador_documento=data.get("CPFToma") or data.get("CNPJToma"),
-                    xml_nfse=xml_nfse,
-                )
+                return self._query_nfse_with_client(client, chave_acesso)
 
         except NFSeAPIError:
             raise
 
         except httpx.TimeoutException:
             raise NFSeAPIError("Timeout ao consultar NFSe", code="TIMEOUT")
+
+        except httpx.RequestError as e:
+            raise NFSeAPIError(f"Erro de comunicacao: {str(e)}", code="COMM_ERROR")
+
+    def query_nfse_by_dps(self, id_dps: str) -> NFSeQueryResult:
+        """Recover an NFSe by DPS identifier, then fetch the full invoice."""
+
+        _validate_id_dps(id_dps)
+        url = f"{self.base_url}{ENDPOINTS['query_nfse_by_dps'].format(id=id_dps)}"
+
+        try:
+            with self._get_client() as client:
+                response = client.get(url)
+
+                if response.status_code != 200:
+                    error_data = {}
+
+                    try:
+                        error_data = response.json()
+                    except Exception:
+                        pass
+
+                    if not isinstance(error_data, dict):
+                        error_data = {}
+
+                    raise NFSeAPIError(
+                        error_data.get("mensagem", "Erro ao consultar DPS"),
+                        code=error_data.get("codigo"),
+                        status_code=response.status_code,
+                    )
+
+                chave_acesso = _extract_chave_acesso_from_dps_response(response)
+                if not chave_acesso:
+                    raise NFSeAPIError(
+                        "Resposta da consulta por DPS sem chave de acesso",
+                        code="INVALID_RESPONSE",
+                        status_code=response.status_code,
+                    )
+
+                return self._query_nfse_with_client(client, chave_acesso)
+
+        except NFSeAPIError:
+            raise
+
+        except httpx.TimeoutException:
+            raise NFSeAPIError("Timeout ao consultar DPS", code="TIMEOUT")
+
+        except httpx.RequestError as e:
+            raise NFSeAPIError(f"Erro de comunicacao: {str(e)}", code="COMM_ERROR")
+
+    def has_nfse_by_dps(self, id_dps: str) -> bool:
+        """Check whether an NFSe exists for a DPS identifier."""
+
+        _validate_id_dps(id_dps)
+        url = f"{self.base_url}{ENDPOINTS['query_nfse_by_dps'].format(id=id_dps)}"
+
+        try:
+            with self._get_client() as client:
+                response = client.head(url)
+
+                if response.status_code in (200, 204):
+                    return True
+
+                if response.status_code in (202, 404, 409):
+                    return False
+
+                error_data = {}
+
+                try:
+                    error_data = response.json()
+                except Exception:
+                    pass
+
+                if not isinstance(error_data, dict):
+                    error_data = {}
+
+                raise NFSeAPIError(
+                    error_data.get("mensagem", "Erro ao consultar DPS"),
+                    code=error_data.get("codigo"),
+                    status_code=response.status_code,
+                )
+
+        except NFSeAPIError:
+            raise
+
+        except httpx.TimeoutException:
+            raise NFSeAPIError("Timeout ao consultar DPS", code="TIMEOUT")
 
         except httpx.RequestError as e:
             raise NFSeAPIError(f"Erro de comunicacao: {str(e)}", code="COMM_ERROR")
