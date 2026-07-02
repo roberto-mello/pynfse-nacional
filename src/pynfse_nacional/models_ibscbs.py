@@ -588,7 +588,12 @@ class EnderecoIBSCBS(BaseModel):
 class RefNFSe(BaseModel):
     model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
 
-    ref_nfse: list[str] = Field(default_factory=list, min_length=1, max_length=99)
+    ref_nfse: list[str] = Field(
+        default_factory=list,
+        min_length=1,
+        max_length=99,
+        validate_default=True,
+    )
 
     @field_validator("ref_nfse")
     @classmethod
@@ -597,12 +602,6 @@ class RefNFSe(BaseModel):
             if not _REF_NFSE_PATTERN.fullmatch(value):
                 raise ValueError("refNFSe deve conter 50 dígitos numéricos.")
         return values
-
-    @model_validator(mode="after")
-    def validate_non_empty(self) -> "RefNFSe":
-        if not self.ref_nfse:
-            raise ValueError("refNFSe deve conter ao menos uma referência.")
-        return self
 
 
 class DestIBSCBS(BaseModel):
