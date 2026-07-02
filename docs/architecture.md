@@ -90,4 +90,4 @@ Fluxo previsto:
 3. upload do artefato do site no GitHub Actions
 4. deploy para Pages a partir do artefato gerado
 
-O ponto de entrada do site fica em `https://robmello.github.io/pynfse-nacional/`.
+O ponto de entrada do site fica em `https://roberto-mello.github.io/pynfse-nacional/`.

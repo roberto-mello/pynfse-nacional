@@ -24,7 +24,7 @@ O fluxo normal é este:
 8. conferir se o pacote e a documentação apareceram no lugar certo
 
 O checklist oficial continua em
-[RELEASE_CHECKLIST.md](https://github.com/robmello/pynfse-nacional/blob/master/RELEASE_CHECKLIST.md).
+[RELEASE_CHECKLIST.md](https://github.com/roberto-mello/pynfse-nacional/blob/master/RELEASE_CHECKLIST.md).
 Use ele antes de cortar tag. Ele cobre o que normalmente escapa quando a pressa
 aperta.
 
@@ -43,7 +43,7 @@ aperta.
 Sim, a CI de documentação já está conectada.
 
 O workflow em
-[`.github/workflows/docs.yml`](https://github.com/robmello/pynfse-nacional/blob/master/.github/workflows/docs.yml):
+[`.github/workflows/docs.yml`](https://github.com/roberto-mello/pynfse-nacional/blob/master/.github/workflows/docs.yml):
 
 - roda em `push` e `pull_request` quando mexe em `docs/**`, `src/**`, `README.md`,
   `pyproject.toml` ou `uv.lock`
