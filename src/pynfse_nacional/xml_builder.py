@@ -1,5 +1,5 @@
 import warnings
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from xml.etree import ElementTree as ET
 
@@ -65,6 +65,7 @@ class XMLBuilder:
         self._add_tomador(infDPS, dps)
         self._add_servico(infDPS, dps)
         self._add_valores(infDPS, dps)
+        self._add_ibscbs(infDPS, dps)
 
         return ET.tostring(root, encoding="unicode", xml_declaration=True)
 
@@ -145,15 +146,16 @@ class XMLBuilder:
 
         regTrib = ET.SubElement(prest, "regTrib")
 
-        # opSimpNac: 1=Não Optante, 2=MEI, 3=ME/EPP
-        ET.SubElement(regTrib, "opSimpNac").text = "3" if dps.optante_simples else "1"
+        # opSimpNac: 1=Não Optante, 2=MEI, 3=ME/EPP, 4=Pendente
+        ET.SubElement(regTrib, "opSimpNac").text = dps.op_simp_nac
 
-        # regApTribSN: Required for Simples Nacional ME/EPP
-        # 1=Tributos federais e municipal pelo SN
-        # 2=Tributos federais pelo SN, ISSQN por fora
-        # 3=Tributos federais e municipal por fora do SN
-        if dps.optante_simples:
-            ET.SubElement(regTrib, "regApTribSN").text = "1"
+        # regApTribSN: only valid for opSimpNac 3/4
+        if dps.op_simp_nac in {"3", "4"}:
+            ET.SubElement(regTrib, "regApTribSN").text = dps.reg_ap_trib_sn or "1"
+
+        # regApIBSCBSSN: only valid for opSimpNac 3/4
+        if dps.op_simp_nac in {"3", "4"}:
+            ET.SubElement(regTrib, "regApIBSCBSSN").text = dps.reg_ap_ibs_cbs_sn
 
         ET.SubElement(regTrib, "regEspTrib").text = self._map_regime_especial(dps.regime_tributario)
 
@@ -218,7 +220,7 @@ class XMLBuilder:
         totTrib = ET.SubElement(trib, "totTrib")
 
         # For Simples Nacional, use pTotTribSN with estimated tax percentage
-        if dps.optante_simples:
+        if dps.op_simp_nac in {"3", "4"}:
             # Use aliquota_simples from servico or default to 18.83%
             if dps.servico.aliquota_simples:
                 aliquota_sn = dps.servico.aliquota_simples
@@ -226,8 +228,8 @@ class XMLBuilder:
                 aliquota_sn = Decimal("18.83")
 
                 warnings.warn(
-                    "aliquota_simples not provided, using default 18.83%. "
-                    "Set servico.aliquota_simples to the correct rate for your business.",
+                    "alíquota_simples não informada, usando 18,83% padrão. "
+                    "Defina servico.aliquota_simples com a alíquota correta para a sua empresa.",
                     UserWarning,
                     stacklevel=3,
                 )
@@ -239,6 +241,108 @@ class XMLBuilder:
             ET.SubElement(pTotTrib, "pTotTribFed").text = "0"
             ET.SubElement(pTotTrib, "pTotTribEst").text = "0"
             ET.SubElement(pTotTrib, "pTotTribMun").text = "0"
+
+    def _add_ibscbs(self, parent: ET.Element, dps: DPS) -> None:
+        if not dps.ibscbs:
+            return
+
+        ibscbs = dps.ibscbs
+        infIBSCBS = ET.SubElement(parent, "IBSCBS")
+
+        ET.SubElement(infIBSCBS, "finNFSe").text = ibscbs.fin_nfse
+        if ibscbs.tp_nfse_credito is not None:
+            ET.SubElement(infIBSCBS, "tpNFSeCredito").text = ibscbs.tp_nfse_credito
+        if ibscbs.tp_nfse_debito is not None:
+            ET.SubElement(infIBSCBS, "tpNFSeDebito").text = ibscbs.tp_nfse_debito
+        if ibscbs.ind_final is not None:
+            ET.SubElement(infIBSCBS, "indFinal").text = ibscbs.ind_final
+
+        ET.SubElement(infIBSCBS, "cIndOp").text = ibscbs.c_ind_op
+
+        if ibscbs.tp_oper is not None:
+            ET.SubElement(infIBSCBS, "tpOper").text = ibscbs.tp_oper
+
+        if ibscbs.g_ref_nfse is not None:
+            gRefNFSe = ET.SubElement(infIBSCBS, "gRefNFSe")
+            for ref_nfse in ibscbs.g_ref_nfse.ref_nfse:
+                ET.SubElement(gRefNFSe, "refNFSe").text = ref_nfse
+
+        if ibscbs.tp_ente_gov is not None:
+            ET.SubElement(infIBSCBS, "tpEnteGov").text = ibscbs.tp_ente_gov
+
+        ET.SubElement(infIBSCBS, "indDest").text = ibscbs.ind_dest
+
+        if ibscbs.dest is not None:
+            dest = ET.SubElement(infIBSCBS, "dest")
+            if ibscbs.dest.cnpj:
+                ET.SubElement(dest, "CNPJ").text = ibscbs.dest.cnpj
+            elif ibscbs.dest.cpf:
+                ET.SubElement(dest, "CPF").text = ibscbs.dest.cpf
+            elif ibscbs.dest.nif:
+                ET.SubElement(dest, "NIF").text = ibscbs.dest.nif
+            elif ibscbs.dest.c_nao_nif:
+                ET.SubElement(dest, "cNaoNIF").text = ibscbs.dest.c_nao_nif
+
+            ET.SubElement(dest, "xNome").text = ibscbs.dest.x_nome
+
+            if ibscbs.dest.end is not None:
+                end = ET.SubElement(dest, "end")
+                endNac = ET.SubElement(end, "endNac")
+                ET.SubElement(endNac, "cMun").text = str(ibscbs.dest.end.codigo_municipio)
+                ET.SubElement(endNac, "CEP").text = ibscbs.dest.end.cep
+                ET.SubElement(end, "xLgr").text = ibscbs.dest.end.logradouro
+                ET.SubElement(end, "nro").text = ibscbs.dest.end.numero
+                if ibscbs.dest.end.complemento:
+                    ET.SubElement(end, "xCpl").text = ibscbs.dest.end.complemento
+                ET.SubElement(end, "xBairro").text = ibscbs.dest.end.bairro
+
+            if ibscbs.dest.fone is not None:
+                ET.SubElement(dest, "fone").text = ibscbs.dest.fone
+            if ibscbs.dest.email is not None:
+                ET.SubElement(dest, "email").text = ibscbs.dest.email
+
+        if ibscbs.imovel is not None:
+            imovel = ET.SubElement(infIBSCBS, "imovel")
+            if ibscbs.imovel.insc_imob_fisc is not None:
+                ET.SubElement(imovel, "inscImobFisc").text = ibscbs.imovel.insc_imob_fisc
+            if ibscbs.imovel.c_cib is not None:
+                ET.SubElement(imovel, "cCIB").text = ibscbs.imovel.c_cib
+            elif ibscbs.imovel.end is not None:
+                end = ET.SubElement(imovel, "end")
+                endNac = ET.SubElement(end, "endNac")
+                ET.SubElement(endNac, "cMun").text = str(ibscbs.imovel.end.codigo_municipio)
+                ET.SubElement(endNac, "CEP").text = ibscbs.imovel.end.cep
+                ET.SubElement(end, "xLgr").text = ibscbs.imovel.end.logradouro
+                ET.SubElement(end, "nro").text = ibscbs.imovel.end.numero
+                if ibscbs.imovel.end.complemento:
+                    ET.SubElement(end, "xCpl").text = ibscbs.imovel.end.complemento
+                ET.SubElement(end, "xBairro").text = ibscbs.imovel.end.bairro
+
+        valores = ET.SubElement(infIBSCBS, "valores")
+
+        if ibscbs.valores.g_ree_rep_res:
+            gReeRepRes = ET.SubElement(valores, "gReeRepRes")
+            for item in ibscbs.valores.g_ree_rep_res:
+                ET.SubElement(gReeRepRes, "item").text = str(item)
+
+        trib = ET.SubElement(valores, "trib")
+        gIBSCBS = ET.SubElement(trib, "gIBSCBS")
+        ET.SubElement(gIBSCBS, "cST").text = ibscbs.valores.trib.g_ibscbs.cst
+        ET.SubElement(gIBSCBS, "cClassTrib").text = ibscbs.valores.trib.g_ibscbs.c_class_trib
+
+        if ibscbs.valores.trib.g_ibscbs.c_cred_pres is not None:
+            ET.SubElement(gIBSCBS, "cCredPres").text = ibscbs.valores.trib.g_ibscbs.c_cred_pres
+
+        if ibscbs.valores.trib.g_ibscbs.g_trib_regular is not None:
+            gTribRegular = ET.SubElement(gIBSCBS, "gTribRegular")
+            ET.SubElement(gTribRegular, "cSTReg").text = ibscbs.valores.trib.g_ibscbs.g_trib_regular.cst_reg
+            ET.SubElement(gTribRegular, "cClassTribReg").text = ibscbs.valores.trib.g_ibscbs.g_trib_regular.c_class_trib_reg
+
+        if ibscbs.valores.trib.g_ibscbs.g_dif is not None:
+            gDif = ET.SubElement(gIBSCBS, "gDif")
+            ET.SubElement(gDif, "pDifUF").text = self._format_decimal(ibscbs.valores.trib.g_ibscbs.g_dif.p_dif_uf)
+            ET.SubElement(gDif, "pDifMun").text = self._format_decimal(ibscbs.valores.trib.g_ibscbs.g_dif.p_dif_mun)
+            ET.SubElement(gDif, "pDifCBS").text = self._format_decimal(ibscbs.valores.trib.g_ibscbs.g_dif.p_dif_cbs)
 
     def _format_decimal(self, value: Decimal) -> str:
         return f"{value:.2f}"

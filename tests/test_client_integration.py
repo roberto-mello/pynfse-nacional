@@ -18,18 +18,18 @@ from decimal import Decimal
 import pytest
 
 from pynfse_nacional import (
-    NFSeClient,
     NFSeAPIError,
     NFSeCertificateError,
+    NFSeClient,
 )
 from pynfse_nacional.models import (
     DPS,
-    Prestador,
-    Tomador,
-    Servico,
     Endereco,
+    Prestador,
+    Servico,
+    Tomador,
 )
-
+from pynfse_nacional.models_ibscbs import GIBSCBS, IBSCBS, TribIBSCBS, ValoresIBSCBS
 
 CERT_PATH = os.environ.get("NFSE_TEST_CERT_PATH", "")
 CERT_PASSWORD = os.environ.get("NFSE_TEST_CERT_PASSWORD", "")
@@ -96,6 +96,20 @@ def sample_dps():
     now = datetime.now(timezone.utc)
     competencia = now.strftime("%Y-%m")
 
+    ibscbs = IBSCBS(
+        fin_nfse="0",
+        c_ind_op="020101",
+        ind_dest="0",
+        valores=ValoresIBSCBS(
+            trib=TribIBSCBS(
+                g_ibscbs=GIBSCBS(
+                    cst="001",
+                    c_class_trib="123456",
+                )
+            )
+        ),
+    )
+
     return DPS(
         serie="900",
         numero=int(now.timestamp()),
@@ -105,7 +119,9 @@ def sample_dps():
         tomador=tomador,
         servico=servico,
         regime_tributario="simples_nacional",
-        optante_simples=True,
+        op_simp_nac="3",
+        reg_ap_ibs_cbs_sn="1",
+        ibscbs=ibscbs,
         incentivador_cultural=False,
     )
 

@@ -17,6 +17,8 @@ _CPF_PATTERN = re.compile(r"^[0-9]{11}$")
 _CST_PATTERN = re.compile(r"^[0-9]{3}$")
 _CLASS_TRIB_PATTERN = re.compile(r"^[0-9]{6}$")
 _C_CIB_PATTERN = re.compile(r"^[0-9]{8}$")
+_TP_NFSE_CREDITO_VALUES = {"01", "05"}
+_TP_NFSE_DEBITO_VALUES = {"01", "02", "03", "04", "05", "06"}
 
 # Official ANEXO_C-INDOP_IBSCBS-SNNFSe-v1.01-20260122 workbook.
 # Source table contains 26 codes; 080101 is Via-only and is excluded below.
@@ -75,15 +77,21 @@ class EnderecoIBSCBS(BaseModel):
 class RefNFSe(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    ref_nfse: list[str] = Field(default_factory=list, max_length=99)
+    ref_nfse: list[str] = Field(default_factory=list, min_length=1, max_length=99)
 
     @field_validator("ref_nfse")
     @classmethod
     def validate_ref_nfse(cls, values: list[str]) -> list[str]:
         for value in values:
             if not _REF_NFSE_PATTERN.fullmatch(value):
-                raise ValueError("refNFSe deve conter 50 digitos numericos.")
+                raise ValueError("refNFSe deve conter 50 dígitos numéricos.")
         return values
+
+    @model_validator(mode="after")
+    def validate_non_empty(self) -> "RefNFSe":
+        if not self.ref_nfse:
+            raise ValueError("refNFSe deve conter ao menos uma referência.")
+        return self
 
 
 class DestIBSCBS(BaseModel):
@@ -173,6 +181,8 @@ class IBSCBS(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     fin_nfse: Literal["0", "1", "2"]
+    tp_nfse_credito: Optional[Literal["01", "05"]] = None
+    tp_nfse_debito: Optional[Literal["01", "02", "03", "04", "05", "06"]] = None
     ind_final: Optional[Literal["0", "1"]] = None
     c_ind_op: str = Field(..., pattern=_C_IND_OP_PATTERN.pattern)
     tp_oper: Optional[Literal["1", "2", "3", "4", "5"]] = None
@@ -187,19 +197,65 @@ class IBSCBS(BaseModel):
     @classmethod
     def validate_c_ind_op(cls, value: str) -> str:
         if not _C_IND_OP_PATTERN.fullmatch(value):
-            raise ValueError("cIndOp deve conter 6 digitos numericos.")
+            raise ValueError("cIndOp deve conter 6 dígitos numéricos.")
         if value not in IBSCBS_C_IND_OP_ALLOWLIST:
             if value == "080101":
-                raise ValueError("cIndOp '080101' e exclusivo de NFS-e Via.")
-            raise ValueError("cIndOp invalido para IBSCBS.")
+                raise ValueError("cIndOp '080101' é exclusivo de NFS-e Via.")
+            raise ValueError("cIndOp inválido para IBSCBS.")
         return value
 
     @field_validator("g_ref_nfse")
     @classmethod
     def validate_ref_nfse(cls, value: Optional[RefNFSe]) -> Optional[RefNFSe]:
         if value is not None and len(value.ref_nfse) > 99:
-            raise ValueError("gRefNFSe suporta no maximo 99 referencias.")
+            raise ValueError("gRefNFSe suporta no máximo 99 referências.")
         return value
+
+    @model_validator(mode="after")
+    def validate_fin_nfse_rules(self) -> "IBSCBS":
+        if self.fin_nfse == "0":
+            if self.tp_nfse_credito is not None or self.tp_nfse_debito is not None:
+                raise ValueError(
+                    "tpNFSeCredito e tpNFSeDebito são proibidos para finNFSe 0."
+                )
+
+        if self.fin_nfse == "1":
+            if self.tp_nfse_credito is None:
+                raise ValueError("tpNFSeCredito é obrigatório para finNFSe 1.")
+            if self.tp_nfse_debito is not None:
+                raise ValueError("tpNFSeDebito é proibido para finNFSe 1.")
+
+        if self.fin_nfse == "2":
+            if self.tp_nfse_debito is None:
+                raise ValueError("tpNFSeDebito é obrigatório para finNFSe 2.")
+            if self.tp_nfse_credito is not None:
+                raise ValueError("tpNFSeCredito é proibido para finNFSe 2.")
+
+        if self.tp_oper in {"2", "3"} and self.g_ref_nfse is None:
+            raise ValueError("gRefNFSe é obrigatório para tpOper 2/3.")
+
+        if self.tp_oper in {"1", "4", "5"} and self.g_ref_nfse is not None:
+            raise ValueError("gRefNFSe é proibido para tpOper 1/4/5.")
+
+        if self.fin_nfse == "1":
+            if self.tp_nfse_credito == "01":
+                if self.g_ref_nfse is None:
+                    raise ValueError("gRefNFSe é obrigatório para tpNFSeCredito 01.")
+                if len(self.g_ref_nfse.ref_nfse) != 1:
+                    raise ValueError("tpNFSeCredito 01 permite apenas uma refNFSe.")
+            elif self.tp_nfse_credito == "05" and self.g_ref_nfse is not None:
+                raise ValueError("gRefNFSe é proibido para tpNFSeCredito 05.")
+
+        if self.fin_nfse == "2":
+            if self.tp_nfse_debito in {"03", "04"}:
+                if self.g_ref_nfse is None:
+                    raise ValueError("gRefNFSe é obrigatório para tpNFSeDebito 03/04.")
+                if self.tp_nfse_debito == "04" and len(self.g_ref_nfse.ref_nfse) != 1:
+                    raise ValueError("tpNFSeDebito 04 permite apenas uma refNFSe.")
+            elif self.tp_nfse_debito in {"01", "02", "05", "06"} and self.g_ref_nfse is not None:
+                raise ValueError("gRefNFSe é proibido para tpNFSeDebito 01/02/05/06.")
+
+        return self
 
 
 IBSCBS.model_rebuild()
