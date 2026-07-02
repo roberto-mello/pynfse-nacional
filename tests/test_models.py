@@ -6,8 +6,14 @@ from decimal import Decimal
 import pytest
 from pydantic import ValidationError
 
-from pynfse_nacional.models import DPS, Endereco, Prestador, Servico, Tomador, SubstituicaoNFSe
-
+from pynfse_nacional.models import (
+    DPS,
+    Endereco,
+    Prestador,
+    Servico,
+    SubstituicaoNFSe,
+    Tomador,
+)
 
 # =============================================================================
 # Fixtures
@@ -90,7 +96,7 @@ class TestEnderecoCodigoMunicipio:
                 cep="59000000",
             )
 
-        assert "codigo_municipio deve ter 7 digitos" in str(exc_info.value)
+        assert "codigo_municipio deve ter 7 dígitos" in str(exc_info.value)
 
     def test_rejects_code_with_more_than_7_digits(self):
         """Deve rejeitar codigo com mais de 7 digitos."""
@@ -104,7 +110,7 @@ class TestEnderecoCodigoMunicipio:
                 cep="01310100",
             )
 
-        assert "codigo_municipio deve ter 7 digitos" in str(exc_info.value)
+        assert "codigo_municipio deve ter 7 dígitos" in str(exc_info.value)
 
 
 class TestEnderecoUF:
@@ -148,7 +154,7 @@ class TestEnderecoUF:
                 cep="01310100",
             )
 
-        assert "UF invalida" in str(exc_info.value)
+        assert "UF inválida" in str(exc_info.value)
 
 
 class TestEnderecoCEP:
@@ -192,7 +198,7 @@ class TestEnderecoCEP:
                 cep="1234567",
             )
 
-        assert "CEP deve conter 8 digitos" in str(exc_info.value)
+        assert "CEP deve conter 8 dígitos" in str(exc_info.value)
 
 
 # =============================================================================
@@ -235,7 +241,7 @@ class TestPrestadorCNPJ:
                 endereco=valid_endereco,
             )
 
-        assert "CNPJ invalido (digitos verificadores incorretos)" in str(exc_info.value)
+        assert "CNPJ inválido (dígitos verificadores incorretos)" in str(exc_info.value)
 
     def test_rejects_cnpj_with_wrong_length(self, valid_endereco):
         """Deve rejeitar CNPJ com tamanho errado."""
@@ -247,7 +253,7 @@ class TestPrestadorCNPJ:
                 endereco=valid_endereco,
             )
 
-        assert "CNPJ deve conter 14 digitos" in str(exc_info.value)
+        assert "CNPJ deve conter 14 dígitos" in str(exc_info.value)
 
 
 class TestPrestadorTelefone:
@@ -288,7 +294,7 @@ class TestPrestadorTelefone:
                 telefone="12345",
             )
 
-        assert "Telefone deve conter entre 6 e 20 digitos" in str(exc_info.value)
+        assert "Telefone deve conter entre 6 e 20 dígitos" in str(exc_info.value)
 
 
 # =============================================================================
@@ -325,7 +331,7 @@ class TestTomadorCPF:
                 razao_social="Joao Silva",
             )
 
-        assert "CPF invalido (digitos verificadores incorretos)" in str(exc_info.value)
+        assert "CPF inválido (dígitos verificadores incorretos)" in str(exc_info.value)
 
     def test_rejects_cpf_with_all_same_digits(self):
         """Deve rejeitar CPF com todos os digitos iguais."""
@@ -335,7 +341,7 @@ class TestTomadorCPF:
                 razao_social="Joao Silva",
             )
 
-        assert "CPF invalido" in str(exc_info.value)
+        assert "CPF inválido" in str(exc_info.value)
 
 
 class TestTomadorCPFOrCNPJ:
@@ -495,7 +501,7 @@ class TestDPSSerie:
                 regime_tributario="simples_nacional",
             )
 
-        assert "serie deve ser numerica" in str(exc_info.value)
+        assert "serie deve ser numérica" in str(exc_info.value)
 
 
 class TestDPSCompetencia:
@@ -530,7 +536,7 @@ class TestDPSCompetencia:
                 regime_tributario="simples_nacional",
             )
 
-        assert "competencia deve estar no formato YYYY-MM" in str(exc_info.value)
+        assert "competência deve estar no formato YYYY-MM" in str(exc_info.value)
 
     def test_rejects_wrong_format(self, valid_prestador, valid_tomador, valid_servico):
         """Deve rejeitar formato errado."""
@@ -546,7 +552,7 @@ class TestDPSCompetencia:
                 regime_tributario="simples_nacional",
             )
 
-        assert "competencia deve estar no formato YYYY-MM" in str(exc_info.value)
+        assert "competência deve estar no formato YYYY-MM" in str(exc_info.value)
 
 
 class TestDPSRegimeTributario:
@@ -581,7 +587,7 @@ class TestDPSRegimeTributario:
                 regime_tributario="invalido",
             )
 
-        assert "regime_tributario invalido" in str(exc_info.value)
+        assert "regime_tributário inválido" in str(exc_info.value)
 
 
 class TestDPSIdDps:
@@ -635,7 +641,7 @@ class TestDPSIdDps:
                 regime_tributario="simples_nacional",
             )
 
-        assert "id_dps deve seguir o padrao" in str(exc_info.value)
+        assert "id_dps deve seguir o padrão" in str(exc_info.value)
 
     def test_rejects_wrong_length(self, valid_prestador, valid_tomador, valid_servico):
         """Deve rejeitar id com tamanho errado."""
@@ -655,6 +661,105 @@ class TestDPSIdDps:
         assert "45 caracteres" in str(exc_info.value)
 
 
+class TestDPSOpSimpNac:
+    """Testes para validacao do op_simp_nac e regApIBSCBSSN."""
+
+    def test_accepts_me_epp_with_reg_ap_ibs_cbs_sn(self, valid_prestador, valid_tomador, valid_servico):
+        dps = DPS(
+            serie="900",
+            numero=1,
+            competencia="2026-01",
+            data_emissao=datetime.now(),
+            prestador=valid_prestador,
+            tomador=valid_tomador,
+            servico=valid_servico,
+            regime_tributario="simples_nacional",
+            op_simp_nac="3",
+            reg_ap_ibs_cbs_sn="1",
+        )
+
+        assert dps.op_simp_nac == "3"
+
+    def test_accepts_mei_without_reg_ap_ibs_cbs_sn(self, valid_prestador, valid_tomador, valid_servico):
+        dps = DPS(
+            serie="900",
+            numero=1,
+            competencia="2026-01",
+            data_emissao=datetime.now(),
+            prestador=valid_prestador,
+            tomador=valid_tomador,
+            servico=valid_servico,
+            regime_tributario="simples_nacional",
+            op_simp_nac="2",
+        )
+
+        assert dps.op_simp_nac == "2"
+
+    def test_rejects_invalid_op_simp_nac(self, valid_prestador, valid_tomador, valid_servico):
+        with pytest.raises(ValidationError) as exc_info:
+            DPS(
+                serie="900",
+                numero=1,
+                competencia="2026-01",
+                data_emissao=datetime.now(),
+                prestador=valid_prestador,
+                tomador=valid_tomador,
+                servico=valid_servico,
+                regime_tributario="simples_nacional",
+                op_simp_nac="5",
+            )
+
+        assert "Input should be" in str(exc_info.value)
+
+    def test_rejects_reg_ap_ibs_cbs_sn_for_non_optante(
+        self, valid_prestador, valid_tomador, valid_servico
+    ):
+        with pytest.raises(ValidationError):
+            DPS(
+                serie="900",
+                numero=1,
+                competencia="2026-01",
+                data_emissao=datetime.now(),
+                prestador=valid_prestador,
+                tomador=valid_tomador,
+                servico=valid_servico,
+                regime_tributario="simples_nacional",
+                op_simp_nac="1",
+                reg_ap_ibs_cbs_sn="1",
+            )
+
+    def test_rejects_missing_reg_ap_ibs_cbs_sn_for_me_epp(
+        self, valid_prestador, valid_tomador, valid_servico
+    ):
+        with pytest.raises(ValidationError):
+            DPS(
+                serie="900",
+                numero=1,
+                competencia="2026-01",
+                data_emissao=datetime.now(),
+                prestador=valid_prestador,
+                tomador=valid_tomador,
+                servico=valid_servico,
+                regime_tributario="simples_nacional",
+                op_simp_nac="3",
+            )
+
+    def test_rejects_reg_ap_trib_sn_for_mei(self, valid_prestador, valid_tomador, valid_servico):
+        with pytest.raises(ValidationError):
+            DPS(
+                serie="900",
+                numero=1,
+                competencia="2026-01",
+                data_emissao=datetime.now(),
+                prestador=valid_prestador,
+                tomador=valid_tomador,
+                servico=valid_servico,
+                regime_tributario="simples_nacional",
+                op_simp_nac="2",
+                reg_ap_trib_sn="1",
+            )
+
+
 # =============================================================================
 # Tests: SubstituicaoNFSe
 # =============================================================================
@@ -667,7 +772,7 @@ class TestSubstituicaoNFSeChaveNfse:
         """Deve aceitar chave de acesso com 50 digitos."""
         subst = SubstituicaoNFSe(
             chave_nfse_substituida="12345678901234567890123456789012345678901234567890",
-            motivo="Correcao da descricao do servico prestado",
+            motivo="Correção da descrição do serviço prestado",
         )
 
         assert subst.chave_nfse_substituida == "12345678901234567890123456789012345678901234567890"
@@ -677,7 +782,7 @@ class TestSubstituicaoNFSeChaveNfse:
         with pytest.raises(ValidationError) as exc_info:
             SubstituicaoNFSe(
                 chave_nfse_substituida="1234567890123456789012345678901234567890",
-                motivo="Correcao da descricao do servico prestado",
+                motivo="Correção da descrição do serviço prestado",
             )
 
         assert "at least 50 characters" in str(exc_info.value)
@@ -687,7 +792,7 @@ class TestSubstituicaoNFSeChaveNfse:
         with pytest.raises(ValidationError) as exc_info:
             SubstituicaoNFSe(
                 chave_nfse_substituida="123456789012345678901234567890123456789012345678901234567890",
-                motivo="Correcao da descricao do servico prestado",
+                motivo="Correção da descrição do serviço prestado",
             )
 
         assert "String should have at most 50 characters" in str(exc_info.value)
@@ -697,10 +802,10 @@ class TestSubstituicaoNFSeChaveNfse:
         with pytest.raises(ValidationError) as exc_info:
             SubstituicaoNFSe(
                 chave_nfse_substituida="1234567890123456789012345678901234567890123456789X",
-                motivo="Correcao da descricao do servico prestado",
+                motivo="Correção da descrição do serviço prestado",
             )
 
-        assert "chave_nfse_substituida deve conter 50 digitos numericos" in str(exc_info.value)
+        assert "chave_nfse_substituida deve conter 50 dígitos numéricos" in str(exc_info.value)
 
 
 class TestSubstituicaoNFSeCodigoMotivo:
@@ -710,7 +815,7 @@ class TestSubstituicaoNFSeCodigoMotivo:
         """Deve ter codigo_motivo padrao como 99 (outros)."""
         subst = SubstituicaoNFSe(
             chave_nfse_substituida="12345678901234567890123456789012345678901234567890",
-            motivo="Correcao da descricao do servico prestado",
+            motivo="Correção da descrição do serviço prestado",
         )
 
         assert subst.codigo_motivo == 99
@@ -720,7 +825,7 @@ class TestSubstituicaoNFSeCodigoMotivo:
         subst = SubstituicaoNFSe(
             chave_nfse_substituida="12345678901234567890123456789012345678901234567890",
             codigo_motivo=1,
-            motivo="Alteracao do valor do servico",
+            motivo="Alteração do valor do serviço",
         )
 
         assert subst.codigo_motivo == 1
@@ -731,7 +836,7 @@ class TestSubstituicaoNFSeCodigoMotivo:
             SubstituicaoNFSe(
                 chave_nfse_substituida="12345678901234567890123456789012345678901234567890",
                 codigo_motivo=0,
-                motivo="Correcao da descricao do servico prestado",
+                motivo="Correção da descrição do serviço prestado",
             )
 
         assert "greater than or equal to 1" in str(exc_info.value)
@@ -742,7 +847,7 @@ class TestSubstituicaoNFSeCodigoMotivo:
             SubstituicaoNFSe(
                 chave_nfse_substituida="12345678901234567890123456789012345678901234567890",
                 codigo_motivo=100,
-                motivo="Correcao da descricao do servico prestado",
+                motivo="Correção da descrição do serviço prestado",
             )
 
         assert "less than or equal to 99" in str(exc_info.value)
@@ -755,17 +860,17 @@ class TestSubstituicaoNFSeMotivo:
         """Deve aceitar motivo com 15 a 255 caracteres."""
         subst = SubstituicaoNFSe(
             chave_nfse_substituida="12345678901234567890123456789012345678901234567890",
-            motivo="Correcao da descricao do servico prestado ao cliente",
+            motivo="Correção da descrição do serviço prestado ao cliente",
         )
 
-        assert "Correcao" in subst.motivo
+        assert "Correção" in subst.motivo
 
     def test_rejects_motivo_with_less_than_15_characters(self):
         """Deve rejeitar motivo com menos de 15 caracteres."""
         with pytest.raises(ValidationError) as exc_info:
             SubstituicaoNFSe(
                 chave_nfse_substituida="12345678901234567890123456789012345678901234567890",
-                motivo="Correcao",
+                motivo="Correção",
             )
 
         assert "at least 15 characters" in str(exc_info.value)
@@ -791,7 +896,7 @@ class TestDPSSubstituicao:
         substituicao = SubstituicaoNFSe(
             chave_nfse_substituida="12345678901234567890123456789012345678901234567890",
             codigo_motivo=99,
-            motivo="Correcao da descricao do servico prestado",
+            motivo="Correção da descrição do serviço prestado",
         )
 
         dps = DPS(
