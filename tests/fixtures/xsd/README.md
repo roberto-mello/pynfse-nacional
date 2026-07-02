@@ -9,6 +9,9 @@ Why patch:
 - libxml2 treats those anchors as literal characters, so plain DPS series values
   like `3` fail local validation even though the official SEFIN validator accepts
   them.
+- The vendored `TCRegTrib` / `TSOpSimpNac` tree predates the IBSCBS Simples
+  additions used by this library, so local validation also needs
+  `regApIBSCBSSN` plus `opSimpNac=4`.
 
 Layout:
 - Vendored files live under `tests/fixtures/xsd/nfse_v1.01/Schemas/`
@@ -19,5 +22,6 @@ Regeneration:
 - Download the official zip above.
 - Run `python tests/fixtures/xsd/_patch_xsd.py <zip-path> tests/fixtures/xsd/nfse_v1.01`
 
-The patch script strips only the broken `^` / `$` anchors from `TSSerieDPS` and
-leaves the rest of the schema tree unchanged.
+The patch script strips the broken `^` / `$` anchors from `TSSerieDPS`, adds the
+`opSimpNac=4` enumeration, and inserts `regApIBSCBSSN` into `TCRegTrib` so the
+vendored schema matches the IBSCBS Simples paths covered by local tests.

@@ -9,10 +9,165 @@ from pathlib import Path
 
 _BROKEN_TSSERIEDPS_PATTERN = 'value="^0{0,4}\\d{1,5}$"'
 _FIXED_TSSERIEDPS_PATTERN = 'value="0{0,4}\\d{1,5}"'
+_TSOPSIMPNAC_BLOCK = (
+    '<xs:simpleType name="TSOpSimpNac">\n'
+    '    <xs:annotation>\n'
+    '      <xs:documentation>\n'
+    '        Situação perante o Simples Nacional:\n'
+    '        1 - Não Optante;\n'
+    '        2 - Optante - Microempreendedor Individual (MEI);\n'
+    '        3 - Optante - Microempresa ou Empresa de Pequeno Porte (ME/EPP);\n'
+    '      </xs:documentation>\n'
+    '    </xs:annotation>\n'
+    '    <xs:restriction base="xs:string">\n'
+    '      <xs:whiteSpace value="preserve"/>\n'
+    '      <xs:enumeration value="1"/>\n'
+    '      <xs:enumeration value="2"/>\n'
+    '      <xs:enumeration value="3"/>\n'
+    '    </xs:restriction>\n'
+    '  </xs:simpleType>'
+)
+_TSOPSIMPNAC_BLOCK_TABBED = (
+    '<xs:simpleType name="TSOpSimpNac">\n'
+    '\t\t<xs:annotation>\n'
+    '\t\t\t<xs:documentation>\n'
+    '\t\t\t\tSituação perante o Simples Nacional:\n'
+    '\t\t\t\t1 - Não Optante;\n'
+    '\t\t\t\t2 - Optante - Microempreendedor Individual (MEI);\n'
+    '\t\t\t\t3 - Optante - Microempresa ou Empresa de Pequeno Porte (ME/EPP);\n'
+    '\t\t\t</xs:documentation>\n'
+    '\t\t</xs:annotation>\n'
+    '\t\t<xs:restriction base="xs:string">\n'
+    '\t\t\t<xs:whiteSpace value="preserve"/>\n'
+    '\t\t\t<xs:enumeration value="1"/>\n'
+    '\t\t\t<xs:enumeration value="2"/>\n'
+    '\t\t\t<xs:enumeration value="3"/>\n'
+    '\t\t</xs:restriction>\n'
+    '\t</xs:simpleType>'
+)
+_TSOPSIMPNAC_BLOCK_PATCHED = (
+    '<xs:simpleType name="TSOpSimpNac">\n'
+    '    <xs:annotation>\n'
+    '      <xs:documentation>\n'
+    '        Situação perante o Simples Nacional:\n'
+    '        1 - Não Optante;\n'
+    '        2 - Optante - Microempreendedor Individual (MEI);\n'
+    '        3 - Optante - Microempresa ou Empresa de Pequeno Porte (ME/EPP);\n'
+    '        4 - Optante - Situação pendente no Simples Nacional;\n'
+    '      </xs:documentation>\n'
+    '    </xs:annotation>\n'
+    '    <xs:restriction base="xs:string">\n'
+    '      <xs:whiteSpace value="preserve"/>\n'
+    '      <xs:enumeration value="1"/>\n'
+    '      <xs:enumeration value="2"/>\n'
+    '      <xs:enumeration value="3"/>\n'
+    '      <xs:enumeration value="4"/>\n'
+    '    </xs:restriction>\n'
+    '  </xs:simpleType>'
+)
+_TSOPSIMPNAC_BLOCK_PATCHED_TABBED = (
+    '<xs:simpleType name="TSOpSimpNac">\n'
+    '\t\t<xs:annotation>\n'
+    '\t\t\t<xs:documentation>\n'
+    '\t\t\t\tSituação perante o Simples Nacional:\n'
+    '\t\t\t\t1 - Não Optante;\n'
+    '\t\t\t\t2 - Optante - Microempreendedor Individual (MEI);\n'
+    '\t\t\t\t3 - Optante - Microempresa ou Empresa de Pequeno Porte (ME/EPP);\n'
+    '\t\t\t\t4 - Optante - Situação pendente no Simples Nacional;\n'
+    '\t\t\t</xs:documentation>\n'
+    '\t\t</xs:annotation>\n'
+    '\t\t<xs:restriction base="xs:string">\n'
+    '\t\t\t<xs:whiteSpace value="preserve"/>\n'
+    '\t\t\t<xs:enumeration value="1"/>\n'
+    '\t\t\t<xs:enumeration value="2"/>\n'
+    '\t\t\t<xs:enumeration value="3"/>\n'
+    '\t\t\t<xs:enumeration value="4"/>\n'
+    '\t\t</xs:restriction>\n'
+    '\t</xs:simpleType>'
+)
+_TCREGTRIB_INSERTION = (
+    '<xs:element name="regApTribSN" type="TSRegimeApuracaoSimpNac" minOccurs="0">\n'
+    '        <xs:annotation>\n'
+    '          <xs:documentation>\n'
+    '            Opção para que o contribuinte optante pelo Simples Nacional ME/EPP (opSimpNac = 3) possa indicar, ao emitir o documento fiscal, em qual regime de apuração os tributos federais e municipal estão inseridos, caso tenha ultrapassado algum sublimite ou limite definido para o Simples Nacional.\n'
+    '            1 – Regime de apuração dos tributos federais e municipal pelo SN;\n'
+    '            2 – Regime de apuração dos tributos federais pelo SN e ISSQN  por fora do SN conforme respectiva legislação municipal do tributo;\n'
+    '            3 – Regime de apuração dos tributos federais e municipal por fora do SN conforme respectivas legislações federal e municipal de cada tributo;\n'
+    '          </xs:documentation>\n'
+    '        </xs:annotation>\n'
+    '      </xs:element>\n'
+    '      <xs:element name="regEspTrib" type="TSRegEspTrib">'
+)
+_TCREGTRIB_INSERTION_TABBED = (
+    '<xs:element name="regApTribSN" type="TSRegimeApuracaoSimpNac" minOccurs="0">\n'
+    '\t\t<xs:annotation>\n'
+    '\t\t\t<xs:documentation>\n'
+    '\t\t\t\tOpção para que o contribuinte optante pelo Simples Nacional ME/EPP (opSimpNac = 3) possa indicar, ao emitir o documento fiscal, em qual regime de apuração os tributos federais e municipal estão inseridos, caso tenha ultrapassado algum sublimite ou limite definido para o Simples Nacional.\n'
+    '\t\t\t\t1 – Regime de apuração dos tributos federais e municipal pelo SN;\n'
+    '\t\t\t\t2 – Regime de apuração dos tributos federais pelo SN e ISSQN  por fora do SN conforme respectiva legislação municipal do tributo;\n'
+    '\t\t\t\t3 – Regime de apuração dos tributos federais e municipal por fora do SN conforme respectivas legislações federal e municipal de cada tributo;\n'
+    '\t\t\t</xs:documentation>\n'
+    '\t\t</xs:annotation>\n'
+    '\t</xs:element>\n'
+    '\t<xs:element name="regEspTrib" type="TSRegEspTrib">'
+)
+_TCREGTRIB_INSERTION_PATCHED = (
+    '<xs:element name="regApTribSN" type="TSRegimeApuracaoSimpNac" minOccurs="0">\n'
+    '        <xs:annotation>\n'
+    '          <xs:documentation>\n'
+    '            Opção para que o contribuinte optante pelo Simples Nacional ME/EPP (opSimpNac = 3) possa indicar, ao emitir o documento fiscal, em qual regime de apuração os tributos federais e municipal estão inseridos, caso tenha ultrapassado algum sublimite ou limite definido para o Simples Nacional.\n'
+    '            1 – Regime de apuração dos tributos federais e municipal pelo SN;\n'
+    '            2 – Regime de apuração dos tributos federais pelo SN e ISSQN  por fora do SN conforme respectiva legislação municipal do tributo;\n'
+    '            3 – Regime de apuração dos tributos federais e municipal por fora do SN conforme respectivas legislações federal e municipal de cada tributo;\n'
+    '          </xs:documentation>\n'
+    '        </xs:annotation>\n'
+    '      </xs:element>\n'
+    '      <xs:element name="regApIBSCBSSN" type="TSRegimeApuracaoSimpNac" minOccurs="0">\n'
+    '        <xs:annotation>\n'
+    '          <xs:documentation>\n'
+    '            Regime de apuração do IBS/CBS para contribuintes optantes pelo Simples Nacional quando o leiaute IBSCBS estiver presente.\n'
+    '            1 – IBS e CBS apurados pelo Simples Nacional;\n'
+    '            2 – CBS pelo Simples Nacional e IBS fora do Simples Nacional;\n'
+    '            3 – IBS e CBS apurados fora do Simples Nacional.\n'
+    '          </xs:documentation>\n'
+    '        </xs:annotation>\n'
+    '      </xs:element>\n'
+    '      <xs:element name="regEspTrib" type="TSRegEspTrib">'
+)
+_TCREGTRIB_INSERTION_PATCHED_TABBED = (
+    '<xs:element name="regApTribSN" type="TSRegimeApuracaoSimpNac" minOccurs="0">\n'
+    '\t\t<xs:annotation>\n'
+    '\t\t\t<xs:documentation>\n'
+    '\t\t\t\tOpção para que o contribuinte optante pelo Simples Nacional ME/EPP (opSimpNac = 3) possa indicar, ao emitir o documento fiscal, em qual regime de apuração os tributos federais e municipal estão inseridos, caso tenha ultrapassado algum sublimite ou limite definido para o Simples Nacional.\n'
+    '\t\t\t\t1 – Regime de apuração dos tributos federais e municipal pelo SN;\n'
+    '\t\t\t\t2 – Regime de apuração dos tributos federais pelo SN e ISSQN  por fora do SN conforme respectiva legislação municipal do tributo;\n'
+    '\t\t\t\t3 – Regime de apuração dos tributos federais e municipal por fora do SN conforme respectivas legislações federal e municipal de cada tributo;\n'
+    '\t\t\t</xs:documentation>\n'
+    '\t\t</xs:annotation>\n'
+    '\t</xs:element>\n'
+    '\t<xs:element name="regApIBSCBSSN" type="TSRegimeApuracaoSimpNac" minOccurs="0">\n'
+    '\t\t<xs:annotation>\n'
+    '\t\t\t<xs:documentation>\n'
+    '\t\t\t\tRegime de apuração do IBS/CBS para contribuintes optantes pelo Simples Nacional quando o leiaute IBSCBS estiver presente.\n'
+    '\t\t\t\t1 – IBS e CBS apurados pelo Simples Nacional;\n'
+    '\t\t\t\t2 – CBS pelo Simples Nacional e IBS fora do Simples Nacional;\n'
+    '\t\t\t\t3 – IBS e CBS apurados fora do Simples Nacional.\n'
+    '\t\t\t</xs:documentation>\n'
+    '\t\t</xs:annotation>\n'
+    '\t</xs:element>\n'
+    '\t<xs:element name="regEspTrib" type="TSRegEspTrib">'
+)
 
 
 def patch_xsd_text(text: str) -> str:
-    return text.replace(_BROKEN_TSSERIEDPS_PATTERN, _FIXED_TSSERIEDPS_PATTERN)
+    patched = text.replace(_BROKEN_TSSERIEDPS_PATTERN, _FIXED_TSSERIEDPS_PATTERN)
+    patched = patched.replace(
+        _TSOPSIMPNAC_BLOCK, _TSOPSIMPNAC_BLOCK_PATCHED
+    ).replace(_TSOPSIMPNAC_BLOCK_TABBED, _TSOPSIMPNAC_BLOCK_PATCHED_TABBED)
+    patched = patched.replace(
+        _TCREGTRIB_INSERTION, _TCREGTRIB_INSERTION_PATCHED
+    ).replace(_TCREGTRIB_INSERTION_TABBED, _TCREGTRIB_INSERTION_PATCHED_TABBED)
+    return patched
 
 
 def extract_and_patch(zip_path: Path, target_dir: Path) -> None:

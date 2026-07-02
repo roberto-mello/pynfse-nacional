@@ -1008,6 +1008,7 @@
 				1 - Não Optante;
 				2 - Optante - Microempreendedor Individual (MEI);
 				3 - Optante - Microempresa ou Empresa de Pequeno Porte (ME/EPP);
+				4 - Optante - Situação pendente no Simples Nacional;
 			</xs:documentation>
 		</xs:annotation>
 		<xs:restriction base="xs:string">
@@ -1015,6 +1016,7 @@
 			<xs:enumeration value="1"/>
 			<xs:enumeration value="2"/>
 			<xs:enumeration value="3"/>
+			<xs:enumeration value="4"/>
 		</xs:restriction>
 	</xs:simpleType>
 	<xs:simpleType name="TSRegimeApuracaoSimpNac">
