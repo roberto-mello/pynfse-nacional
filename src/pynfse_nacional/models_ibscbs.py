@@ -93,12 +93,9 @@ _OP_BENS_IMATERIAIS_NAO_ONEROSOS_EXEC = (
 )
 _PATH_IMOVEL = "NFSe/infNFSe/DPS/infDPS/serv/locPrest/cLocPrestacao"
 _PATH_PREST_END = "NFSe/infNFSe/DPS/infDPS/prest/end/"
-_PATH_TOMA_END = "NFSe/infNFSe/DPS/infDPS/toma/end"
 _PATH_DEST = "NFSe/infNFSe/DPS/infDPS/IBSCBS/dest/"
 _PATH_SERV_LOC = "NFSe/infNFSe/DPS/infDPS/serv/locPrest/cLocPrestacao"
 _PATH_EVENTO = "NFSe/infNFSe/DPS/infDPS/serv/atvEvento/"
-_PATH_TOMA_END_EXT = "NFSe/infNFSe/DPS/infDPS/toma/end/endExt"
-_PATH_DEST_END_EXT = "NFSe/infNFSe/DPS/infDPS/IBSCBS/dest/end/endExt"
 _PATH_DEST_ONLY = "NFSe/infNFSe/DPS/infDPS/dest/"
 _PATH_TOMA_END_OR_DEST = (
     "NFSe/infNFSe/DPS/infDPS/toma/end | "
