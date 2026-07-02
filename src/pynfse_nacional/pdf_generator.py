@@ -13,6 +13,7 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Optional
 from xml.etree import ElementTree as ET
+from xml.sax.saxutils import escape
 
 from .models_ibscbs import IBSCBS
 from .response_parsers import _find as _find_nfse
@@ -255,6 +256,12 @@ def _format_currency(value: str) -> str:
         return f"R$ {val:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
     except (ValueError, TypeError):
         return value
+
+
+def _escape_pdf_text(value: str) -> str:
+    """Escape untrusted text before sending it to ReportLab Paragraph."""
+
+    return escape(value or "-")
 
 
 def _format_percent(value: Decimal | None) -> str:
@@ -813,10 +820,10 @@ def generate_danfse_pdf(
             header_img = Paragraph("", style_value)
 
         header_right_text = f"""
-        <b>{header_config.title}</b><br/>
-        {header_config.subtitle}<br/>
-        {header_config.phone}<br/>
-        {header_config.email}
+        <b>{_escape_pdf_text(header_config.title)}</b><br/>
+        {_escape_pdf_text(header_config.subtitle)}<br/>
+        {_escape_pdf_text(header_config.phone)}<br/>
+        {_escape_pdf_text(header_config.email)}
         """
     else:
         header_img = Paragraph(
@@ -824,8 +831,9 @@ def generate_danfse_pdf(
             "<font size='6'>Nota Fiscal de<br/>Servico eletronica</font>",
             style_value,
         )
+        prefeitura = _escape_pdf_text(nfse_data.emit_municipio or "Manaus")
         header_right_text = f"""
-        <b>Prefeitura de {nfse_data.emit_municipio or "Manaus"}</b><br/>
+        <b>Prefeitura de {prefeitura}</b><br/>
         Secretaria Municipal de Financas<br/>
         """
 
@@ -874,7 +882,7 @@ def generate_danfse_pdf(
                 Paragraph("<b>Chave de Acesso da NFS-e</b>", style_label),
             ],
             [
-                Paragraph(nfse_data.chave_acesso, style_chave),
+                Paragraph(_escape_pdf_text(nfse_data.chave_acesso), style_chave),
             ],
         ],
         colWidths=[196 * mm],
@@ -898,7 +906,7 @@ def generate_danfse_pdf(
     def make_field(label: str, value: str) -> list:
         return [
             Paragraph(f"<b>{label}</b>", style_label),
-            Paragraph(value or "-", style_value),
+            Paragraph(_escape_pdf_text(value), style_value),
         ]
 
     id_data = [
@@ -1342,13 +1350,13 @@ def generate_danfse_pdf(
     info_text = ""
 
     if nfse_data.nbs:
-        info_text += f"NBS: {nfse_data.nbs}"
+        info_text += f"NBS: {_escape_pdf_text(nfse_data.nbs)}"
 
     if nfse_data.info_complementar:
         if info_text:
             info_text += "<br/>"
 
-        info_text += nfse_data.info_complementar
+        info_text += _escape_pdf_text(nfse_data.info_complementar)
 
     if not info_text:
         info_text = "-"
