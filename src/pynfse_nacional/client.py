@@ -1,8 +1,9 @@
 import re
 import tempfile
 from contextlib import contextmanager
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Generator, Optional
+from typing import Generator, Literal, Optional
 from xml.etree.ElementTree import ParseError as XMLParseError
 
 import httpx
@@ -28,6 +29,35 @@ from .xml_signer import XMLSignerService
 
 _CHAVE_RE = re.compile(r"^\d{50}$")
 _ID_DPS_RE = re.compile(r"^DPS\d{42}$")
+
+
+@dataclass(frozen=True)
+class RecoveryOutcome:
+    """Outcome of attempting NFSe recovery by DPS identifier.
+
+    Returned by :meth:`NFSeClient.recover_nfse_by_dps` when a DPS submission
+    may have already been processed by SEFIN but the caller did not persist
+    the ``chave_acesso`` (e.g. duplicate ``e0014`` response, or a transport
+    failure after SEFIN accepted the DPS).
+
+    - ``status="success"``: the NFSe exists remotely; ``result`` holds the
+      full invoice data and the caller should persist it.
+    - ``status="processing"``: the DPS was received but the NFSe has not been
+      emitted yet (SEFIN returned 202 / 404 / 409 on the lookup). The caller
+      should keep the issuance retryable rather than marking it failed.
+    - ``status="error"``: the lookup itself failed (transport or API error);
+      ``error`` holds the :class:`NFSeAPIError`. The caller should surface the
+      original submit error.
+    """
+
+    status: Literal["success", "processing", "error"]
+    result: Optional[NFSeQueryResult] = None
+    error: Optional[NFSeAPIError] = None
+
+    @property
+    def recovered(self) -> bool:
+        """True when recovery succeeded and ``result`` is populated."""
+        return self.status == "success"
 
 
 def _validate_chave_acesso(chave: str) -> None:
@@ -486,6 +516,32 @@ class NFSeClient:
 
         except httpx.RequestError as e:
             raise NFSeAPIError(f"Erro de comunicacao: {str(e)}", code="COMM_ERROR")
+
+    def recover_nfse_by_dps(self, id_dps: str) -> RecoveryOutcome:
+        """Recover an NFSe by DPS identifier when submit may have already succeeded.
+
+        High-level helper that combines :meth:`has_nfse_by_dps` and
+        :meth:`query_nfse_by_dps` for the duplicate / lost-``chave_acesso``
+        recovery path. Use after ``submit_dps`` failed or raised, when SEFIN
+        may still have processed the DPS.
+
+        See :class:`RecoveryOutcome` for the possible statuses.
+        """
+        _validate_id_dps(id_dps)
+
+        try:
+            if not self.has_nfse_by_dps(id_dps):
+                return RecoveryOutcome(status="processing")
+        except NFSeAPIError as e:
+            return RecoveryOutcome(status="error", error=e)
+
+        try:
+            return RecoveryOutcome(
+                status="success",
+                result=self.query_nfse_by_dps(id_dps),
+            )
+        except NFSeAPIError as e:
+            return RecoveryOutcome(status="error", error=e)
 
     def download_danfse(self, chave_acesso: str) -> bytes:
         """Download DANFSe PDF from official API.
