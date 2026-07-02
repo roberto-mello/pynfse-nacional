@@ -263,7 +263,10 @@ def _format_percent(value: Decimal | None) -> str:
     if value is None:
         return "-"
 
-    return f"{value.quantize(Decimal('0.01')):.2f}%"
+    try:
+        return f"{value.quantize(Decimal('0.01')):.2f}%"
+    except (InvalidOperation, ValueError, ArithmeticError):
+        return "-"
 
 
 def _parse_decimal(value: str) -> Optional[Decimal]:
