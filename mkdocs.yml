@@ -1,0 +1,79 @@
+site_name: pynfse-nacional
+site_description: Biblioteca Python para integração com a API do NFSe Nacional
+site_url: https://robmello.github.io/pynfse-nacional/
+repo_name: robmello/pynfse-nacional
+repo_url: https://github.com/robmello/pynfse-nacional
+edit_uri: ""
+
+theme:
+  name: material
+  language: pt-BR
+  features:
+    - navigation.sections
+    - navigation.top
+    - search.highlight
+    - search.suggest
+    - content.code.copy
+    - content.code.annotate
+
+nav:
+  - Início: index.md
+  - Arquitetura: architecture.md
+  - Começando: getting-started.md
+  - Guias:
+      - Visão geral: guides/index.md
+      - Configuração de certificado: guides/certificate-setup.md
+      - Primeira emissão: guides/first-emission.md
+      - Consulta: guides/query.md
+      - Cancelamento: guides/cancel.md
+      - Substituição: guides/substitute.md
+      - DANFSe PDF: guides/danfse-pdf.md
+      - IBSCBS: guides/ibscbs.md
+  - Referência da API:
+      - Visão geral: api/index.md
+      - Cliente: api/client.md
+      - Modelos: api/models.md
+      - XML Builder: api/xml-builder.md
+      - XML Signer: api/xml-signer.md
+      - PDF Generator: api/pdf-generator.md
+      - Exceções: api/exceptions.md
+      - Utilitários: api/utils.md
+  - Apêndice:
+      - Visão geral: appendix/index.md
+      - Troubleshooting: appendix/troubleshooting.md
+      - Matriz de ambiente: appendix/environment-matrix.md
+      - Release e versionamento: appendix/release-versioning.md
+
+plugins:
+  - search:
+      lang: pt
+  - mkdocstrings:
+      handlers:
+        python:
+          paths:
+            - src
+          options:
+            show_source: false
+            show_root_heading: true
+            show_root_toc_entry: false
+            show_signature_annotations: true
+            members_order: source
+            show_if_no_docstring: true
+            separate_signature: true
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - toc:
+      permalink: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+
