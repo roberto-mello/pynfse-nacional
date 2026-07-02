@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.5.0] - 2026-07-01
 
 ### Fixed
 - Hardened gzipped NFSe decoding against oversized payloads, switched XML parsing
@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and removed raw sensitive values from validation errors.
 
 ### Added
+- IBSCBS support for DPS payloads and XML emission, including the widened `opSimpNac`
+  model and `regApIBSCBSSN` handling for Simples Nacional providers.
 - Response-side IBSCBS parsing now populates `NFSe`, `NFSeQueryResult`, and the
   PDF parser data model from the response XML with a single XML parse.
 - DANFSe PDF rendering now shows an optional IBSCBS totals lane when `totCIBS`
@@ -21,12 +23,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `query_nfse_by_dps(id_dps)` and checking availability with
   `has_nfse_by_dps(id_dps)`, using the official `GET /dps/{id}` and
   `HEAD /dps/{id}` endpoints.
-
-## [0.5.0] - 2026-07-01
-
-### Added
-- IBSCBS support for DPS payloads and XML emission, including the widened `opSimpNac`
-  model and `regApIBSCBSSN` handling for Simples Nacional providers.
 - Vendored NFSe XSD v1.01-20260209 fixtures plus IBSCBS golden XML samples for
   schema validation coverage.
 
@@ -180,7 +176,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - XML builder and XML signer using `lxml` and `signxml`.
 - Support for homologação and produção environments.
 
-[Unreleased]: https://github.com/robmello/pynfse-nacional/compare/v0.5.0...HEAD
 [0.5.0]: https://github.com/robmello/pynfse-nacional/compare/v0.4.7...v0.5.0
 [0.4.7]: https://github.com/robmello/pynfse-nacional/compare/v0.4.6...v0.4.7
 [0.4.6]: https://github.com/robmello/pynfse-nacional/compare/v0.4.5...v0.4.6
