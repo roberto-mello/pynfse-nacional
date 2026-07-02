@@ -18,12 +18,13 @@ try:
         HeaderConfig,
         NFSeData,
         _build_ibscbs_totals_rows,
+        _escape_pdf_text,
         _format_cep,
         _format_currency,
         _format_date,
         _format_datetime,
-        _format_phone,
         _format_percent,
+        _format_phone,
         _get_retencao_issqn_desc,
         _get_simples_nacional_desc,
         _get_trib_issqn_desc,
@@ -352,6 +353,15 @@ class TestFormatPercent:
         result = _format_percent(Decimal("1E+9999999999"))
 
         assert result == "-"
+
+
+class TestEscapePdfText:
+    """Tests for _escape_pdf_text function."""
+
+    def test_escapes_markup_like_input(self):
+        result = _escape_pdf_text("<img src='file:///etc/passwd'>")
+
+        assert result == "&lt;img src='file:///etc/passwd'&gt;"
 
 
 class TestFormatCep:
