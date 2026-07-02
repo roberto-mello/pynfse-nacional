@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from pynfse_nacional import NFSeClient, NFSeAPIError
+from pynfse_nacional import NFSeAPIError, NFSeClient
 from pynfse_nacional.models import ConvenioMunicipal
 
 

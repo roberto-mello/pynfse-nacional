@@ -1,5 +1,7 @@
 """Tests for XMLBuilder."""
 
+# ruff: noqa: N802, N806
+
 import warnings
 from datetime import datetime
 from decimal import Decimal
@@ -579,7 +581,10 @@ class TestXMLBuilderServico:
         assert cLocPrestacao.text == "3509502"
 
     def test_build_dps_includes_ctribnac(self, sample_dps):
-        """Servico section should include cTribNac (LC116 code without dots, 6 digits)."""
+        """Servico section should include cTribNac.
+
+        LC116 code without dots, 6 digits.
+        """
         builder = XMLBuilder()
 
         xml_str = builder.build_dps(sample_dps)
