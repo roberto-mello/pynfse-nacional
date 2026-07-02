@@ -692,6 +692,25 @@ class TestDPSIdDps:
 class TestDPSOpSimpNac:
     """Testes para validacao do op_simp_nac e regApIBSCBSSN."""
 
+    def test_rejects_removed_optante_simples_field(
+        self, valid_prestador, valid_tomador, valid_servico
+    ):
+        with pytest.raises(ValidationError) as exc_info:
+            DPS(
+                serie="900",
+                numero=1,
+                competencia="2026-01",
+                data_emissao=datetime.now(),
+                prestador=valid_prestador,
+                tomador=valid_tomador,
+                servico=valid_servico,
+                regime_tributario="simples_nacional",
+                optante_simples=True,
+            )
+
+        assert "optante_simples" in str(exc_info.value)
+        assert "extra_forbidden" in str(exc_info.value)
+
     def test_accepts_me_epp_with_reg_ap_ibs_cbs_sn(
         self, valid_prestador, valid_tomador, valid_servico
     ):
@@ -710,6 +729,22 @@ class TestDPSOpSimpNac:
         )
 
         assert dps.op_simp_nac == "3"
+
+    def test_build_dps_id_uses_model_data(
+        self, valid_prestador, valid_tomador, valid_servico
+    ):
+        dps = DPS(
+            serie="900",
+            numero=1,
+            competencia="2026-01",
+            data_emissao=datetime.now(),
+            prestador=valid_prestador,
+            tomador=valid_tomador,
+            servico=valid_servico,
+            regime_tributario="simples_nacional",
+        )
+
+        assert dps.build_dps_id() == "DPS350950221122233300018100900000000000000001"
 
     def test_accepts_mei_without_reg_ap_ibs_cbs_sn(
         self, valid_prestador, valid_tomador, valid_servico

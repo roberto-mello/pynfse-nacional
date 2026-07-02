@@ -37,13 +37,7 @@ class XMLBuilder:
         - serie: 5 digits (zero-padded)
         - nDPS: 15 digits (zero-padded)
         """
-        c_loc_emi = str(dps.prestador.endereco.codigo_municipio).zfill(7)
-        tp_insc = "2"  # CNPJ
-        cnpj = dps.prestador.cnpj.zfill(14)
-        serie = dps.serie.zfill(5)
-        n_dps = str(dps.numero).zfill(15)
-
-        return f"DPS{c_loc_emi}{tp_insc}{cnpj}{serie}{n_dps}"
+        return dps.build_dps_id()
 
     def build_dps(self, dps: DPS) -> str:
         """Build DPS XML from model."""

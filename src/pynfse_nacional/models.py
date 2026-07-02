@@ -381,7 +381,7 @@ class DPS(BaseModel):
     E0162, R294, R295, E0710, E0712, and E0713.
     """
 
-    model_config = ConfigDict(hide_input_in_errors=True)
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
 
     id_dps: Optional[str] = Field(
         None, description="DPS ID (gerado automaticamente se não informado)"
@@ -436,6 +436,17 @@ class DPS(BaseModel):
             raise ValueError("id_dps deve seguir o padrão 'DPS' + 42 dígitos.")
 
         return v
+
+    def build_dps_id(self) -> str:
+        """Build the official DPS identifier from model data."""
+
+        c_loc_emi = str(self.prestador.endereco.codigo_municipio).zfill(7)
+        tp_insc = "2"  # CNPJ
+        cnpj = self.prestador.cnpj.zfill(14)
+        serie = self.serie.zfill(5)
+        n_dps = str(self.numero).zfill(15)
+
+        return f"DPS{c_loc_emi}{tp_insc}{cnpj}{serie}{n_dps}"
 
     @field_validator("competencia")
     @classmethod

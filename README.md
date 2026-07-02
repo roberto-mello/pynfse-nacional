@@ -135,8 +135,10 @@ else:
 ```
 
 Para contribuintes optantes pelo Simples Nacional com IBSCBS, informe o grupo
-`ibscbs` e mantenha os campos de apuração compatíveis com `op_simp_nac`.
-Os valores `cst` e `c_class_trib` abaixo são apenas exemplos válidos no schema:
+`ibscbs` e mantenha os campos de apuração compatíveis com `op_simp_nac`:
+`"3"` e `"4"` exigem `reg_ap_trib_sn` e `reg_ap_ibs_cbs_sn`; `"1"` e `"2"`
+não devem preenchê-los. Os valores `cst` e `c_class_trib` abaixo são apenas
+exemplos válidos no schema:
 
 ```python
 from pynfse_nacional import GIBSCBS, IBSCBS, TribIBSCBS, ValoresIBSCBS
@@ -178,7 +180,9 @@ Se você só tiver o identificador da DPS, use a consulta por DPS para recuperar
 a chave de acesso e depois obter os dados completos da NFSe:
 
 ```python
-result = client.query_nfse_by_dps(dps.id_dps)
+dps_id = dps.build_dps_id()
+
+result = client.query_nfse_by_dps(dps_id)
 
 print(result.chave_acesso)
 print(result.nfse_number)
@@ -187,9 +191,12 @@ print(result.nfse_number)
 Se você só quiser verificar se a NFSe já foi gerada:
 
 ```python
-if client.has_nfse_by_dps(dps.id_dps):
+if client.has_nfse_by_dps(dps_id):
     print("NFSe já gerada")
 ```
+
+`build_dps()` usa o mesmo identificador para montar o XML, mas não grava o
+valor de volta em `dps.id_dps`. Guarde o `dps_id` se quiser consultar depois.
 
 **Consulta de Convênio Municipal:**
 
@@ -511,8 +518,10 @@ else:
 ```
 
 For Simples Nacional providers using IBSCBS, include the `ibscbs` group and
-keep the apportionment fields aligned with `op_simp_nac`.
-The `cst` and `c_class_trib` values below are just schema-valid examples:
+keep the apportionment fields aligned with `op_simp_nac`: `"3"` and `"4"`
+require `reg_ap_trib_sn` and `reg_ap_ibs_cbs_sn`; `"1"` and `"2"` must leave
+them unset. The `cst` and `c_class_trib` values below are just schema-valid
+examples:
 
 ```python
 from pynfse_nacional import GIBSCBS, IBSCBS, TribIBSCBS, ValoresIBSCBS
