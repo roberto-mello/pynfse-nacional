@@ -20,7 +20,6 @@ _CNPJ_PATTERN = re.compile(r"^[0-9]{14}$")
 _CPF_PATTERN = re.compile(r"^[0-9]{11}$")
 _CST_PATTERN = re.compile(r"^[0-9]{3}$")
 _CLASS_TRIB_PATTERN = re.compile(r"^[0-9]{6}$")
-_C_CIB_PATTERN = re.compile(r"^[0-9]{8}$")
 
 _OP_BEM_IMOVEL = (
     "Operação com bem imóvel, bem imaterial, inclusive direito, "
@@ -636,7 +635,7 @@ class ImovelIBSCBS(BaseModel):
     model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
 
     insc_imob_fisc: Optional[str] = Field(None, min_length=1, max_length=30)
-    c_cib: Optional[str] = Field(None, pattern=_C_CIB_PATTERN.pattern)
+    c_cib: Optional[str] = Field(None, min_length=8, max_length=8)
     end: Optional[EnderecoIBSCBS] = None
 
     @model_validator(mode="after")
