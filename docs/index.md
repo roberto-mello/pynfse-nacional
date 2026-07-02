@@ -28,9 +28,10 @@ uv add "pynfse-nacional[pdf]"
 ## Quickstart
 
 ```python
+from datetime import datetime
 from decimal import Decimal
 
-from pynfse_nacional import DPS, NFSeClient, Prestador, Servico, Tomador
+from pynfse_nacional import DPS, Endereco, NFSeClient, Prestador, Servico, Tomador
 
 client = NFSeClient(
     cert_path="/caminho/para/certificado.pfx",
@@ -38,12 +39,31 @@ client = NFSeClient(
     ambiente="homologacao",
 )
 
+endereco = Endereco(
+    logradouro="Rua Exemplo",
+    numero="100",
+    bairro="Centro",
+    codigo_municipio=3550308,
+    uf="SP",
+    cep="01310100",
+)
+
 dps = DPS(
     serie="900",
     numero=1,
     competencia="2026-01",
-    prestador=Prestador(...),
-    tomador=Tomador(...),
+    data_emissao=datetime.now(),
+    prestador=Prestador(
+        cnpj="11222333000181",
+        inscricao_municipal="12345",
+        razao_social="Empresa Exemplo LTDA",
+        endereco=endereco,
+    ),
+    tomador=Tomador(
+        cpf="52998224725",
+        razao_social="Joao da Silva",
+        endereco=endereco,
+    ),
     servico=Servico(
         codigo_lc116="04.03.01",
         discriminacao="Consulta médica em consultório",
