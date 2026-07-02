@@ -1,4 +1,7 @@
 # Modelos
 
-::: pynfse_nacional.models
-
+```{automodule} pynfse_nacional.models
+:members:
+:undoc-members:
+:show-inheritance:
+```

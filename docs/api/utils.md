@@ -1,4 +1,7 @@
 # Utilitários
 
-::: pynfse_nacional.utils
-
+```{automodule} pynfse_nacional.utils
+:members:
+:undoc-members:
+:show-inheritance:
+```

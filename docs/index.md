@@ -9,9 +9,9 @@ Biblioteca Python para integração com a API do NFSe Nacional.
 - Emita a primeira DPS.
 - Consulte, cancele ou substitua NFSe.
 
-[Ver guias](getting-started.md){ .md-button .md-button--primary }
-[Referência da API](api/index.md){ .md-button }
-[Arquitetura do site](architecture.md){ .md-button }
+- [Guia de início](getting-started)
+- [Referência da API](api/index)
+- [Arquitetura do site](architecture)
 
 ## Instalação
 
@@ -76,9 +76,9 @@ response = client.submit_dps(dps)
 
 ## O que este site cobre
 
-- [Guias](guides/index.md) para certificado, emissão, consulta, cancelamento, substituição, PDF e IBSCBS.
-- [Referência da API](api/index.md) gerada dos docstrings do código.
-- [Apêndice](appendix/index.md) para troubleshooting, ambiente e release.
+- [Guias](guides/index) para certificado, emissão, consulta, cancelamento, substituição, PDF e IBSCBS.
+- [Referência da API](api/index) gerada dos docstrings do código.
+- [Apêndice](appendix/index) para troubleshooting, ambiente e release.
 
 ## Documentação oficial
 
@@ -90,3 +90,14 @@ response = client.submit_dps(dps)
 ## Licença
 
 GNU Affero General Public License v3 (AGPL-3.0)
+
+```{toctree}
+:maxdepth: 2
+:caption: Conteúdo
+
+getting-started
+guides/index
+api/index
+appendix/index
+architecture
+```
