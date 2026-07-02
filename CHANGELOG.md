@@ -31,6 +31,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   schema validation coverage.
 
 ### Changed
+- `DPS.optante_simples` (`bool`) was removed and replaced by
+  `DPS.op_simp_nac` (`Literal['1', '2', '3', '4']`) to match the official
+  NFSe schema. Migration: `optante_simples=True` maps to `op_simp_nac='3'`
+  and `False` maps to `op_simp_nac='1'`.
 - `verAplic` is now derived from the installed package version instead of using a
   hardcoded release string.
 - Bumped the supported floors for `lxml` and `signxml` to match the current
