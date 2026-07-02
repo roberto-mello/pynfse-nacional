@@ -351,6 +351,10 @@ pdf_bytes = generate_danfse_from_base64(
 
 ## Documentação
 
+### Documentação Online
+
+- [Site da documentação](https://robmello.github.io/pynfse-nacional/) - Guias, referência da API e apêndice
+
 ### Documentação Oficial
 
 - [Portal NFSe Nacional](https://www.gov.br/nfse) - Portal principal do sistema nacional
@@ -657,6 +661,8 @@ pdf_bytes = generate_danfse_from_base64(
 - **Producao** (production): `sefin.nfse.gov.br`
 
 ### Documentation
+
+- [Documentation site](https://robmello.github.io/pynfse-nacional/) - Guides, API reference, and appendix
 
 - [NFSe Nacional Portal](https://www.gov.br/nfse)
 - [Technical Documentation](https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/)

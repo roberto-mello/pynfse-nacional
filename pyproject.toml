@@ -50,7 +50,7 @@ all = [
 [project.urls]
 Homepage = "https://github.com/robmello/pynfse-nacional"
 Repository = "https://github.com/robmello/pynfse-nacional"
-Documentation = "https://github.com/robmello/pynfse-nacional#readme"
+Documentation = "https://robmello.github.io/pynfse-nacional/"
 
 [project.scripts]
 release = "pynfse_nacional.release:main"
@@ -72,4 +72,8 @@ asyncio_mode = "auto"
 [dependency-groups]
 dev = [
     "ruff>=0.14.13",
+]
+docs = [
+    "mkdocs-material>=9.6.0",
+    "mkdocstrings[python]>=0.30.0",
 ]
