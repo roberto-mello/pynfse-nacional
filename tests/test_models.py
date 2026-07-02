@@ -487,7 +487,9 @@ class TestDPSSerie:
 
         assert dps.serie == "900"
 
-    def test_rejects_alphabetic_serie(self, valid_prestador, valid_tomador, valid_servico):
+    def test_rejects_alphabetic_serie(
+        self, valid_prestador, valid_tomador, valid_servico
+    ):
         """Deve rejeitar serie alfabetica."""
         with pytest.raises(ValidationError) as exc_info:
             DPS(
@@ -507,7 +509,9 @@ class TestDPSSerie:
 class TestDPSCompetencia:
     """Testes para validacao da competencia."""
 
-    def test_accepts_valid_competencia(self, valid_prestador, valid_tomador, valid_servico):
+    def test_accepts_valid_competencia(
+        self, valid_prestador, valid_tomador, valid_servico
+    ):
         """Deve aceitar competencia valida."""
         dps = DPS(
             serie="900",
@@ -573,7 +577,9 @@ class TestDPSRegimeTributario:
 
         assert dps.regime_tributario == "simples_nacional"
 
-    def test_rejects_invalid_regime(self, valid_prestador, valid_tomador, valid_servico):
+    def test_rejects_invalid_regime(
+        self, valid_prestador, valid_tomador, valid_servico
+    ):
         """Deve rejeitar regime invalido."""
         with pytest.raises(ValidationError) as exc_info:
             DPS(
@@ -626,7 +632,9 @@ class TestDPSIdDps:
 
         assert dps.id_dps == valid_id
 
-    def test_rejects_missing_prefix(self, valid_prestador, valid_tomador, valid_servico):
+    def test_rejects_missing_prefix(
+        self, valid_prestador, valid_tomador, valid_servico
+    ):
         """Deve rejeitar id sem prefixo DPS."""
         with pytest.raises(ValidationError) as exc_info:
             DPS(
@@ -664,7 +672,9 @@ class TestDPSIdDps:
 class TestDPSOpSimpNac:
     """Testes para validacao do op_simp_nac e regApIBSCBSSN."""
 
-    def test_accepts_me_epp_with_reg_ap_ibs_cbs_sn(self, valid_prestador, valid_tomador, valid_servico):
+    def test_accepts_me_epp_with_reg_ap_ibs_cbs_sn(
+        self, valid_prestador, valid_tomador, valid_servico
+    ):
         dps = DPS(
             serie="900",
             numero=1,
@@ -680,7 +690,9 @@ class TestDPSOpSimpNac:
 
         assert dps.op_simp_nac == "3"
 
-    def test_accepts_mei_without_reg_ap_ibs_cbs_sn(self, valid_prestador, valid_tomador, valid_servico):
+    def test_accepts_mei_without_reg_ap_ibs_cbs_sn(
+        self, valid_prestador, valid_tomador, valid_servico
+    ):
         dps = DPS(
             serie="900",
             numero=1,
@@ -695,7 +707,9 @@ class TestDPSOpSimpNac:
 
         assert dps.op_simp_nac == "2"
 
-    def test_rejects_invalid_op_simp_nac(self, valid_prestador, valid_tomador, valid_servico):
+    def test_rejects_invalid_op_simp_nac(
+        self, valid_prestador, valid_tomador, valid_servico
+    ):
         with pytest.raises(ValidationError) as exc_info:
             DPS(
                 serie="900",
@@ -744,7 +758,9 @@ class TestDPSOpSimpNac:
                 op_simp_nac="3",
             )
 
-    def test_rejects_reg_ap_trib_sn_for_mei(self, valid_prestador, valid_tomador, valid_servico):
+    def test_rejects_reg_ap_trib_sn_for_mei(
+        self, valid_prestador, valid_tomador, valid_servico
+    ):
         with pytest.raises(ValidationError):
             DPS(
                 serie="900",
@@ -775,7 +791,10 @@ class TestSubstituicaoNFSeChaveNfse:
             motivo="Correção da descrição do serviço prestado",
         )
 
-        assert subst.chave_nfse_substituida == "12345678901234567890123456789012345678901234567890"
+        assert (
+            subst.chave_nfse_substituida
+            == "12345678901234567890123456789012345678901234567890"
+        )
 
     def test_rejects_chave_with_less_than_50_digits(self):
         """Deve rejeitar chave com menos de 50 digitos."""
@@ -805,7 +824,9 @@ class TestSubstituicaoNFSeChaveNfse:
                 motivo="Correção da descrição do serviço prestado",
             )
 
-        assert "chave_nfse_substituida deve conter 50 dígitos numéricos" in str(exc_info.value)
+        assert "chave_nfse_substituida deve conter 50 dígitos numéricos" in str(
+            exc_info.value
+        )
 
 
 class TestSubstituicaoNFSeCodigoMotivo:
@@ -891,7 +912,9 @@ class TestSubstituicaoNFSeMotivo:
 class TestDPSSubstituicao:
     """Testes para DPS com substituicao."""
 
-    def test_dps_accepts_substituicao(self, valid_prestador, valid_tomador, valid_servico):
+    def test_dps_accepts_substituicao(
+        self, valid_prestador, valid_tomador, valid_servico
+    ):
         """Deve aceitar DPS com informacoes de substituicao."""
         substituicao = SubstituicaoNFSe(
             chave_nfse_substituida="12345678901234567890123456789012345678901234567890",
@@ -912,9 +935,14 @@ class TestDPSSubstituicao:
         )
 
         assert dps.substituicao is not None
-        assert dps.substituicao.chave_nfse_substituida == "12345678901234567890123456789012345678901234567890"
+        assert (
+            dps.substituicao.chave_nfse_substituida
+            == "12345678901234567890123456789012345678901234567890"
+        )
 
-    def test_dps_substituicao_defaults_to_none(self, valid_prestador, valid_tomador, valid_servico):
+    def test_dps_substituicao_defaults_to_none(
+        self, valid_prestador, valid_tomador, valid_servico
+    ):
         """Substituicao deve ser None por padrao."""
         dps = DPS(
             serie="900",

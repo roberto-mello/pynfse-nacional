@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-07-01
+
+### Added
+- IBSCBS support for DPS payloads and XML emission, including the widened `opSimpNac`
+  model and `regApIBSCBSSN` handling for Simples Nacional providers.
+- Vendored NFSe XSD v1.01-20260209 fixtures plus IBSCBS golden XML samples for
+  schema validation coverage.
+
+### Changed
+- `verAplic` is now derived from the installed package version instead of using a
+  hardcoded release string.
+- Bumped the supported floors for `lxml` and `signxml` to match the current
+  secure/runtime baseline.
+- Updated project documentation and official schema references to the current
+  2026-02-09 NFSe XSD package.
+
 ## [0.4.7] - 2026-06-15
 
 ### Fixed
@@ -145,7 +161,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - XML builder and XML signer using `lxml` and `signxml`.
 - Support for homologação and produção environments.
 
-[Unreleased]: https://github.com/robmello/pynfse-nacional/compare/v0.4.7...HEAD
+[Unreleased]: https://github.com/robmello/pynfse-nacional/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/robmello/pynfse-nacional/compare/v0.4.7...v0.5.0
 [0.4.7]: https://github.com/robmello/pynfse-nacional/compare/v0.4.6...v0.4.7
 [0.4.6]: https://github.com/robmello/pynfse-nacional/compare/v0.4.5...v0.4.6
 [0.4.5]: https://github.com/robmello/pynfse-nacional/compare/v0.4.4...v0.4.5

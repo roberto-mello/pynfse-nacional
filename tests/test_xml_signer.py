@@ -101,9 +101,7 @@ class TestXMLSignerServiceCompressEncode:
 class TestXMLSignerServiceLoadCertificate:
     """Tests for _load_certificate method."""
 
-    @pytest.mark.skipif(
-        not CRYPTOGRAPHY_AVAILABLE, reason="cryptography not installed"
-    )
+    @pytest.mark.skipif(not CRYPTOGRAPHY_AVAILABLE, reason="cryptography not installed")
     def test_load_certificate_raises_on_missing_file(self):
         """_load_certificate should raise NFSeCertificateError for missing file."""
         signer = XMLSignerService(
@@ -115,9 +113,7 @@ class TestXMLSignerServiceLoadCertificate:
 
         assert "nao encontrado" in str(exc_info.value.message)
 
-    @pytest.mark.skipif(
-        not CRYPTOGRAPHY_AVAILABLE, reason="cryptography not installed"
-    )
+    @pytest.mark.skipif(not CRYPTOGRAPHY_AVAILABLE, reason="cryptography not installed")
     def test_load_certificate_raises_on_invalid_password(self):
         """_load_certificate should raise NFSeCertificateError for wrong password."""
         with tempfile.NamedTemporaryFile(suffix=".pfx", delete=False) as f:
@@ -139,17 +135,13 @@ class TestXMLSignerServiceLoadCertificate:
         """_load_certificate should raise if cryptography not available."""
         signer = XMLSignerService(cert_path="/path/to/cert.pfx", cert_password="secret")
 
-        with patch(
-            "pynfse_nacional.xml_signer.CRYPTOGRAPHY_AVAILABLE", False
-        ):
+        with patch("pynfse_nacional.xml_signer.CRYPTOGRAPHY_AVAILABLE", False):
             with pytest.raises(NFSeCertificateError) as exc_info:
                 signer._load_certificate()
 
             assert "cryptography" in str(exc_info.value.message).lower()
 
-    @pytest.mark.skipif(
-        not CRYPTOGRAPHY_AVAILABLE, reason="cryptography not installed"
-    )
+    @pytest.mark.skipif(not CRYPTOGRAPHY_AVAILABLE, reason="cryptography not installed")
     def test_load_certificate_caches_result(self):
         """_load_certificate should only load once."""
         signer = XMLSignerService(cert_path="/path/to/cert.pfx", cert_password="secret")
@@ -251,7 +243,9 @@ class TestXMLSignerServiceIntegration:
         password = os.environ.get("NFSE_TEST_CERT_PASSWORD")
 
         if not password:
-            pytest.skip("Test certificate password not set (set NFSE_TEST_CERT_PASSWORD)")
+            pytest.skip(
+                "Test certificate password not set (set NFSE_TEST_CERT_PASSWORD)"
+            )
 
         return password
 

@@ -424,9 +424,7 @@ def parse_nfse_xml(xml_content: str) -> NFSeData:
                 c_serv = serv.find(".//nfse:cServ", NS)
 
                 if c_serv is None:
-                    c_serv = serv.find(
-                        ".//{http://www.sped.fazenda.gov.br/nfse}cServ"
-                    )
+                    c_serv = serv.find(".//{http://www.sped.fazenda.gov.br/nfse}cServ")
 
                 if c_serv is not None:
                     data.cod_trib_nac = _get_text(c_serv, ".//nfse:cTribNac")
@@ -469,9 +467,7 @@ def parse_nfse_xml(xml_content: str) -> NFSeData:
                 trib = valores.find(".//nfse:trib", NS)
 
                 if trib is None:
-                    trib = valores.find(
-                        ".//{http://www.sped.fazenda.gov.br/nfse}trib"
-                    )
+                    trib = valores.find(".//{http://www.sped.fazenda.gov.br/nfse}trib")
 
                 if trib is not None:
                     trib_mun = trib.find(".//nfse:tribMun", NS)
@@ -700,7 +696,7 @@ def generate_danfse_pdf(
             style_value,
         )
         header_right_text = f"""
-        <b>Prefeitura de {nfse_data.emit_municipio or 'Manaus'}</b><br/>
+        <b>Prefeitura de {nfse_data.emit_municipio or "Manaus"}</b><br/>
         Secretaria Municipal de Financas<br/>
         """
 
@@ -997,12 +993,19 @@ def generate_danfse_pdf(
             make_field("Tributacao do ISSQN", nfse_data.trib_issqn),
             make_field("Pais Resultado da Prestacao", nfse_data.pais_resultado or "-"),
             make_field("Municipio de Incidencia do ISSQN", nfse_data.mun_incidencia),
-            make_field("Regime Especial de Tributacao", nfse_data.regime_especial or "Nenhum"),
+            make_field(
+                "Regime Especial de Tributacao", nfse_data.regime_especial or "Nenhum"
+            ),
         ],
         [
             make_field("Tipo de Imunidade", nfse_data.tipo_imunidade or "-"),
-            make_field("Suspensao da Exigibilidade do ISSQN", nfse_data.suspensao_issqn or "Nao"),
-            make_field("Numero Processo Suspensao", nfse_data.num_processo_suspensao or "-"),
+            make_field(
+                "Suspensao da Exigibilidade do ISSQN",
+                nfse_data.suspensao_issqn or "Nao",
+            ),
+            make_field(
+                "Numero Processo Suspensao", nfse_data.num_processo_suspensao or "-"
+            ),
             make_field("Beneficio Municipal", nfse_data.beneficio_municipal or "-"),
         ],
         [
@@ -1012,10 +1015,21 @@ def generate_danfse_pdf(
             make_field("Calculo do BM", nfse_data.calculo_bm or "-"),
         ],
         [
-            make_field("BC ISSQN", _format_currency(nfse_data.bc_issqn) if nfse_data.bc_issqn else "-"),
-            make_field("Aliquota Aplicada", f"{nfse_data.aliquota}%" if nfse_data.aliquota else "-"),
+            make_field(
+                "BC ISSQN",
+                _format_currency(nfse_data.bc_issqn) if nfse_data.bc_issqn else "-",
+            ),
+            make_field(
+                "Aliquota Aplicada",
+                f"{nfse_data.aliquota}%" if nfse_data.aliquota else "-",
+            ),
             make_field("Retencao do ISSQN", nfse_data.retencao_issqn),
-            make_field("ISSQN Apurado", _format_currency(nfse_data.issqn_apurado) if nfse_data.issqn_apurado else "-"),
+            make_field(
+                "ISSQN Apurado",
+                _format_currency(nfse_data.issqn_apurado)
+                if nfse_data.issqn_apurado
+                else "-",
+            ),
         ],
     ]
 
@@ -1083,15 +1097,32 @@ def generate_danfse_pdf(
     valor_total_data = [
         [
             make_field("Valor do Servico", _format_currency(nfse_data.valor_servico)),
-            make_field("Desconto Condicionado", _format_currency(nfse_data.desconto_cond) if nfse_data.desconto_cond else "R$"),
-            make_field("Desconto Incondicionado", _format_currency(nfse_data.desconto_incond) if nfse_data.desconto_incond else "R$"),
+            make_field(
+                "Desconto Condicionado",
+                _format_currency(nfse_data.desconto_cond)
+                if nfse_data.desconto_cond
+                else "R$",
+            ),
+            make_field(
+                "Desconto Incondicionado",
+                _format_currency(nfse_data.desconto_incond)
+                if nfse_data.desconto_incond
+                else "R$",
+            ),
             make_field("ISSQN Retido", nfse_data.issqn_retido or "-"),
         ],
         [
-            make_field("IRRF, CP, CSLL - Retidos", _format_currency(nfse_data.irrf_cp_csll_retidos) if nfse_data.irrf_cp_csll_retidos else "R$ 0,00"),
+            make_field(
+                "IRRF, CP, CSLL - Retidos",
+                _format_currency(nfse_data.irrf_cp_csll_retidos)
+                if nfse_data.irrf_cp_csll_retidos
+                else "R$ 0,00",
+            ),
             make_field("PIS/COFINS Retidos", nfse_data.pis_cofins_retidos or "-"),
             [],
-            make_field("Valor Liquido da NFS-e", _format_currency(nfse_data.valor_liquido)),
+            make_field(
+                "Valor Liquido da NFS-e", _format_currency(nfse_data.valor_liquido)
+            ),
         ],
     ]
 

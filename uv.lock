@@ -856,7 +856,7 @@ wheels = [
 
 [[package]]
 name = "pynfse-nacional"
-version = "0.4.7"
+version = "0.5.0"
 source = { editable = "." }
 dependencies = [
     { name = "cryptography" },
@@ -895,7 +895,7 @@ dev = [
 requires-dist = [
     { name = "cryptography", specifier = ">=42.0.0" },
     { name = "httpx", specifier = ">=0.25.0" },
-    { name = "lxml", specifier = ">=5.0.0" },
+    { name = "lxml", specifier = ">=5.3.1" },
     { name = "pydantic", specifier = ">=2.0.0" },
     { name = "pynfse-nacional", extras = ["pdf", "dev"], marker = "extra == 'all'" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.0.0" },
@@ -904,7 +904,7 @@ requires-dist = [
     { name = "qrcode", extras = ["pil"], marker = "extra == 'pdf'", specifier = ">=7.4.0" },
     { name = "reportlab", marker = "extra == 'pdf'", specifier = ">=4.0.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.1.0" },
-    { name = "signxml", specifier = ">=3.2.0" },
+    { name = "signxml", specifier = ">=4.0.0" },
 ]
 provides-extras = ["pdf", "dev", "all"]
 

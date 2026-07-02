@@ -247,7 +247,9 @@ class TestXMLBuilderBuildDPS:
 
         infDPS = root.find("nfse:infDPS", NS)
 
-        assert infDPS.attrib.get("Id") == "DPS350950221122233300018100900000000000000001"
+        assert (
+            infDPS.attrib.get("Id") == "DPS350950221122233300018100900000000000000001"
+        )
 
     def test_build_dps_includes_emission_date_with_timezone(self, sample_dps):
         """build_dps should include dhEmi with ISO format and timezone."""
@@ -408,7 +410,9 @@ class TestXMLBuilderPrestador:
         xml_str = builder.build_dps(sample_dps)
         root = ET.fromstring(xml_str)
 
-        regApTribSN = root.find("nfse:infDPS/nfse:prest/nfse:regTrib/nfse:regApTribSN", NS)
+        regApTribSN = root.find(
+            "nfse:infDPS/nfse:prest/nfse:regTrib/nfse:regApTribSN", NS
+        )
 
         assert regApTribSN.text == "1"
 
@@ -420,7 +424,9 @@ class TestXMLBuilderPrestador:
         xml_str = builder.build_dps(sample_dps)
         root = ET.fromstring(xml_str)
 
-        regApIBSCBSSN = root.find("nfse:infDPS/nfse:prest/nfse:regTrib/nfse:regApIBSCBSSN", NS)
+        regApIBSCBSSN = root.find(
+            "nfse:infDPS/nfse:prest/nfse:regTrib/nfse:regApIBSCBSSN", NS
+        )
 
         assert regApIBSCBSSN.text == "2"
 
@@ -433,7 +439,9 @@ class TestXMLBuilderPrestador:
         xml_str = builder.build_dps(sample_dps)
         root = ET.fromstring(xml_str)
 
-        regApTribSN = root.find("nfse:infDPS/nfse:prest/nfse:regTrib/nfse:regApTribSN", NS)
+        regApTribSN = root.find(
+            "nfse:infDPS/nfse:prest/nfse:regTrib/nfse:regApTribSN", NS
+        )
 
         assert regApTribSN is None
 
@@ -446,7 +454,9 @@ class TestXMLBuilderPrestador:
         xml_str = builder.build_dps(sample_dps)
         root = ET.fromstring(xml_str)
 
-        regApIBSCBSSN = root.find("nfse:infDPS/nfse:prest/nfse:regTrib/nfse:regApIBSCBSSN", NS)
+        regApIBSCBSSN = root.find(
+            "nfse:infDPS/nfse:prest/nfse:regTrib/nfse:regApIBSCBSSN", NS
+        )
 
         assert regApIBSCBSSN is None
 
@@ -458,7 +468,9 @@ class TestXMLBuilderPrestador:
         xml_str = builder.build_dps(sample_dps)
         root = ET.fromstring(xml_str)
 
-        regEspTrib = root.find("nfse:infDPS/nfse:prest/nfse:regTrib/nfse:regEspTrib", NS)
+        regEspTrib = root.find(
+            "nfse:infDPS/nfse:prest/nfse:regTrib/nfse:regEspTrib", NS
+        )
 
         assert regEspTrib.text == "0"
 
@@ -470,7 +482,9 @@ class TestXMLBuilderPrestador:
         xml_str = builder.build_dps(sample_dps)
         root = ET.fromstring(xml_str)
 
-        regEspTrib = root.find("nfse:infDPS/nfse:prest/nfse:regTrib/nfse:regEspTrib", NS)
+        regEspTrib = root.find(
+            "nfse:infDPS/nfse:prest/nfse:regTrib/nfse:regEspTrib", NS
+        )
 
         assert regEspTrib.text == "4"
 
@@ -956,7 +970,9 @@ class TestXMLBuilderCancelEvent:
         """cMotivo should reflect the provided value."""
         builder = XMLBuilder()
 
-        xml_str = builder.build_cancel_event(SAMPLE_CHAVE, "Duplicidade", codigo_motivo=4)
+        xml_str = builder.build_cancel_event(
+            SAMPLE_CHAVE, "Duplicidade", codigo_motivo=4
+        )
         root = ET.fromstring(xml_str)
 
         cMotivo = root.find("nfse:infPedReg/nfse:e101101/nfse:cMotivo", NS)
