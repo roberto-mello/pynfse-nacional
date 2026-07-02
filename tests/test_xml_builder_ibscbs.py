@@ -14,7 +14,7 @@ from cryptography.hazmat.primitives.serialization import pkcs12
 from cryptography.x509.oid import NameOID
 from lxml import etree
 
-from pynfse_nacional.models import DPS, Endereco, Prestador, Servico, Tomador
+from pynfse_nacional.models import DPS
 from pynfse_nacional.models_ibscbs import (
     GIBSCBS,
     IBSCBS,
@@ -43,48 +43,14 @@ DS_NS = "http://www.w3.org/2000/09/xmldsig#"
 
 
 @pytest.fixture
-def sample_endereco() -> Endereco:
-    return Endereco(
-        logradouro="Rua Teste",
-        numero="100",
-        complemento="Sala 1",
-        bairro="Centro",
-        codigo_municipio=3509502,
-        uf="SP",
-        cep="13000000",
-    )
-
-
-@pytest.fixture
-def sample_prestador(sample_endereco: Endereco) -> Prestador:
-    return Prestador(
-        cnpj="11222333000181",
-        inscricao_municipal="12345",
-        razao_social="Empresa Teste LTDA",
-        endereco=sample_endereco,
-    )
-
-
-@pytest.fixture
-def sample_tomador(sample_endereco: Endereco) -> Tomador:
-    return Tomador(
-        cpf="52998224725",
-        razao_social="Joao Silva",
-        endereco=sample_endereco,
-    )
-
-
-@pytest.fixture
-def sample_servico() -> Servico:
-    return Servico(
-        codigo_lc116="04.03.01",
-        discriminacao="Consulta medica",
-        valor_servicos=Decimal("10.00"),
-        valor_pis=Decimal("0.00"),
-        valor_cofins=Decimal("0.00"),
-        valor_ir=Decimal("0.00"),
-        valor_csll=Decimal("0.00"),
-    )
+def sample_servico(shared_sample_servico):
+    servico = deepcopy(shared_sample_servico)
+    servico.codigo_lc116 = "04.03.01"
+    servico.codigo_tributacao_municipal = "123"
+    servico.discriminacao = "Consulta medica"
+    servico.valor_servicos = Decimal("10.00")
+    servico.aliquota_simples = None
+    return servico
 
 
 @pytest.fixture

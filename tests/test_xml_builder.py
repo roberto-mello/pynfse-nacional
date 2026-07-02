@@ -10,14 +10,7 @@ from xml.etree import ElementTree as ET
 import pytest
 
 from pynfse_nacional.constants import Ambiente
-from pynfse_nacional.models import (
-    DPS,
-    Endereco,
-    Prestador,
-    Servico,
-    SubstituicaoNFSe,
-    Tomador,
-)
+from pynfse_nacional.models import DPS, SubstituicaoNFSe
 from pynfse_nacional.models_ibscbs import (
     GIBSCBS,
     IBSCBS,
@@ -31,68 +24,6 @@ NS = {"nfse": "http://www.sped.fazenda.gov.br/nfse"}
 
 # Structurally valid 50-digit chave (no real NFSe — used for XML structure tests only)
 SAMPLE_CHAVE = "99999999999999999999999999999999999999999999999999"
-
-
-@pytest.fixture
-def sample_endereco():
-    """Sample address for testing."""
-    return Endereco(
-        logradouro="Rua Teste",
-        numero="100",
-        complemento="Sala 1",
-        bairro="Centro",
-        codigo_municipio=3509502,
-        uf="SP",
-        cep="13000000",
-    )
-
-
-@pytest.fixture
-def sample_prestador(sample_endereco):
-    """Sample service provider for testing."""
-    return Prestador(
-        cnpj="11222333000181",
-        inscricao_municipal="12345",
-        razao_social="Clinica Teste LTDA",
-        nome_fantasia="Clinica Teste",
-        endereco=sample_endereco,
-        email="contato@clinica.com",
-        telefone="1999999999",
-    )
-
-
-@pytest.fixture
-def sample_tomador(sample_endereco):
-    """Sample service taker (patient) for testing."""
-    return Tomador(
-        cpf="52998224725",
-        razao_social="Joao Silva",
-        email="paciente@email.com",
-        telefone="1988888888",
-        endereco=sample_endereco,
-    )
-
-
-@pytest.fixture
-def sample_servico():
-    """Sample service for testing."""
-    return Servico(
-        codigo_cnae="8630503",
-        codigo_lc116="04.03.03",
-        codigo_tributacao_municipal="123456",
-        codigo_nbs="101010100",
-        discriminacao="Consulta medica",
-        valor_servicos=Decimal("500.00"),
-        iss_retido=False,
-        aliquota_iss=Decimal("2.00"),
-        aliquota_simples=Decimal("15.50"),
-        valor_deducoes=Decimal("0.00"),
-        valor_pis=Decimal("0.00"),
-        valor_cofins=Decimal("0.00"),
-        valor_inss=Decimal("0.00"),
-        valor_ir=Decimal("0.00"),
-        valor_csll=Decimal("0.00"),
-    )
 
 
 @pytest.fixture
