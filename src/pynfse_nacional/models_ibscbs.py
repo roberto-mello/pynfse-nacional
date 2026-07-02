@@ -137,43 +137,8 @@ class IBSCBSOperationCategory:
     codigo_base: str
     variantes: tuple[IBSCBSOperationVariant, ...]
 
-
-def _operation_variant(
-    sequencia: str,
-    c_ind_op: str,
-    local_fornecimento: str,
-    campo_layout: str,
-) -> IBSCBSOperationVariant:
-    return IBSCBSOperationVariant(
-        sequencia=sequencia,
-        c_ind_op=c_ind_op,
-        local_fornecimento=local_fornecimento,
-        campo_layout=campo_layout,
-    )
-
-
-def _operation_category(
-    artigo: str,
-    inciso: str,
-    tipo_operacao: str,
-    local_operacao: str,
-    caracteristica_fornecimento: str,
-    codigo_base: str,
-    variantes: tuple[IBSCBSOperationVariant, ...],
-) -> IBSCBSOperationCategory:
-    return IBSCBSOperationCategory(
-        artigo=artigo,
-        inciso=inciso,
-        tipo_operacao=tipo_operacao,
-        local_operacao=local_operacao,
-        caracteristica_fornecimento=caracteristica_fornecimento,
-        codigo_base=codigo_base,
-        variantes=variantes,
-    )
-
-
 IBSCBS_OPERATION_CATEGORIES = (
-    _operation_category(
+    IBSCBSOperationCategory(
         "Art. 11",
         "II",
         _OP_BEM_IMOVEL,
@@ -181,7 +146,7 @@ IBSCBS_OPERATION_CATEGORIES = (
         _OP_BEM_IMOVEL_EXEC,
         "0201",
         (
-            _operation_variant(
+            IBSCBSOperationVariant(
                 "01",
                 "020101",
                 "Localidade do imóvel (1)",
@@ -189,7 +154,7 @@ IBSCBS_OPERATION_CATEGORIES = (
             ),
         ),
     ),
-    _operation_category(
+    IBSCBSOperationCategory(
         "Art. 11",
         "II",
         _OP_BEM_IMOVEL,
@@ -197,7 +162,7 @@ IBSCBS_OPERATION_CATEGORIES = (
         _OP_SERVICO_BEM_IMOVEL_EXEC,
         "0202",
         (
-            _operation_variant(
+            IBSCBSOperationVariant(
                 "01",
                 "020201",
                 "Localidade do imóvel (1)",
@@ -205,7 +170,7 @@ IBSCBS_OPERATION_CATEGORIES = (
             ),
         ),
     ),
-    _operation_category(
+    IBSCBSOperationCategory(
         "Art. 11",
         "II",
         _OP_BEM_IMOVEL,
@@ -213,7 +178,7 @@ IBSCBS_OPERATION_CATEGORIES = (
         _OP_ADMIN_BEM_IMOVEL_EXEC,
         "0203",
         (
-            _operation_variant(
+            IBSCBSOperationVariant(
                 "01",
                 "020301",
                 "Localidade do imóvel (1)",
@@ -221,7 +186,7 @@ IBSCBS_OPERATION_CATEGORIES = (
             ),
         ),
     ),
-    _operation_category(
+    IBSCBSOperationCategory(
         "Art. 11",
         "III",
         _OP_PESSOA_FISICA,
@@ -229,25 +194,25 @@ IBSCBS_OPERATION_CATEGORIES = (
         _OP_SERVICOS_PESSOA_FISICA_EXEC,
         "0301",
         (
-            _operation_variant(
+            IBSCBSOperationVariant(
                 "01",
                 "030101",
                 "Estabelecimento do fornecedor",
                 _PATH_PREST_END,
             ),
-            _operation_variant(
+            IBSCBSOperationVariant(
                 "02",
                 "030102",
                 "Endereço do adquirente",
                 _PATH_TOMA_END_OR_DEST,
             ),
-            _operation_variant(
+            IBSCBSOperationVariant(
                 "03",
                 "030103",
                 "Endereço do destinatário",
                 _PATH_DEST,
             ),
-            _operation_variant(
+            IBSCBSOperationVariant(
                 "04",
                 "030104",
                 "Endereço diverso do fornecedor, adquirente ou destinatário",
@@ -255,7 +220,7 @@ IBSCBS_OPERATION_CATEGORIES = (
             ),
         ),
     ),
-    _operation_category(
+    IBSCBSOperationCategory(
         "Art. 11",
         "IV",
         _OP_FEIRAS,
@@ -263,7 +228,7 @@ IBSCBS_OPERATION_CATEGORIES = (
         _OP_FEIRAS_EXEC,
         "0401",
         (
-            _operation_variant(
+            IBSCBSOperationVariant(
                 "01",
                 "040101",
                 "Local do Evento",
@@ -271,7 +236,7 @@ IBSCBS_OPERATION_CATEGORIES = (
             ),
         ),
     ),
-    _operation_category(
+    IBSCBSOperationCategory(
         "Art. 11",
         "V",
         _OP_BEM_MOVEL,
@@ -279,25 +244,25 @@ IBSCBS_OPERATION_CATEGORIES = (
         _OP_BEM_MOVEL_EXEC,
         "0501",
         (
-            _operation_variant(
+            IBSCBSOperationVariant(
                 "01",
                 "050101",
                 "Estabelecimento do fornecedor",
                 _PATH_PREST_END,
             ),
-            _operation_variant(
+            IBSCBSOperationVariant(
                 "02",
                 "050102",
                 "Endereço do adquirente",
                 _PATH_TOMA_END_OR_DEST,
             ),
-            _operation_variant(
+            IBSCBSOperationVariant(
                 "03",
                 "050103",
                 "Endereço do destinatário",
                 _PATH_DEST,
             ),
-            _operation_variant(
+            IBSCBSOperationVariant(
                 "04",
                 "050104",
                 "Endereço diverso do fornecedor, adquirente ou destinatário",
@@ -305,7 +270,7 @@ IBSCBS_OPERATION_CATEGORIES = (
             ),
         ),
     ),
-    _operation_category(
+    IBSCBSOperationCategory(
         "Art. 11",
         "V",
         _OP_BEM_MOVEL,
@@ -313,7 +278,7 @@ IBSCBS_OPERATION_CATEGORIES = (
         _OP_PORTUARIO_EXEC,
         "0502",
         (
-            _operation_variant(
+            IBSCBSOperationVariant(
                 "01",
                 "050201",
                 "Local da prestação",
@@ -321,7 +286,7 @@ IBSCBS_OPERATION_CATEGORIES = (
             ),
         ),
     ),
-    _operation_category(
+    IBSCBSOperationCategory(
         "Art. 11",
         "VI",
         _OP_TRANSP_PASSAGEIROS,
@@ -329,7 +294,7 @@ IBSCBS_OPERATION_CATEGORIES = (
         _OP_TRANSP_PASSAGEIROS_EXEC,
         "0601",
         (
-            _operation_variant(
+            IBSCBSOperationVariant(
                 "01",
                 "060101",
                 "Local de início do transporte",
@@ -337,7 +302,7 @@ IBSCBS_OPERATION_CATEGORIES = (
             ),
         ),
     ),
-    _operation_category(
+    IBSCBSOperationCategory(
         "Art. 11",
         "VII",
         _OP_TRANSP_CARGA,
@@ -345,13 +310,13 @@ IBSCBS_OPERATION_CATEGORIES = (
         _OP_TRANSP_CARGA_EXEC,
         "0701",
         (
-            _operation_variant(
+            IBSCBSOperationVariant(
                 "01",
                 "070101",
                 "Endereço fornecido para entrega",
                 _PATH_SERV_LOC,
             ),
-            _operation_variant(
+            IBSCBSOperationVariant(
                 "02",
                 "070102",
                 "Local da retirada",
@@ -359,7 +324,7 @@ IBSCBS_OPERATION_CATEGORIES = (
             ),
         ),
     ),
-    _operation_category(
+    IBSCBSOperationCategory(
         "Art. 11",
         "VIII",
         _OP_VIA,
@@ -370,7 +335,7 @@ IBSCBS_OPERATION_CATEGORIES = (
         _OP_VIA_EXEC,
         "0801",
         (
-            _operation_variant(
+            IBSCBSOperationVariant(
                 "01",
                 "080101",
                 (
@@ -382,7 +347,7 @@ IBSCBS_OPERATION_CATEGORIES = (
             ),
         ),
     ),
-    _operation_category(
+    IBSCBSOperationCategory(
         "Art. 11",
         "X",
         _OP_PUBLICIDADE_ONEROSA,
@@ -393,13 +358,13 @@ IBSCBS_OPERATION_CATEGORIES = (
         _OP_PUBLICIDADE_ONEROSA_EXEC,
         "1005",
         (
-            _operation_variant(
+            IBSCBSOperationVariant(
                 "01",
                 "100101",
                 "Local do domicílio principal do adquirente (3)",
                 _PATH_TOMA_END_OR_DEST,
             ),
-            _operation_variant(
+            IBSCBSOperationVariant(
                 "02",
                 "100102",
                 (
@@ -410,7 +375,7 @@ IBSCBS_OPERATION_CATEGORIES = (
             ),
         ),
     ),
-    _operation_category(
+    IBSCBSOperationCategory(
         "Art. 11",
         "X",
         _OP_PUBLICIDADE_NAO_ONEROSA,
@@ -421,7 +386,7 @@ IBSCBS_OPERATION_CATEGORIES = (
         _OP_PUBLICIDADE_ONEROSA_EXEC,
         "1006",
         (
-            _operation_variant(
+            IBSCBSOperationVariant(
                 "01",
                 "100201",
                 "Local do domicílio principal do destinatário (6)",
@@ -429,7 +394,7 @@ IBSCBS_OPERATION_CATEGORIES = (
             ),
         ),
     ),
-    _operation_category(
+    IBSCBSOperationCategory(
         "Art. 11",
         "X",
         _OP_BENS_IMATERIAIS_ONEROSOS,
@@ -440,13 +405,13 @@ IBSCBS_OPERATION_CATEGORIES = (
         _OP_BENS_IMATERIAIS_ONEROSOS_EXEC,
         "1001",
         (
-            _operation_variant(
+            IBSCBSOperationVariant(
                 "01",
                 "100301",
                 "Local do domicílio principal do adquirente (3)",
                 _PATH_TOMA_END_OR_DEST,
             ),
-            _operation_variant(
+            IBSCBSOperationVariant(
                 "02",
                 "100302",
                 (
@@ -457,7 +422,7 @@ IBSCBS_OPERATION_CATEGORIES = (
             ),
         ),
     ),
-    _operation_category(
+    IBSCBSOperationCategory(
         "Art. 11",
         "X",
         _OP_BENS_IMATERIAIS_NAO_ONEROSOS,
@@ -468,7 +433,7 @@ IBSCBS_OPERATION_CATEGORIES = (
         _OP_BENS_IMATERIAIS_NAO_ONEROSOS_EXEC,
         "1002",
         (
-            _operation_variant(
+            IBSCBSOperationVariant(
                 "01",
                 "100401",
                 "Local do domicílio principal do destinatário (6)",
@@ -476,7 +441,7 @@ IBSCBS_OPERATION_CATEGORIES = (
             ),
         ),
     ),
-    _operation_category(
+    IBSCBSOperationCategory(
         "Art. 11",
         "X",
         _OP_BENS_IMATERIAIS_ONEROSOS,
@@ -487,13 +452,13 @@ IBSCBS_OPERATION_CATEGORIES = (
         _OP_BENS_IMATERIAIS_ONEROSOS_EXEC,
         "1003",
         (
-            _operation_variant(
+            IBSCBSOperationVariant(
                 "01",
                 "100501",
                 "Local do domicílio principal do adquirente (3)",
                 _PATH_TOMA_OR_DEST_FOR_BENS,
             ),
-            _operation_variant(
+            IBSCBSOperationVariant(
                 "02",
                 "100502",
                 (
@@ -504,7 +469,7 @@ IBSCBS_OPERATION_CATEGORIES = (
             ),
         ),
     ),
-    _operation_category(
+    IBSCBSOperationCategory(
         "Art. 11",
         "X",
         _OP_BENS_IMATERIAIS_NAO_ONEROSOS,
@@ -515,7 +480,7 @@ IBSCBS_OPERATION_CATEGORIES = (
         _OP_BENS_IMATERIAIS_NAO_ONEROSOS_EXEC,
         "1004",
         (
-            _operation_variant(
+            IBSCBSOperationVariant(
                 "01",
                 "100601",
                 "Local do domicílio principal do destinatário (6)",
