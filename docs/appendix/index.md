@@ -4,6 +4,15 @@ Material de apoio para operação e manutenção da documentação.
 
 ## Páginas
 
-- [Troubleshooting](troubleshooting.md)
-- [Matriz de ambiente](environment-matrix.md)
-- [Release e versionamento](release-versioning.md)
+- [Troubleshooting](troubleshooting)
+- [Matriz de ambiente](environment-matrix)
+- [Release e versionamento](release-versioning)
+
+```{toctree}
+:maxdepth: 1
+:caption: Apêndice
+
+troubleshooting
+environment-matrix
+release-versioning
+```

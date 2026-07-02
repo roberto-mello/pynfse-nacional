@@ -74,6 +74,8 @@ dev = [
     "ruff>=0.14.13",
 ]
 docs = [
-    "mkdocs-material>=9.6.0",
-    "mkdocstrings[python]>=0.30.0",
+    "furo>=2024.8.6",
+    "myst-parser>=4.0.0",
+    "sphinx-copybutton>=0.5.2",
+    "sphinx>=8.0.0",
 ]

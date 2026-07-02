@@ -1,4 +1,7 @@
 # XML Builder
 
-::: pynfse_nacional.xml_builder
-
+```{automodule} pynfse_nacional.xml_builder
+:members:
+:undoc-members:
+:show-inheritance:
+```

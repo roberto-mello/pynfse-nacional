@@ -1,4 +1,7 @@
 # XML Signer
 
-::: pynfse_nacional.xml_signer
-
+```{automodule} pynfse_nacional.xml_signer
+:members:
+:undoc-members:
+:show-inheritance:
+```

@@ -6,7 +6,7 @@ on:
       - master
     paths:
       - "docs/**"
-      - "mkdocs.yml"
+      - "docs/conf.py"
       - "pyproject.toml"
       - "uv.lock"
       - "src/**"
@@ -15,7 +15,7 @@ on:
   pull_request:
     paths:
       - "docs/**"
-      - "mkdocs.yml"
+      - "docs/conf.py"
       - "pyproject.toml"
       - "uv.lock"
       - "src/**"
@@ -48,7 +48,7 @@ jobs:
         run: uv sync --group docs --frozen
 
       - name: Build docs
-        run: uv run mkdocs build --strict
+        run: uv run sphinx-build -b html -W --keep-going docs site
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
@@ -66,4 +66,3 @@ jobs:
       - id: deployment
         name: Deploy to GitHub Pages
         uses: actions/deploy-pages@v4
-

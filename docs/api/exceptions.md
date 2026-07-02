@@ -1,4 +1,7 @@
 # Exceções
 
-::: pynfse_nacional.exceptions
-
+```{automodule} pynfse_nacional.exceptions
+:members:
+:undoc-members:
+:show-inheritance:
+```

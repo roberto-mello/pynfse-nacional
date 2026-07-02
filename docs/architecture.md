@@ -2,15 +2,16 @@
 
 ## Stack escolhida
 
-O site usa `MkDocs Material` com `mkdocstrings`.
+O site usa `Sphinx` com `MyST`, `autodoc` e `Furo`.
 
 Motivos:
 
 - Markdown continua como fonte principal.
-- A navegação lateral, a busca e os botões de copiar já vêm no tema.
-- A referência da API sai dos docstrings, sem copiar conteúdo para páginas soltas.
-- O layout cai para drawer no mobile sem precisar de uma camada extra de UI.
-- `navigation.indexes` faz cada seção abrir sua página de visão geral.
+- `autodoc` puxa a referência da API direto dos docstrings.
+- `MyST` mantém o conteúdo do site em Markdown com recursos Sphinx.
+- `Furo` entrega um layout limpo, responsivo e fácil de navegar.
+- `sphinx-copybutton` adiciona o botão de copiar nos blocos de código.
+- `sphinx.ext.githubpages` prepara o artefato para GitHub Pages.
 
 ## Mapa do site
 
@@ -75,7 +76,7 @@ Sai do README:
 - Páginas legíveis sem depender de JavaScript para conteúdo principal.
 - Navegação lateral em seções aninhadas.
 - Busca global habilitada.
-- Site responsivo com drawer no mobile.
+- Site responsivo com sidebar colapsável no mobile.
 - API pages renderizadas por docstrings no código-fonte.
 
 ## Publicação
@@ -84,8 +85,8 @@ O site será publicado como conteúdo estático via GitHub Pages.
 
 Fluxo previsto:
 
-1. `uv sync --group docs`
-2. `uv run mkdocs build --strict`
+1. `uv sync --extra dev --group docs`
+2. `uv run sphinx-build -b html docs site`
 3. upload do artefato do site no GitHub Actions
 4. deploy para Pages a partir do artefato gerado
 

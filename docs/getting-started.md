@@ -71,10 +71,10 @@ response = client.submit_dps(dps)
 
 ## Próximos passos
 
-- [Configuração de certificado](guides/certificate-setup.md)
-- [Primeira emissão](guides/first-emission.md)
-- [Consulta](guides/query.md)
-- [Cancelamento](guides/cancel.md)
-- [Substituição](guides/substitute.md)
-- [DANFSe PDF](guides/danfse-pdf.md)
-- [IBSCBS](guides/ibscbs.md)
+- [Configuração de certificado](guides/certificate-setup)
+- [Primeira emissão](guides/first-emission)
+- [Consulta](guides/query)
+- [Cancelamento](guides/cancel)
+- [Substituição](guides/substitute)
+- [DANFSe PDF](guides/danfse-pdf)
+- [IBSCBS](guides/ibscbs)

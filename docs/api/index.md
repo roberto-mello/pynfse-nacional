@@ -4,14 +4,27 @@ As páginas desta seção saem dos docstrings do código-fonte.
 
 ## Módulos
 
-- [Cliente](client.md)
-- [Modelos](models.md)
-- [XML Builder](xml-builder.md)
-- [XML Signer](xml-signer.md)
-- [PDF Generator](pdf-generator.md)
-- [Exceções](exceptions.md)
-- [Utilitários](utils.md)
+- [Cliente](client)
+- [Modelos](models)
+- [XML Builder](xml-builder)
+- [XML Signer](xml-signer)
+- [PDF Generator](pdf-generator)
+- [Exceções](exceptions)
+- [Utilitários](utils)
 
 ## Regra
 
 Cada módulo fica em uma página própria para manter a documentação perto da implementação.
+
+```{toctree}
+:maxdepth: 1
+:caption: Módulos
+
+client
+models
+xml-builder
+xml-signer
+pdf-generator
+exceptions
+utils
+```
