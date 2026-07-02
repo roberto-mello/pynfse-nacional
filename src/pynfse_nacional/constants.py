@@ -24,6 +24,7 @@ PARAMETRIZACAO_URLS = {
 ENDPOINTS = {
     "submit_dps": "/nfse",
     "query_nfse": "/nfse/{chave}",
+    "query_nfse_by_dps": "/dps/{id}",
     "download_danfse": "/danfse/{chave}",
     "events": "/nfse/{chave}/eventos",
 }

@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from .exceptions import NFSeValidationError
 from .types import Percent3V2
+from .utils import _redacted_repr
 
 _REF_NFSE_PATTERN = re.compile(r"^[0-9]{50}$")
 _C_IND_OP_PATTERN = re.compile(r"^[0-9]{6}$")
@@ -20,9 +23,531 @@ _C_CIB_PATTERN = re.compile(r"^[0-9]{8}$")
 _TP_NFSE_CREDITO_VALUES = {"01", "05"}
 _TP_NFSE_DEBITO_VALUES = {"01", "02", "03", "04", "05", "06"}
 
+_OP_BEM_IMOVEL = (
+    "Operação com bem imóvel, bem imaterial, inclusive direito, "
+    "relacionada a bem imóvel"
+)
+_OP_BEM_IMOVEL_EXEC = (
+    "Execução de operações com bem imóvel, bem imaterial, inclusive direito, "
+    "relacionado a bem imóvel"
+)
+_OP_SERVICO_BEM_IMOVEL_EXEC = "Execução de serviços sobre bem imóvel"
+_OP_ADMIN_BEM_IMOVEL_EXEC = (
+    "Execução dos serviços de administração e intermediação de bens imóveis"
+)
+_OP_PESSOA_FISICA = (
+    "Serviço prestado fisicamente sobre a pessoa ou fruído presencialmente "
+    "por pessoa física"
+)
+_OP_SERVICOS_PESSOA_FISICA_EXEC = (
+    "Execução de serviços diversos exclusivamente prestados fisicamente "
+    "sobre a pessoa ou integralmente fruídos presencialmente por pessoa "
+    "física (2)"
+)
+_OP_FEIRAS = (
+    "Serviço de planejamento, organização e administração de feiras, "
+    "exposições, congressos, espetáculos, exibições e congêneres"
+)
+_OP_FEIRAS_EXEC = (
+    "Execução de serviços de planejamento, organização e administração de "
+    "feiras, exposições, congressos, espetáculos, exibições e congêneres"
+)
+_OP_BEM_MOVEL = "Serviço prestado fisicamente sobre bem móvel material"
+_OP_BEM_MOVEL_EXEC = (
+    "Execução de serviços diversos fisicamente prestados sobre bem móvel "
+    "material"
+)
+_OP_PORTUARIO_EXEC = "Execução de serviços portuários"
+_OP_TRANSP_PASSAGEIROS = "Serviço de transporte de passageiros"
+_OP_TRANSP_PASSAGEIROS_EXEC = "Execução de serviços de transporte de passageiros"
+_OP_TRANSP_CARGA = "Serviço de transporte de carga"
+_OP_TRANSP_CARGA_EXEC = "Execução de serviços de transporte de carga"
+_OP_VIA = "Serviço de exploração de via"
+_OP_VIA_EXEC = "Execução de serviços de exploração de via"
+_OP_PUBLICIDADE_ONEROSA = (
+    "Cessão de espaço para prestação de serviços publicitários, em operações "
+    "onerosas (4)"
+)
+_OP_PUBLICIDADE_ONEROSA_EXEC = (
+    "Execução de operações de cessão de espaço para prestação de serviços "
+    "publicitários"
+)
+_OP_PUBLICIDADE_NAO_ONEROSA = (
+    "Cessão de espaço para prestação de serviços publicitários, em operações "
+    "não onerosas (4)"
+)
+_OP_BENS_IMATERIAIS_ONEROSOS = (
+    "Demais bens móveis imateriais, inclusive direitos, em operações "
+    "onerosas"
+)
+_OP_BENS_IMATERIAIS_ONEROSOS_EXEC = (
+    "Execução de demais operações não especificadas anteriormente com bens "
+    "móveis imateriais, inclusive direitos"
+)
+_OP_BENS_IMATERIAIS_NAO_ONEROSOS = (
+    "Demais bens móveis imateriais, inclusive direitos, em operações "
+    "não onerosas"
+)
+_OP_BENS_IMATERIAIS_NAO_ONEROSOS_EXEC = (
+    "Execução de demais operações não especificadas anteriormente com bens "
+    "móveis imateriais, inclusive direitos"
+)
+_PATH_IMOVEL = "NFSe/infNFSe/DPS/infDPS/serv/locPrest/cLocPrestacao"
+_PATH_PREST_END = "NFSe/infNFSe/DPS/infDPS/prest/end/"
+_PATH_TOMA_END = "NFSe/infNFSe/DPS/infDPS/toma/end"
+_PATH_DEST = "NFSe/infNFSe/DPS/infDPS/IBSCBS/dest/"
+_PATH_SERV_LOC = "NFSe/infNFSe/DPS/infDPS/serv/locPrest/cLocPrestacao"
+_PATH_EVENTO = "NFSe/infNFSe/DPS/infDPS/serv/atvEvento/"
+_PATH_TOMA_END_EXT = "NFSe/infNFSe/DPS/infDPS/toma/end/endExt"
+_PATH_DEST_END_EXT = "NFSe/infNFSe/DPS/infDPS/IBSCBS/dest/end/endExt"
+_PATH_DEST_ONLY = "NFSe/infNFSe/DPS/infDPS/dest/"
+_PATH_TOMA_END_OR_DEST = (
+    "NFSe/infNFSe/DPS/infDPS/toma/end | "
+    "NFSe/infNFSe/DPS/infDPS/IBSCBS/dest/"
+)
+_PATH_TOMA_END_EXT_OR_DEST_END_EXT = (
+    "NFSe/infNFSe/DPS/infDPS/toma/end/endExt | "
+    "NFSe/infNFSe/DPS/infDPS/IBSCBS/dest/end/endExt"
+)
+_PATH_TOMA_OR_DEST_FOR_BENS = (
+    "NFSe/infNFSe/DPS/infDPS/toma/ | "
+    "NFSe/infNFSe/DPS/infDPS/IBSCBS/dest/"
+)
+_PATH_TOMA_EXT_OR_DEST_END_EXT_FOR_BENS = (
+    "NFSe/infNFSe/DPS/infDPS/toma/end/endExt/ | "
+    "NFSe/infNFSe/DPS/infDPS/IBSCBS/dest/end/endExt/"
+)
+
+
+@dataclass(frozen=True)
+class IBSCBSOperationVariant:
+    """One official `cIndOp` row from the RTC annex."""
+
+    sequencia: str
+    c_ind_op: str
+    local_fornecimento: str
+    campo_layout: str
+
+
+@dataclass(frozen=True)
+class IBSCBSOperationCategory:
+    """Grouped `cIndOp` family from the RTC annex."""
+
+    artigo: str
+    inciso: str
+    tipo_operacao: str
+    local_operacao: str
+    caracteristica_fornecimento: str
+    codigo_base: str
+    variantes: tuple[IBSCBSOperationVariant, ...]
+
+
+def _operation_variant(
+    sequencia: str,
+    c_ind_op: str,
+    local_fornecimento: str,
+    campo_layout: str,
+) -> IBSCBSOperationVariant:
+    return IBSCBSOperationVariant(
+        sequencia=sequencia,
+        c_ind_op=c_ind_op,
+        local_fornecimento=local_fornecimento,
+        campo_layout=campo_layout,
+    )
+
+
+def _operation_category(
+    artigo: str,
+    inciso: str,
+    tipo_operacao: str,
+    local_operacao: str,
+    caracteristica_fornecimento: str,
+    codigo_base: str,
+    variantes: tuple[IBSCBSOperationVariant, ...],
+) -> IBSCBSOperationCategory:
+    return IBSCBSOperationCategory(
+        artigo=artigo,
+        inciso=inciso,
+        tipo_operacao=tipo_operacao,
+        local_operacao=local_operacao,
+        caracteristica_fornecimento=caracteristica_fornecimento,
+        codigo_base=codigo_base,
+        variantes=variantes,
+    )
+
+
+IBSCBS_OPERATION_CATEGORIES = (
+    _operation_category(
+        "Art. 11",
+        "II",
+        _OP_BEM_IMOVEL,
+        "o local onde o imóvel estiver situado",
+        _OP_BEM_IMOVEL_EXEC,
+        "0201",
+        (
+            _operation_variant(
+                "01",
+                "020101",
+                "Localidade do imóvel (1)",
+                _PATH_IMOVEL,
+            ),
+        ),
+    ),
+    _operation_category(
+        "Art. 11",
+        "II",
+        _OP_BEM_IMOVEL,
+        "o local onde o imóvel estiver situado",
+        _OP_SERVICO_BEM_IMOVEL_EXEC,
+        "0202",
+        (
+            _operation_variant(
+                "01",
+                "020201",
+                "Localidade do imóvel (1)",
+                _PATH_IMOVEL,
+            ),
+        ),
+    ),
+    _operation_category(
+        "Art. 11",
+        "II",
+        _OP_BEM_IMOVEL,
+        "o local onde o imóvel estiver situado",
+        _OP_ADMIN_BEM_IMOVEL_EXEC,
+        "0203",
+        (
+            _operation_variant(
+                "01",
+                "020301",
+                "Localidade do imóvel (1)",
+                _PATH_IMOVEL,
+            ),
+        ),
+    ),
+    _operation_category(
+        "Art. 11",
+        "III",
+        _OP_PESSOA_FISICA,
+        "o local da prestação do serviço",
+        _OP_SERVICOS_PESSOA_FISICA_EXEC,
+        "0301",
+        (
+            _operation_variant(
+                "01",
+                "030101",
+                "Estabelecimento do fornecedor",
+                _PATH_PREST_END,
+            ),
+            _operation_variant(
+                "02",
+                "030102",
+                "Endereço do adquirente",
+                _PATH_TOMA_END_OR_DEST,
+            ),
+            _operation_variant(
+                "03",
+                "030103",
+                "Endereço do destinatário",
+                _PATH_DEST,
+            ),
+            _operation_variant(
+                "04",
+                "030104",
+                "Endereço diverso do fornecedor, adquirente ou destinatário",
+                _PATH_SERV_LOC,
+            ),
+        ),
+    ),
+    _operation_category(
+        "Art. 11",
+        "IV",
+        _OP_FEIRAS,
+        "o local do evento a que se refere o serviço",
+        _OP_FEIRAS_EXEC,
+        "0401",
+        (
+            _operation_variant(
+                "01",
+                "040101",
+                "Local do Evento",
+                _PATH_EVENTO,
+            ),
+        ),
+    ),
+    _operation_category(
+        "Art. 11",
+        "V",
+        _OP_BEM_MOVEL,
+        "o local da prestação do serviço",
+        _OP_BEM_MOVEL_EXEC,
+        "0501",
+        (
+            _operation_variant(
+                "01",
+                "050101",
+                "Estabelecimento do fornecedor",
+                _PATH_PREST_END,
+            ),
+            _operation_variant(
+                "02",
+                "050102",
+                "Endereço do adquirente",
+                _PATH_TOMA_END_OR_DEST,
+            ),
+            _operation_variant(
+                "03",
+                "050103",
+                "Endereço do destinatário",
+                _PATH_DEST,
+            ),
+            _operation_variant(
+                "04",
+                "050104",
+                "Endereço diverso do fornecedor, adquirente ou destinatário",
+                _PATH_SERV_LOC,
+            ),
+        ),
+    ),
+    _operation_category(
+        "Art. 11",
+        "V",
+        _OP_BEM_MOVEL,
+        "o local da prestação do serviço",
+        _OP_PORTUARIO_EXEC,
+        "0502",
+        (
+            _operation_variant(
+                "01",
+                "050201",
+                "Local da prestação",
+                _PATH_SERV_LOC,
+            ),
+        ),
+    ),
+    _operation_category(
+        "Art. 11",
+        "VI",
+        _OP_TRANSP_PASSAGEIROS,
+        "o local da prestação do serviço",
+        _OP_TRANSP_PASSAGEIROS_EXEC,
+        "0601",
+        (
+            _operation_variant(
+                "01",
+                "060101",
+                "Local de início do transporte",
+                _PATH_SERV_LOC,
+            ),
+        ),
+    ),
+    _operation_category(
+        "Art. 11",
+        "VII",
+        _OP_TRANSP_CARGA,
+        "o local da prestação do serviço",
+        _OP_TRANSP_CARGA_EXEC,
+        "0701",
+        (
+            _operation_variant(
+                "01",
+                "070101",
+                "Endereço fornecido para entrega",
+                _PATH_SERV_LOC,
+            ),
+            _operation_variant(
+                "02",
+                "070102",
+                "Local da retirada",
+                _PATH_SERV_LOC,
+            ),
+        ),
+    ),
+    _operation_category(
+        "Art. 11",
+        "VIII",
+        _OP_VIA,
+        (
+            "o território de cada Município e Estado, ou do Distrito Federal, "
+            "proporcionalmente à correspondente extensão da via explorada"
+        ),
+        _OP_VIA_EXEC,
+        "0801",
+        (
+            _operation_variant(
+                "01",
+                "080101",
+                (
+                    "Local da prestação, correspondente à extensão da via "
+                    "explorada e proporcional ao território dos entes "
+                    "tributantes"
+                ),
+                "EXCLUSIVO PARA NFS-e Via.",
+            ),
+        ),
+    ),
+    _operation_category(
+        "Art. 11",
+        "X",
+        _OP_PUBLICIDADE_ONEROSA,
+        (
+            "o local do domicílio principal do adquirente, nas operações "
+            "onerosas"
+        ),
+        _OP_PUBLICIDADE_ONEROSA_EXEC,
+        "1005",
+        (
+            _operation_variant(
+                "01",
+                "100101",
+                "Local do domicílio principal do adquirente (3)",
+                _PATH_TOMA_END_OR_DEST,
+            ),
+            _operation_variant(
+                "02",
+                "100102",
+                (
+                    "Local do domicílio do destinatário, nos casos de "
+                    "adquirente residente ou domiciliado no exterior (5)(6)"
+                ),
+                _PATH_TOMA_END_EXT_OR_DEST_END_EXT,
+            ),
+        ),
+    ),
+    _operation_category(
+        "Art. 11",
+        "X",
+        _OP_PUBLICIDADE_NAO_ONEROSA,
+        (
+            "o local do domicílio principal do destinatário, nas operações "
+            "não onerosas"
+        ),
+        _OP_PUBLICIDADE_ONEROSA_EXEC,
+        "1006",
+        (
+            _operation_variant(
+                "01",
+                "100201",
+                "Local do domicílio principal do destinatário (6)",
+                _PATH_DEST_ONLY,
+            ),
+        ),
+    ),
+    _operation_category(
+        "Art. 11",
+        "X",
+        _OP_BENS_IMATERIAIS_ONEROSOS,
+        (
+            "o local do domicílio principal do adquirente, nas operações "
+            "onerosas"
+        ),
+        _OP_BENS_IMATERIAIS_ONEROSOS_EXEC,
+        "1001",
+        (
+            _operation_variant(
+                "01",
+                "100301",
+                "Local do domicílio principal do adquirente (3)",
+                _PATH_TOMA_END_OR_DEST,
+            ),
+            _operation_variant(
+                "02",
+                "100302",
+                (
+                    "Local do domicílio do destinatário, nos casos de "
+                    "adquirente residente ou domiciliado no exterior (5)(6)"
+                ),
+                _PATH_TOMA_END_EXT_OR_DEST_END_EXT,
+            ),
+        ),
+    ),
+    _operation_category(
+        "Art. 11",
+        "X",
+        _OP_BENS_IMATERIAIS_NAO_ONEROSOS,
+        (
+            "o local do domicílio principal do destinatário, nas operações "
+            "não onerosas"
+        ),
+        _OP_BENS_IMATERIAIS_NAO_ONEROSOS_EXEC,
+        "1002",
+        (
+            _operation_variant(
+                "01",
+                "100401",
+                "Local do domicílio principal do destinatário (6)",
+                _PATH_DEST_ONLY,
+            ),
+        ),
+    ),
+    _operation_category(
+        "Art. 11",
+        "X",
+        _OP_BENS_IMATERIAIS_ONEROSOS,
+        (
+            "o local do domicílio principal do adquirente, nas operações "
+            "onerosas"
+        ),
+        _OP_BENS_IMATERIAIS_ONEROSOS_EXEC,
+        "1003",
+        (
+            _operation_variant(
+                "01",
+                "100501",
+                "Local do domicílio principal do adquirente (3)",
+                _PATH_TOMA_OR_DEST_FOR_BENS,
+            ),
+            _operation_variant(
+                "02",
+                "100502",
+                (
+                    "Local do domicílio do destinatário, nos casos de "
+                    "adquirente residente ou domiciliado no exterior (5)(6)"
+                ),
+                _PATH_TOMA_EXT_OR_DEST_END_EXT_FOR_BENS,
+            ),
+        ),
+    ),
+    _operation_category(
+        "Art. 11",
+        "X",
+        _OP_BENS_IMATERIAIS_NAO_ONEROSOS,
+        (
+            "o local do domicílio principal do destinatário, nas operações "
+            "não onerosas"
+        ),
+        _OP_BENS_IMATERIAIS_NAO_ONEROSOS_EXEC,
+        "1004",
+        (
+            _operation_variant(
+                "01",
+                "100601",
+                "Local do domicílio principal do destinatário (6)",
+                _PATH_DEST_ONLY,
+            ),
+        ),
+    ),
+)
+IBSCBS_OPERATION_VARIANTS = tuple(
+    variant
+    for category in IBSCBS_OPERATION_CATEGORIES
+    for variant in category.variantes
+)
+IBSCBS_OPERATION_CATEGORIES_BY_CODE = {
+    category.codigo_base: category for category in IBSCBS_OPERATION_CATEGORIES
+}
+IBSCBS_OPERATION_VARIANTS_BY_CODE = {
+    variant.c_ind_op: variant for variant in IBSCBS_OPERATION_VARIANTS
+}
+
 # Official ANEXO_C-INDOP_IBSCBS-SNNFSe-v1.01-20260209 workbook.
 # Source table contains 26 codes; 080101 is Via-only and is excluded below.
-IBSCBS_C_IND_OP_CODES = (
+IBSCBS_C_IND_OP_CODES = tuple(variant.c_ind_op for variant in IBSCBS_OPERATION_VARIANTS)
+IBSCBS_C_IND_OP_ALLOWLIST = frozenset(
+    code for code in IBSCBS_C_IND_OP_CODES if code != "080101"
+)
+
+IBSCBSOperationCode = Literal[
     "020101",
     "020201",
     "020301",
@@ -39,7 +564,6 @@ IBSCBS_C_IND_OP_CODES = (
     "060101",
     "070101",
     "070102",
-    "080101",
     "100101",
     "100102",
     "100201",
@@ -49,10 +573,22 @@ IBSCBS_C_IND_OP_CODES = (
     "100501",
     "100502",
     "100601",
-)
-IBSCBS_C_IND_OP_ALLOWLIST = frozenset(
-    code for code in IBSCBS_C_IND_OP_CODES if code != "080101"
-)
+]
+
+
+def get_ibscbs_operation_category(c_ind_op: str) -> Optional[IBSCBSOperationCategory]:
+    """Return the grouped operation family for a six-digit `cIndOp`."""
+
+    if len(c_ind_op) < 4:
+        return None
+
+    return IBSCBS_OPERATION_CATEGORIES_BY_CODE.get(c_ind_op[:4])
+
+
+def get_ibscbs_operation_variant(c_ind_op: str) -> Optional[IBSCBSOperationVariant]:
+    """Return the official annex row for a six-digit `cIndOp`."""
+
+    return IBSCBS_OPERATION_VARIANTS_BY_CODE.get(c_ind_op)
 
 
 def _validate_choice(model_name: str, selected: list[tuple[str, Any]]) -> None:
@@ -63,7 +599,7 @@ def _validate_choice(model_name: str, selected: list[tuple[str, Any]]) -> None:
 
 
 class EnderecoIBSCBS(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
 
     logradouro: str = Field(..., min_length=1, max_length=255)
     numero: str = Field(..., min_length=1, max_length=60)
@@ -73,9 +609,21 @@ class EnderecoIBSCBS(BaseModel):
     uf: str = Field(..., min_length=2, max_length=2)
     cep: str = Field(..., pattern=r"^[0-9]{8}$")
 
+    @field_validator("uf")
+    @classmethod
+    def validate_uf(cls, value: str) -> str:
+        from .models import VALID_UFS
+
+        value_upper = value.upper()
+        if value_upper not in VALID_UFS:
+            raise ValueError(
+                f"UF inválida. Use uma sigla válida: {', '.join(sorted(VALID_UFS))}"
+            )
+        return value_upper
+
 
 class RefNFSe(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
 
     ref_nfse: list[str] = Field(default_factory=list, min_length=1, max_length=99)
 
@@ -95,7 +643,7 @@ class RefNFSe(BaseModel):
 
 
 class DestIBSCBS(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
 
     cnpj: Optional[str] = Field(None, pattern=r"^[0-9]{14}$")
     cpf: Optional[str] = Field(None, pattern=r"^[0-9]{11}$")
@@ -121,7 +669,7 @@ class DestIBSCBS(BaseModel):
 
 
 class ImovelIBSCBS(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
 
     insc_imob_fisc: Optional[str] = Field(None, min_length=1, max_length=30)
     c_cib: Optional[str] = Field(None, pattern=_C_CIB_PATTERN.pattern)
@@ -140,14 +688,14 @@ class ImovelIBSCBS(BaseModel):
 
 
 class GTribRegularIBSCBS(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
 
     cst_reg: str = Field(..., pattern=_CST_PATTERN.pattern)
     c_class_trib_reg: str = Field(..., pattern=_CLASS_TRIB_PATTERN.pattern)
 
 
 class GDifIBSCBS(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
 
     p_dif_uf: Percent3V2
     p_dif_mun: Percent3V2
@@ -155,7 +703,7 @@ class GDifIBSCBS(BaseModel):
 
 
 class GIBSCBS(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
 
     cst: str = Field(..., pattern=_CST_PATTERN.pattern)
     c_class_trib: str = Field(..., pattern=_CLASS_TRIB_PATTERN.pattern)
@@ -165,26 +713,26 @@ class GIBSCBS(BaseModel):
 
 
 class TribIBSCBS(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
 
     g_ibscbs: GIBSCBS
 
 
 class ValoresIBSCBS(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
 
     g_ree_rep_res: Optional[list[Any]] = Field(default=None, max_length=1000)
     trib: TribIBSCBS
 
 
 class IBSCBS(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
 
     fin_nfse: Literal["0", "1", "2"]
     tp_nfse_credito: Optional[Literal["01", "05"]] = None
     tp_nfse_debito: Optional[Literal["01", "02", "03", "04", "05", "06"]] = None
     ind_final: Optional[Literal["0", "1"]] = None
-    c_ind_op: str = Field(..., pattern=_C_IND_OP_PATTERN.pattern)
+    c_ind_op: IBSCBSOperationCode
     tp_oper: Optional[Literal["1", "2", "3", "4", "5"]] = None
     g_ref_nfse: Optional[RefNFSe] = None
     tp_ente_gov: Optional[Literal["1", "2", "3", "4"]] = None
@@ -193,15 +741,25 @@ class IBSCBS(BaseModel):
     imovel: Optional[ImovelIBSCBS] = None
     valores: ValoresIBSCBS
 
-    @field_validator("c_ind_op")
+    @field_validator("c_ind_op", mode="before")
     @classmethod
-    def validate_c_ind_op(cls, value: str) -> str:
+    def validate_c_ind_op(cls, value: object) -> str:
+        if not isinstance(value, str):
+            raise NFSeValidationError("cIndOp inválido (valor redigido).")
+
         if not _C_IND_OP_PATTERN.fullmatch(value):
-            raise ValueError("cIndOp deve conter 6 dígitos numéricos.")
+            raise NFSeValidationError(
+                f"cIndOp inválido ({_redacted_repr('valor', value)})."
+            )
+
+        if value == "080101":
+            raise NFSeValidationError("cIndOp exclusivo de NFS-e Via.")
+
         if value not in IBSCBS_C_IND_OP_ALLOWLIST:
-            if value == "080101":
-                raise ValueError("cIndOp '080101' é exclusivo de NFS-e Via.")
-            raise ValueError("cIndOp inválido para IBSCBS.")
+            raise NFSeValidationError(
+                f"cIndOp inválido ({_redacted_repr('valor', value)})."
+            )
+
         return value
 
     @field_validator("g_ref_nfse")

@@ -5,11 +5,14 @@ from decimal import Decimal
 import pytest
 from pydantic import TypeAdapter, ValidationError
 
+from pynfse_nacional.exceptions import NFSeValidationError
 from pynfse_nacional.models_ibscbs import (
     GIBSCBS,
     IBSCBS,
     IBSCBS_C_IND_OP_ALLOWLIST,
     IBSCBS_C_IND_OP_CODES,
+    IBSCBS_OPERATION_CATEGORIES,
+    IBSCBS_OPERATION_VARIANTS,
     DestIBSCBS,
     EnderecoIBSCBS,
     GDifIBSCBS,
@@ -18,6 +21,8 @@ from pynfse_nacional.models_ibscbs import (
     RefNFSe,
     TribIBSCBS,
     ValoresIBSCBS,
+    get_ibscbs_operation_category,
+    get_ibscbs_operation_variant,
 )
 from pynfse_nacional.types import Percent2V2, Percent3V2
 
@@ -73,6 +78,29 @@ class TestIBSCBSOptionalModels:
         imovel = ImovelIBSCBS(c_cib="12345678")
 
         assert imovel.c_cib == "12345678"
+
+    def test_accepts_valid_uf(self):
+        endereco = EnderecoIBSCBS(
+            logradouro="Rua Teste",
+            numero="100",
+            bairro="Centro",
+            codigo_municipio=3550308,
+            uf="sp",
+            cep="01310100",
+        )
+
+        assert endereco.uf == "SP"
+
+    def test_rejects_invalid_uf(self):
+        with pytest.raises(ValidationError):
+            EnderecoIBSCBS(
+                logradouro="Rua Teste",
+                numero="100",
+                bairro="Centro",
+                codigo_municipio=3550308,
+                uf="XX",
+                cep="01310100",
+            )
 
     def test_accepts_g_trib_regular_and_g_dif(self):
         g_trib_regular = GTribRegularIBSCBS(
@@ -181,6 +209,11 @@ class TestIBSCBSCodes:
             code for code in IBSCBS_C_IND_OP_CODES if code != "080101"
         )
 
+    def test_c_ind_op_schema_excludes_via_only_code(self):
+        schema = IBSCBS.model_json_schema()
+
+        assert "080101" not in schema["properties"]["c_ind_op"]["enum"]
+
     def test_fin_nfse_literal(self):
         ibscbs = build_minimal_ibscbs()
         assert ibscbs.fin_nfse == "0"
@@ -201,7 +234,7 @@ class TestIBSCBSCodes:
         assert ibscbs.c_ind_op == "020101"
 
     def test_c_ind_op_rejects_unknown_code(self):
-        with pytest.raises(ValidationError):
+        with pytest.raises(NFSeValidationError) as exc_info:
             IBSCBS(
                 fin_nfse="0",
                 c_ind_op="999999",
@@ -211,8 +244,10 @@ class TestIBSCBSCodes:
                 ),
             )
 
+        assert "999999" not in str(exc_info.value)
+
     def test_c_ind_op_rejects_via_only_code(self):
-        with pytest.raises(ValidationError):
+        with pytest.raises(NFSeValidationError) as exc_info:
             IBSCBS(
                 fin_nfse="0",
                 c_ind_op="080101",
@@ -221,6 +256,53 @@ class TestIBSCBSCodes:
                     trib=TribIBSCBS(g_ibscbs=GIBSCBS(cst="001", c_class_trib="123456"))
                 ),
             )
+
+        assert "Via" in str(exc_info.value)
+
+
+class TestIBSCBSOperationMetadata:
+    def test_operation_categories_match_annex_groups(self):
+        assert [category.codigo_base for category in IBSCBS_OPERATION_CATEGORIES] == [
+            "0201",
+            "0202",
+            "0203",
+            "0301",
+            "0401",
+            "0501",
+            "0502",
+            "0601",
+            "0701",
+            "0801",
+            "1005",
+            "1006",
+            "1001",
+            "1002",
+            "1003",
+            "1004",
+        ]
+
+    def test_operation_variants_cover_all_annex_codes(self):
+        assert [variant.c_ind_op for variant in IBSCBS_OPERATION_VARIANTS] == list(
+            IBSCBS_C_IND_OP_CODES
+        )
+
+    def test_lookup_returns_grouped_variant(self):
+        category = get_ibscbs_operation_category("030102")
+        variant = get_ibscbs_operation_variant("030102")
+
+        assert category is not None
+        assert category.codigo_base == "0301"
+        assert category.inciso == "III"
+        assert variant is not None
+        assert variant.local_fornecimento == "Endereço do adquirente"
+        assert variant.campo_layout.startswith("NFSe/infNFSe/DPS/infDPS/toma/end")
+
+    def test_lookup_marks_via_only_variant(self):
+        variant = get_ibscbs_operation_variant("080101")
+
+        assert variant is not None
+        assert variant.c_ind_op == "080101"
+        assert variant.campo_layout == "EXCLUSIVO PARA NFS-e Via."
 
 
 class TestIBSCBSRules:
@@ -322,6 +404,12 @@ class TestIBSCBSRules:
 
 
 class TestIBSCBSValidation:
+    def test_ref_nfse_error_hides_input_value(self):
+        with pytest.raises(ValidationError) as exc_info:
+            RefNFSe(ref_nfse=["123"])
+
+        assert "123" not in str(exc_info.value)
+
     def test_ref_nfse_enforces_max_length(self):
         with pytest.raises(ValidationError):
             RefNFSe(
