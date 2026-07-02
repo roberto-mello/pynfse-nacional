@@ -71,7 +71,7 @@ endereco_prestador = Endereco(
 
 # Criar prestador (emissor da nota)
 prestador = Prestador(
-    cnpj="12345678000199",
+    cnpj="11222333000181",
     inscricao_municipal="12345",
     razao_social="Empresa Exemplo LTDA",
     nome_fantasia="Empresa Exemplo",
@@ -82,7 +82,7 @@ prestador = Prestador(
 
 # Criar tomador (cliente)
 tomador = Tomador(
-    cpf="12345678901",
+    cpf="52998224725",
     razao_social="Joao da Silva",
     endereco=Endereco(
         logradouro="Av. Brasil",
@@ -454,7 +454,7 @@ provider_address = Endereco(
 
 # Create provider (invoice issuer)
 prestador = Prestador(
-    cnpj="12345678000199",
+    cnpj="11222333000181",
     inscricao_municipal="12345",
     razao_social="Example Company LTDA",
     nome_fantasia="Example Company",
@@ -465,7 +465,7 @@ prestador = Prestador(
 
 # Create recipient (client)
 tomador = Tomador(
-    cpf="12345678901",
+    cpf="52998224725",
     razao_social="John Smith",
     endereco=Endereco(
         logradouro="Av. Brasil",
