@@ -6,6 +6,9 @@ Note: Some tests require the optional [pdf] dependencies (reportlab, qrcode).
 
 import base64
 import gzip
+from unittest.mock import patch
+from xml.etree import ElementTree as ET
+
 import pytest
 
 # Check if PDF dependencies are available
@@ -13,19 +16,19 @@ try:
     from pynfse_nacional.pdf_generator import (
         HeaderConfig,
         NFSeData,
-        parse_nfse_xml,
-        generate_danfse_pdf,
-        generate_danfse_from_xml,
-        generate_danfse_from_base64,
-        _format_datetime,
-        _format_date,
-        _format_phone,
-        _format_currency,
+        _build_ibscbs_totals_rows,
         _format_cep,
-        _get_simples_nacional_desc,
-        _get_regime_apuracao_desc,
-        _get_trib_issqn_desc,
+        _format_currency,
+        _format_date,
+        _format_datetime,
+        _format_phone,
         _get_retencao_issqn_desc,
+        _get_simples_nacional_desc,
+        _get_trib_issqn_desc,
+        generate_danfse_from_base64,
+        generate_danfse_from_xml,
+        generate_danfse_pdf,
+        parse_nfse_xml,
     )
 
     PDF_AVAILABLE = True
@@ -35,7 +38,10 @@ except ImportError:
 
 pytestmark = pytest.mark.skipif(
     not PDF_AVAILABLE,
-    reason="PDF dependencies not installed. Install with: pip install pynfse-nacional[pdf]",
+    reason=(
+        "PDF dependencies not installed. Install with: "
+        "pip install pynfse-nacional[pdf]"
+    ),
 )
 
 
@@ -121,6 +127,41 @@ SAMPLE_NFSE_XML = """<?xml version="1.0" encoding="UTF-8"?>
         </valores>
     </infNFSe>
 </NFSe>"""
+
+SAMPLE_NFSE_XML_WITH_TOTALS = SAMPLE_NFSE_XML.replace(
+    "</infNFSe>",
+    """
+        <IBSCBS>
+            <finNFSe>0</finNFSe>
+            <indFinal>0</indFinal>
+            <cIndOp>020101</cIndOp>
+            <indDest>0</indDest>
+            <valores>
+                <trib>
+                    <gIBSCBS>
+                        <CST>001</CST>
+                        <cClassTrib>123456</cClassTrib>
+                    </gIBSCBS>
+                </trib>
+            </valores>
+            <totCIBS>
+                <vTotNF>518.00</vTotNF>
+                <gIBS>
+                    <vIBSTot>15.00</vIBSTot>
+                    <gIBSUFTot>
+                        <vIBSUF>9.00</vIBSUF>
+                    </gIBSUFTot>
+                    <gIBSMunTot>
+                        <vIBSMun>6.00</vIBSMun>
+                    </gIBSMunTot>
+                </gIBS>
+                <gCBS>
+                    <vCBS>3.00</vCBS>
+                </gCBS>
+            </totCIBS>
+        </IBSCBS>
+    </infNFSe>""",
+)
 
 
 # =============================================================================
@@ -410,6 +451,49 @@ class TestGetRetencaoIssqnDesc:
 class TestParseNfseXml:
     """Tests for parse_nfse_xml function."""
 
+    def test_parses_ibscbs_totals(self):
+        """Should populate IBSCBS totalizers when totCIBS is present."""
+        data = parse_nfse_xml(SAMPLE_NFSE_XML_WITH_TOTALS)
+
+        assert data.ibscbs_totals is not None
+        assert data.ibscbs_totals.v_tot_nf == "518.00"
+        assert data.ibscbs_totals.v_ibs_tot == "15.00"
+        assert data.ibscbs_totals.v_ibs_uf == "9.00"
+        assert data.ibscbs_totals.v_ibs_mun == "6.00"
+        assert data.ibscbs_totals.v_cbs == "3.00"
+
+    def test_parses_ibscbs_without_double_parse(self):
+        """Should populate ibscbs from the NFSe XML without reparsing it."""
+        xml_content = SAMPLE_NFSE_XML.replace(
+            "</infDPS>",
+            """
+            <IBSCBS>
+                <finNFSe>0</finNFSe>
+                <indFinal>0</indFinal>
+                <cIndOp>020101</cIndOp>
+                <indDest>0</indDest>
+                <valores>
+                    <trib>
+                        <gIBSCBS>
+                            <CST>001</CST>
+                            <cClassTrib>123456</cClassTrib>
+                        </gIBSCBS>
+                    </trib>
+                </valores>
+            </IBSCBS>
+            </infDPS>""",
+        )
+
+        with patch(
+            "pynfse_nacional.response_parsers.ET.fromstring",
+            wraps=ET.fromstring,
+        ) as mock_fromstring:
+            data = parse_nfse_xml(xml_content)
+
+        assert data.ibscbs is not None
+        assert data.ibscbs.c_ind_op == "020101"
+        assert mock_fromstring.call_count == 1
+
     def test_parses_chave_acesso(self):
         """Should extract chave_acesso from infNFSe Id."""
         data = parse_nfse_xml(SAMPLE_NFSE_XML)
@@ -479,6 +563,26 @@ class TestParseNfseXml:
 
         assert "infNFSe" in str(exc_info.value)
 
+    def test_builds_ibscbs_totals_rows(self):
+        """Should build the optional IBSCBS totals lane rows."""
+        data = parse_nfse_xml(SAMPLE_NFSE_XML_WITH_TOTALS)
+        rows = _build_ibscbs_totals_rows(data)
+
+        assert rows == [
+            [
+                ("Base de Calculo (vBC)", "R$ 500,00"),
+                ("Aliquota Efetiva (pAliq)", "3.60%"),
+                ("Valor do Tributo (vTrib)", "R$ 18,00"),
+                ("Valor Total da NFS-e", "R$ 518,00"),
+            ],
+            [
+                ("IBS Estadual", "R$ 9,00"),
+                ("IBS Municipal", "R$ 6,00"),
+                ("IBS Total", "R$ 15,00"),
+                ("CBS", "R$ 3,00"),
+            ],
+        ]
+
 
 # =============================================================================
 # Tests: generate_danfse_pdf
@@ -539,6 +643,13 @@ class TestGenerateDanfseFromXml:
     def test_generates_pdf_from_xml(self):
         """Should generate PDF from XML content."""
         result = generate_danfse_from_xml(SAMPLE_NFSE_XML)
+
+        assert isinstance(result, bytes)
+        assert result[:4] == b"%PDF"
+
+    def test_generates_pdf_from_xml_with_ibscbs_totals(self):
+        """Should generate PDF from XML content with IBSCBS totals present."""
+        result = generate_danfse_from_xml(SAMPLE_NFSE_XML_WITH_TOTALS)
 
         assert isinstance(result, bytes)
         assert result[:4] == b"%PDF"
