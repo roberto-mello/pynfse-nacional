@@ -15,6 +15,7 @@ from typing import Optional
 from xml.etree import ElementTree as ET
 
 from .models_ibscbs import IBSCBS
+from .response_parsers import _find as _find_nfse
 from .response_parsers import parse_ibscbs
 from .utils import decode_decompress, format_cnpj, format_cpf
 
@@ -352,42 +353,22 @@ def _get_retencao_issqn_desc(ret: str) -> str:
 def _parse_ibscbs_totals(inf_nfse: ET.Element) -> Optional[IBSCBSTotals]:
     """Extract the IBSCBS totalizers when the XML includes them."""
 
-    ibscbs = inf_nfse.find(".//nfse:IBSCBS", NS)
-
-    if ibscbs is None:
-        ibscbs = inf_nfse.find(".//{http://www.sped.fazenda.gov.br/nfse}IBSCBS")
-
+    ibscbs = _find_nfse(inf_nfse, ".//nfse:IBSCBS")
     if ibscbs is None:
         return None
 
-    tot_cibs = ibscbs.find(".//nfse:totCIBS", NS)
-
-    if tot_cibs is None:
-        tot_cibs = ibscbs.find(".//{http://www.sped.fazenda.gov.br/nfse}totCIBS")
-
+    tot_cibs = _find_nfse(ibscbs, ".//nfse:totCIBS")
     if tot_cibs is None:
         return None
 
-    g_ibs = tot_cibs.find(".//nfse:gIBS", NS)
-    if g_ibs is None:
-        g_ibs = tot_cibs.find(".//{http://www.sped.fazenda.gov.br/nfse}gIBS")
-
-    g_cbs = tot_cibs.find(".//nfse:gCBS", NS)
-    if g_cbs is None:
-        g_cbs = tot_cibs.find(".//{http://www.sped.fazenda.gov.br/nfse}gCBS")
+    g_ibs = _find_nfse(tot_cibs, ".//nfse:gIBS")
+    g_cbs = _find_nfse(tot_cibs, ".//nfse:gCBS")
 
     g_ibs_uf = None
     g_ibs_mun = None
     if g_ibs is not None:
-        g_ibs_uf = g_ibs.find(".//nfse:gIBSUFTot", NS)
-        if g_ibs_uf is None:
-            g_ibs_uf = g_ibs.find(".//{http://www.sped.fazenda.gov.br/nfse}gIBSUFTot")
-
-        g_ibs_mun = g_ibs.find(".//nfse:gIBSMunTot", NS)
-        if g_ibs_mun is None:
-            g_ibs_mun = g_ibs.find(
-                ".//{http://www.sped.fazenda.gov.br/nfse}gIBSMunTot"
-            )
+        g_ibs_uf = _find_nfse(g_ibs, ".//nfse:gIBSUFTot")
+        g_ibs_mun = _find_nfse(g_ibs, ".//nfse:gIBSMunTot")
 
     return IBSCBSTotals(
         v_tot_nf=_get_text(tot_cibs, ".//nfse:vTotNF"),
