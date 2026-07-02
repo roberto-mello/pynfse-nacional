@@ -21,8 +21,6 @@ _CPF_PATTERN = re.compile(r"^[0-9]{11}$")
 _CST_PATTERN = re.compile(r"^[0-9]{3}$")
 _CLASS_TRIB_PATTERN = re.compile(r"^[0-9]{6}$")
 _C_CIB_PATTERN = re.compile(r"^[0-9]{8}$")
-_TP_NFSE_CREDITO_VALUES = {"01", "05"}
-_TP_NFSE_DEBITO_VALUES = {"01", "02", "03", "04", "05", "06"}
 
 _OP_BEM_IMOVEL = (
     "Operação com bem imóvel, bem imaterial, inclusive direito, "
@@ -649,13 +647,13 @@ class RefNFSe(BaseModel):
 class DestIBSCBS(BaseModel):
     model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
 
-    cnpj: Optional[str] = Field(None, pattern=r"^[0-9]{14}$")
-    cpf: Optional[str] = Field(None, pattern=r"^[0-9]{11}$")
+    cnpj: Optional[str] = Field(None, pattern=_CNPJ_PATTERN.pattern)
+    cpf: Optional[str] = Field(None, pattern=_CPF_PATTERN.pattern)
     nif: Optional[str] = Field(None, min_length=1, max_length=40)
     c_nao_nif: Optional[Literal["0", "1", "2"]] = None
     x_nome: str = Field(..., min_length=1, max_length=150)
     end: Optional[EnderecoIBSCBS] = None
-    fone: Optional[str] = Field(None, pattern=r"^[0-9]{6,20}$")
+    fone: Optional[str] = Field(None, pattern=_FONE_PATTERN.pattern)
     email: Optional[str] = Field(None, max_length=80)
 
     @model_validator(mode="after")
