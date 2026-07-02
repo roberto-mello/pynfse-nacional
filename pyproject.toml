@@ -68,6 +68,9 @@ select = ["E", "F", "I", "N", "W"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+markers = [
+    "integration: tests that exercise real external or environment-backed integrations",
+]
 
 [dependency-groups]
 dev = [
