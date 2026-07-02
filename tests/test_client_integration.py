@@ -36,7 +36,10 @@ CERT_PASSWORD = os.environ.get("NFSE_TEST_CERT_PASSWORD", "")
 
 pytestmark = pytest.mark.skipif(
     not CERT_PATH or not os.path.exists(CERT_PATH),
-    reason="Test certificate not configured. Set NFSE_TEST_CERT_PATH and NFSE_TEST_CERT_PASSWORD.",
+    reason=(
+        "Test certificate not configured. Set NFSE_TEST_CERT_PATH and "
+        "NFSE_TEST_CERT_PASSWORD."
+    ),
 )
 
 
@@ -249,9 +252,11 @@ class TestNFSeClientDownloadDANFSe:
         with pytest.raises(NFSeAPIError) as exc_info:
             client.download_danfse(fake_chave)
 
-        print(
-            f"Download error (expected): {exc_info.value.code} - {exc_info.value.message}"
+        error_message = (
+            f"Download error (expected): {exc_info.value.code} - "
+            f"{exc_info.value.message}"
         )
+        print(error_message)
 
 
 class TestNFSeClientCancelNFSe:
