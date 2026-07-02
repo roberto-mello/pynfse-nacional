@@ -16,7 +16,7 @@ import httpx
 import pytest
 
 from pynfse_nacional import NFSeAPIError, NFSeCertificateError, NFSeClient
-from pynfse_nacional.client import _extract_nfse_number_from_xml
+from pynfse_nacional.client import RecoveryOutcome, _extract_nfse_number_from_xml
 from pynfse_nacional.models import (
     DPS,
     Endereco,
@@ -948,6 +948,94 @@ class TestQueryNfseByDps:
             mock_get_client.return_value.__exit__ = MagicMock(return_value=False)
 
             assert mock_client.has_nfse_by_dps(self.DPS_ID) is False
+
+
+class TestRecoverNfseByDps:
+    """Tests for recover_nfse_by_dps high-level recovery helper."""
+
+    DPS_ID = "DPS350950221122233300018100900000000000000001"
+    CHAVE_ACESSO = "12345678901234567890123456789012345678901234567890"
+
+    def test_recover_success_returns_result(self, mock_client):
+        """When has_nfse_by_dps=True, fetches full NFSe via query_nfse_by_dps."""
+        expected = NFSeQueryResult(
+            chave_acesso=self.CHAVE_ACESSO,
+            nfse_number="1234",
+            status="emitida",
+            data_emissao=datetime(2026, 1, 15, 10, 30, 0),
+            valor_servicos=Decimal("500.00"),
+            prestador_cnpj="11222333000181",
+        )
+        with (
+            patch.object(mock_client, "has_nfse_by_dps", return_value=True),
+            patch.object(
+                mock_client, "query_nfse_by_dps", return_value=expected
+            ) as mock_query,
+        ):
+            outcome = mock_client.recover_nfse_by_dps(self.DPS_ID)
+
+        assert isinstance(outcome, RecoveryOutcome)
+        assert outcome.status == "success"
+        assert outcome.recovered is True
+        assert outcome.result is expected
+        assert outcome.error is None
+        mock_query.assert_called_once_with(self.DPS_ID)
+
+    def test_recover_processing_when_has_returns_false(self, mock_client):
+        """SEFIN returned 202/404/409 — DPS not yet emitted into an NFSe."""
+        with patch.object(mock_client, "has_nfse_by_dps", return_value=False):
+            outcome = mock_client.recover_nfse_by_dps(self.DPS_ID)
+
+        assert outcome.status == "processing"
+        assert outcome.recovered is False
+        assert outcome.result is None
+        assert outcome.error is None
+
+    def test_recover_error_when_has_lookup_fails(self, mock_client):
+        """Transport/API failure during the has_nfse_by_dps check."""
+        api_error = NFSeAPIError("Timeout ao consultar DPS", code="TIMEOUT")
+        with patch.object(
+            mock_client, "has_nfse_by_dps", side_effect=api_error
+        ):
+            outcome = mock_client.recover_nfse_by_dps(self.DPS_ID)
+
+        assert outcome.status == "error"
+        assert outcome.recovered is False
+        assert outcome.result is None
+        assert outcome.error is api_error
+
+    def test_recover_error_when_query_fails(self, mock_client):
+        """has=True but the full query failed — surface the query error."""
+        api_error = NFSeAPIError(
+            "Resposta da consulta por DPS sem chave de acesso",
+            code="INVALID_RESPONSE",
+            status_code=200,
+        )
+        with (
+            patch.object(mock_client, "has_nfse_by_dps", return_value=True),
+            patch.object(
+                mock_client, "query_nfse_by_dps", side_effect=api_error
+            ),
+        ):
+            outcome = mock_client.recover_nfse_by_dps(self.DPS_ID)
+
+        assert outcome.status == "error"
+        assert outcome.error is api_error
+
+    def test_recover_rejects_invalid_id(self, mock_client):
+        with pytest.raises(ValueError):
+            mock_client.recover_nfse_by_dps("DPS123")
+
+    def test_recover_does_not_query_when_has_false(self, mock_client):
+        """Avoids the costlier GET when HEAD says not-ready."""
+        with (
+            patch.object(mock_client, "has_nfse_by_dps", return_value=False),
+            patch.object(mock_client, "query_nfse_by_dps") as mock_query,
+        ):
+            outcome = mock_client.recover_nfse_by_dps(self.DPS_ID)
+
+        assert outcome.status == "processing"
+        mock_query.assert_not_called()
 
 
 # =============================================================================
