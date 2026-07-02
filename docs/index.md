@@ -111,6 +111,7 @@ response = client.submit_dps(dps)
 ## Documentação oficial
 
 - [Site da documentação](https://robmello.github.io/pynfse-nacional/) - guias, referência da API e apêndice
+- [llms.txt](llms.txt) - resumo curto para consumo por LLMs e ferramentas automatizadas
 - [Portal NFSe Nacional](https://www.gov.br/nfse)
 - [Documentação Técnica](https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/)
 - [Documentação Atual](https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/documentacao-atual)

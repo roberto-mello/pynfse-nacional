@@ -1,0 +1,56 @@
+pynfse-nacional
+
+Python library for Brazilian NFSe Nacional integration.
+
+Primary entry point
+
+- `NFSeClient`: submit DPS, query NFSe, recover by DPS, cancel NFSe, and download DANFSe.
+
+Most used models
+
+- `DPS`
+- `Prestador`
+- `Tomador`
+- `Servico`
+- `Endereco`
+- `NFSeResponse`
+- `NFSeQueryResult`
+- `EventResponse`
+- `RecoveryOutcome`
+
+Security and certificate handling
+
+- Use a PKCS#12 certificate (`.pfx` or `.p12`).
+- Keep certificate files outside the repository.
+- Keep the password in environment variables or a secrets manager.
+- Separate homologation and production certificates.
+- Treat the certificate as an identity secret, not as a regular config file.
+
+Best starting pages
+
+- Home: https://robmello.github.io/pynfse-nacional/
+- Getting started: https://robmello.github.io/pynfse-nacional/getting-started.html
+- Certificate setup: https://robmello.github.io/pynfse-nacional/guides/certificate-setup.html
+- First emission: https://robmello.github.io/pynfse-nacional/guides/first-emission.html
+- Query guide: https://robmello.github.io/pynfse-nacional/guides/query.html
+- Cancel guide: https://robmello.github.io/pynfse-nacional/guides/cancel.html
+- Substitute guide: https://robmello.github.io/pynfse-nacional/guides/substitute.html
+- API overview: https://robmello.github.io/pynfse-nacional/api/index.html
+- API details: https://robmello.github.io/pynfse-nacional/api/client.html
+
+Short example
+
+```python
+from pynfse_nacional import NFSeClient
+
+client = NFSeClient(
+    cert_path="/path/to/certificate.pfx",
+    cert_password="secret",
+    ambiente="homologacao",
+)
+```
+
+Docs source
+
+- The site is built with Sphinx from the `docs/` directory.
+- API pages are generated from docstrings in `src/pynfse_nacional/`.
