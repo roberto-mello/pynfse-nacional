@@ -202,7 +202,10 @@ class TestNFSeClientSubmitDPS:
                 print(f"  Error Code: {response.error_code}")
                 print(f"  Error Message: {response.error_message}")
 
-                assert response.error_code is not None or response.error_message is not None
+                assert (
+                    response.error_code is not None
+                    or response.error_message is not None
+                )
 
         except NFSeAPIError as e:
             print(f"API Error: {e.code} - {e.message}")
@@ -227,7 +230,9 @@ class TestNFSeClientQueryNFSe:
         with pytest.raises(NFSeAPIError) as exc_info:
             client.query_nfse(fake_chave)
 
-        print(f"Query error (expected): {exc_info.value.code} - {exc_info.value.message}")
+        print(
+            f"Query error (expected): {exc_info.value.code} - {exc_info.value.message}"
+        )
 
 
 class TestNFSeClientDownloadDANFSe:
@@ -244,7 +249,9 @@ class TestNFSeClientDownloadDANFSe:
         with pytest.raises(NFSeAPIError) as exc_info:
             client.download_danfse(fake_chave)
 
-        print(f"Download error (expected): {exc_info.value.code} - {exc_info.value.message}")
+        print(
+            f"Download error (expected): {exc_info.value.code} - {exc_info.value.message}"
+        )
 
 
 class TestNFSeClientCancelNFSe:
@@ -261,7 +268,9 @@ class TestNFSeClientCancelNFSe:
         response = client.cancel_nfse(fake_chave, "Teste de cancelamento")
 
         assert response.success is False
-        print(f"Cancel error (expected): {response.error_code} - {response.error_message}")
+        print(
+            f"Cancel error (expected): {response.error_code} - {response.error_message}"
+        )
 
 
 class TestNFSeClientEnvironments:

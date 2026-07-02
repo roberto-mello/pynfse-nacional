@@ -9,9 +9,33 @@ from .models_ibscbs import IBSCBS
 
 # Valid Brazilian UF codes
 VALID_UFS = {
-    "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS",
-    "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC",
-    "SP", "SE", "TO",
+    "AC",
+    "AL",
+    "AP",
+    "AM",
+    "BA",
+    "CE",
+    "DF",
+    "ES",
+    "GO",
+    "MA",
+    "MT",
+    "MS",
+    "MG",
+    "PA",
+    "PB",
+    "PR",
+    "PE",
+    "PI",
+    "RJ",
+    "RN",
+    "RS",
+    "RO",
+    "RR",
+    "SC",
+    "SP",
+    "SE",
+    "TO",
 }
 
 
@@ -54,7 +78,9 @@ class Endereco(BaseModel):
     numero: str = Field(..., min_length=1, max_length=60)
     complemento: Optional[str] = Field(None, max_length=156)
     bairro: str = Field(..., min_length=1, max_length=60)
-    codigo_municipio: int = Field(..., description="Codigo IBGE do municipio (7 digitos)")
+    codigo_municipio: int = Field(
+        ..., description="Codigo IBGE do municipio (7 digitos)"
+    )
     uf: str = Field(..., description="Sigla da UF (ex: SP, RJ, MG)")
     cep: str = Field(..., description="CEP com 8 digitos, sem formatacao")
 
@@ -258,15 +284,21 @@ class Servico(BaseModel):
     codigo_cnae: Optional[str] = None
     codigo_lc116: str = Field(
         ...,
-        description="Item da lista de servicos LC 116 com subitem (ex: '04.03.01', '01.01.01')"
+        description="Item da lista de servicos LC 116 com subitem (ex: '04.03.01', '01.01.01')",
     )
-    codigo_tributacao_municipal: Optional[str] = Field(None, description="Codigo tributacao municipal")
-    codigo_nbs: Optional[str] = Field(None, description="Codigo NBS do servico (9 digitos)")
+    codigo_tributacao_municipal: Optional[str] = Field(
+        None, description="Codigo tributacao municipal"
+    )
+    codigo_nbs: Optional[str] = Field(
+        None, description="Codigo NBS do servico (9 digitos)"
+    )
     discriminacao: str = Field(..., min_length=1, max_length=2000)
     valor_servicos: Decimal
     iss_retido: bool = False
     aliquota_iss: Optional[Decimal] = None
-    aliquota_simples: Optional[Decimal] = Field(None, description="Aliquota Simples Nacional (ex: 18.83)")
+    aliquota_simples: Optional[Decimal] = Field(
+        None, description="Aliquota Simples Nacional (ex: 18.83)"
+    )
     valor_deducoes: Decimal = Decimal("0.00")
     valor_pis: Decimal = Decimal("0.00")
     valor_cofins: Decimal = Decimal("0.00")
@@ -323,9 +355,7 @@ class Servico(BaseModel):
         """Valida valor dos servicos (deve ser positivo)."""
 
         if v <= 0:
-            raise ValueError(
-                f"valor_servicos deve ser maior que zero, recebido: {v}."
-            )
+            raise ValueError(f"valor_servicos deve ser maior que zero, recebido: {v}.")
 
         return v
 
@@ -337,19 +367,19 @@ class SubstituicaoNFSe(BaseModel):
         ...,
         min_length=50,
         max_length=50,
-        description="Chave de acesso da NFSe que sera substituida (50 caracteres)"
+        description="Chave de acesso da NFSe que sera substituida (50 caracteres)",
     )
     codigo_motivo: int = Field(
         default=99,
         ge=1,
         le=99,
-        description="Codigo do motivo da substituicao (1-99, 99=outros)"
+        description="Codigo do motivo da substituicao (1-99, 99=outros)",
     )
     motivo: str = Field(
         ...,
         min_length=15,
         max_length=255,
-        description="Descricao do motivo da substituicao (15-255 caracteres)"
+        description="Descricao do motivo da substituicao (15-255 caracteres)",
     )
 
     @field_validator("chave_nfse_substituida")
@@ -373,9 +403,13 @@ class DPS(BaseModel):
     E0162, R294, R295, E0710, E0712, and E0713.
     """
 
-    id_dps: Optional[str] = Field(None, description="DPS ID (gerado automaticamente se não informado)")
+    id_dps: Optional[str] = Field(
+        None, description="DPS ID (gerado automaticamente se não informado)"
+    )
     serie: str = Field(default="900", description="Série numérica (1-5 dígitos)")
-    numero: int = Field(..., gt=0, description="Número do DPS (deve ser maior que zero)")
+    numero: int = Field(
+        ..., gt=0, description="Número do DPS (deve ser maior que zero)"
+    )
     competencia: str = Field(..., description="Competência no formato YYYY-MM")
     data_emissao: datetime
     prestador: Prestador
@@ -394,7 +428,7 @@ class DPS(BaseModel):
     )
     substituicao: Optional[SubstituicaoNFSe] = Field(
         None,
-        description="Informações de substituição (preencher apenas para substituir NFSe existente)"
+        description="Informações de substituição (preencher apenas para substituir NFSe existente)",
     )
 
     @field_validator("serie")
@@ -476,7 +510,9 @@ class NFSeResponse(BaseModel):
     success: bool
     chave_acesso: Optional[str] = None
     nfse_number: Optional[str] = None
-    nfse_xml_gzip_b64: Optional[str] = Field(None, description="Base64-encoded gzipped NFSe XML from API")
+    nfse_xml_gzip_b64: Optional[str] = Field(
+        None, description="Base64-encoded gzipped NFSe XML from API"
+    )
     xml_nfse: Optional[str] = Field(None, description="Decoded NFSe XML")
     error_code: Optional[str] = None
     error_message: Optional[str] = None
@@ -517,7 +553,9 @@ class NFSe(BaseModel):
     servico: Servico
     valores: ValoresServico
     status: str = Field(default="emitida", description="emitida|cancelada|substituida")
-    xml_original: Optional[str] = Field(None, description="Original signed XML (Base64)")
+    xml_original: Optional[str] = Field(
+        None, description="Original signed XML (Base64)"
+    )
     data_cancelamento: Optional[datetime] = None
     motivo_cancelamento: Optional[str] = None
 

@@ -37,4 +37,3 @@ Percent3V2 = Annotated[
         allow_inf_nan=False,
     ),
 ]
-

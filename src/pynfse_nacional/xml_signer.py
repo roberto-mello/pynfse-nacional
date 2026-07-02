@@ -82,7 +82,9 @@ class XMLSignerService:
                 signed_info = xml_element.find(f".//{{{ns}}}infPedReg")
 
             if signed_info is None:
-                raise NFSeCertificateError("Signed info element (infDPS or infPedReg) not found in XML")
+                raise NFSeCertificateError(
+                    "Signed info element (infDPS or infPedReg) not found in XML"
+                )
 
             infDPS_id = signed_info.get("Id")
 
@@ -107,7 +109,9 @@ class XMLSignerService:
                 reference_uri=f"#{infDPS_id}",
             )
 
-            xml_bytes = etree.tostring(signed_xml, encoding="utf-8", xml_declaration=True)
+            xml_bytes = etree.tostring(
+                signed_xml, encoding="utf-8", xml_declaration=True
+            )
 
             return xml_bytes.decode("utf-8")
 

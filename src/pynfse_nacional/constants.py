@@ -27,4 +27,3 @@ ENDPOINTS = {
     "download_danfse": "/danfse/{chave}",
     "events": "/nfse/{chave}/eventos",
 }
-
