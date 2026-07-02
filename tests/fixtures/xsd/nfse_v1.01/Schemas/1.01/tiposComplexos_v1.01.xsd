@@ -972,6 +972,16 @@
           </xs:documentation>
         </xs:annotation>
       </xs:element>
+      <xs:element name="regApIBSCBSSN" type="TSRegimeApuracaoSimpNac" minOccurs="0">
+        <xs:annotation>
+          <xs:documentation>
+            Regime de apuração do IBS/CBS para contribuintes optantes pelo Simples Nacional quando o leiaute IBSCBS estiver presente.
+            1 – IBS e CBS apurados pelo Simples Nacional;
+            2 – CBS pelo Simples Nacional e IBS fora do Simples Nacional;
+            3 – IBS e CBS apurados fora do Simples Nacional.
+          </xs:documentation>
+        </xs:annotation>
+      </xs:element>
       <xs:element name="regEspTrib" type="TSRegEspTrib">
         <xs:annotation>
           <xs:documentation>

@@ -217,6 +217,34 @@ def test_builder_minimal_ibscbs_validates_against_patched_xsd(sample_dps: DPS):
     schema.assertValid(etree.fromstring(xml_str.encode("utf-8")))
 
 
+def test_builder_simples_ibscbs_with_regapibscbssn_validates_against_patched_xsd(
+    sample_dps: DPS,
+):
+    dps = deepcopy(sample_dps)
+    dps.regime_tributario = "simples_nacional"
+    dps.op_simp_nac = "3"
+    dps.reg_ap_ibs_cbs_sn = "1"
+
+    xml_str = XMLBuilder().build_dps(dps)
+    schema = load_dps_schema()
+
+    schema.assertValid(etree.fromstring(xml_str.encode("utf-8")))
+
+
+def test_builder_pending_simples_ibscbs_validates_against_patched_xsd(
+    sample_dps: DPS,
+):
+    dps = deepcopy(sample_dps)
+    dps.regime_tributario = "simples_nacional"
+    dps.op_simp_nac = "4"
+    dps.reg_ap_ibs_cbs_sn = "2"
+
+    xml_str = XMLBuilder().build_dps(dps)
+    schema = load_dps_schema()
+
+    schema.assertValid(etree.fromstring(xml_str.encode("utf-8")))
+
+
 def test_builder_ibscbs_with_optional_groups_validates_against_patched_xsd(
     sample_dps_with_optional_ibscbs: DPS,
 ):
