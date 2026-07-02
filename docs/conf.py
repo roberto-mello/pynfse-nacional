@@ -32,7 +32,7 @@ exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
 html_theme = "furo"
 html_title = "pynfse-nacional"
-html_baseurl = "https://robmello.github.io/pynfse-nacional/"
+html_baseurl = "https://roberto-mello.github.io/pynfse-nacional/"
 html_static_path = []
 html_css_files = []
 html_extra_path = ["llms.txt"]

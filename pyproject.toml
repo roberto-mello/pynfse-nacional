@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pynfse-nacional"
-version = "0.5.0"
+version = "0.9.0"
 description = "Python library for Brazilian NFSe Nacional (Padrao Nacional) API integration"
 readme = "README.md"
 license = "AGPL-3.0-only"
@@ -48,9 +48,9 @@ all = [
 ]
 
 [project.urls]
-Homepage = "https://robmello.github.io/pynfse-nacional/"
-Repository = "https://github.com/robmello/pynfse-nacional"
-Documentation = "https://robmello.github.io/pynfse-nacional/"
+Homepage = "https://roberto-mello.github.io/pynfse-nacional/"
+Repository = "https://github.com/roberto-mello/pynfse-nacional"
+Documentation = "https://roberto-mello.github.io/pynfse-nacional/"
 
 [project.scripts]
 release = "pynfse_nacional.release:main"
