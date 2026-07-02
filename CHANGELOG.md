@@ -23,6 +23,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `query_nfse_by_dps(id_dps)` and checking availability with
   `has_nfse_by_dps(id_dps)`, using the official `GET /dps/{id}` and
   `HEAD /dps/{id}` endpoints.
+- `NFSeClient.recover_nfse_by_dps(id_dps)` high-level helper that combines
+  `has_nfse_by_dps` and `query_nfse_by_dps` for the duplicate / lost
+  `chave_acesso` recovery path. Returns a frozen `RecoveryOutcome` dataclass
+  (`status="success" | "processing" | "error"`) so consumers do not have to
+  re-derive SEFIN `202 / 404 / 409` semantics themselves. Exported from the
+  top-level package as `RecoveryOutcome`.
 - Vendored NFSe XSD v1.01-20260209 fixtures plus IBSCBS golden XML samples for
   schema validation coverage.
 

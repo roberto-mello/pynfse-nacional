@@ -172,6 +172,7 @@ Cliente principal para a API do NFSe Nacional.
 - `query_nfse(chave_acesso: str) -> NFSeQueryResult` - Consulta NFSe pela chave de acesso
 - `query_nfse_by_dps(id_dps: str) -> NFSeQueryResult` - Recupera a NFSe pelo identificador da DPS
 - `has_nfse_by_dps(id_dps: str) -> bool` - Verifica se a DPS já gerou uma NFSe
+- `recover_nfse_by_dps(id_dps: str) -> RecoveryOutcome` - Recuperação de alto nível combinando `has_nfse_by_dps` + `query_nfse_by_dps` (ver abaixo)
 - `download_danfse(chave_acesso: str) -> bytes` - Baixa o DANFSe em PDF
 - `cancel_nfse(chave_acesso, reason, codigo_motivo=1, cnpj_prestador="") -> EventResponse` - Cancela NFSe
 - `substitute_nfse(chave_acesso_original, new_dps, motivo, codigo_motivo) -> NFSeResponse` - Substitui NFSe existente
@@ -199,6 +200,43 @@ if client.has_nfse_by_dps(dps_id):
 
 `build_dps()` usa o mesmo identificador para montar o XML, mas não grava o
 valor de volta em `dps.id_dps`. Guarde o `dps_id` se quiser consultar depois.
+
+**Recuperação de NFSe por DPS (alto nível):**
+
+Quando o `submit_dps` falha ou a SEFIN já processou a DPS mas a aplicação
+perdeu a `chave_acesso` (ex.: resposta duplicada `e0014`, ou falha de
+transporte após a SEFIN aceitar a DPS), use `recover_nfse_by_dps` para tentar
+recuperar o estado da NFSe em uma única chamada. O retorno é um
+`RecoveryOutcome` (dataclass imutável) com `status` em um de três valores:
+
+- `"success"`: a NFSe existe remotamente; `result` (um `NFSeQueryResult`)
+  contém os dados completos para persistir.
+- `"processing"`: a DPS foi recebida mas a NFSe ainda não foi emitida (a SEFIN
+  retornou `202 / 404 / 409` na consulta). A aplicação deve manter o
+  registro como retryable em vez de marcar como falha permanente.
+- `"error"`: a própria consulta falhou (transporte ou erro de API); `error`
+  contém o `NFSeAPIError`. A aplicação deve apresentar o erro original do
+  submit.
+
+```python
+from pynfse_nacional import RecoveryOutcome
+
+outcome = client.recover_nfse_by_dps(dps_id)
+
+if outcome.status == "success":
+    result = outcome.result  # NFSeQueryResult
+    print(result.chave_acesso, result.nfse_number)
+elif outcome.status == "processing":
+    # DPS aceita, NFSe ainda não emitida — tentar novamente depois
+    ...
+else:  # "error"
+    # recovery falhou — apresentar o erro original do submit
+    print(outcome.error.code, outcome.error.message)
+```
+
+`recover_nfse_by_dps` é mais barato que `query_nfse_by_dps` no caminho de
+"ainda não está pronto": faz um `HEAD` primeiro e só busca a NFSe completa
+quando ela existir.
 
 **Consulta de Convênio Municipal:**
 
@@ -555,6 +593,7 @@ Main client for NFSe Nacional API.
 - `query_nfse(chave_acesso: str) -> NFSeQueryResult` - Query NFSe by access key
 - `query_nfse_by_dps(id_dps: str) -> NFSeQueryResult` - Recover NFSe by DPS identifier
 - `has_nfse_by_dps(id_dps: str) -> bool` - Check whether a DPS already generated an NFSe
+- `recover_nfse_by_dps(id_dps: str) -> RecoveryOutcome` - High-level recovery combining `has_nfse_by_dps` + `query_nfse_by_dps` for the duplicate / lost-`chave_acesso` path; returns a frozen `RecoveryOutcome` with `status="success" | "processing" | "error"` (see Portuguese section for a full example)
 - `download_danfse(chave_acesso: str) -> bytes` - Download DANFSe PDF
 - `cancel_nfse(chave_acesso, reason, codigo_motivo=1, cnpj_prestador="") -> EventResponse` - Cancel NFSe
 - `substitute_nfse(chave_acesso_original, new_dps, motivo, codigo_motivo) -> NFSeResponse` - Substitute existing NFSe
