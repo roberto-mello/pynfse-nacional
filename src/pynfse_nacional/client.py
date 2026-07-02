@@ -210,19 +210,23 @@ class NFSeClient:
             key_file.write(key_pem)
             key_file_path = key_file.name
 
+        client = None
         try:
-            client = httpx.Client(
-                cert=(cert_file_path, key_file_path),
-                verify=True,
-                timeout=self.timeout,
-            )
-        except Exception as e:
-            raise NFSeCertificateError(f"Error configuring HTTP client: {str(e)}")
+            try:
+                client = httpx.Client(
+                    cert=(cert_file_path, key_file_path),
+                    verify=True,
+                    timeout=self.timeout,
+                )
+            except Exception as e:
+                raise NFSeCertificateError(
+                    f"Error configuring HTTP client: {str(e)}"
+                ) from e
 
-        try:
             yield client
         finally:
-            client.close()
+            if client is not None:
+                client.close()
             if cert_file_path:
                 Path(cert_file_path).unlink(missing_ok=True)
             if key_file_path:
