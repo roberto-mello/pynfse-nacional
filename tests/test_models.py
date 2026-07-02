@@ -705,6 +705,7 @@ class TestDPSOpSimpNac:
             servico=valid_servico,
             regime_tributario="simples_nacional",
             op_simp_nac="3",
+            reg_ap_trib_sn="1",
             reg_ap_ibs_cbs_sn="1",
         )
 
@@ -776,6 +777,23 @@ class TestDPSOpSimpNac:
                 servico=valid_servico,
                 regime_tributario="simples_nacional",
                 op_simp_nac="3",
+            )
+
+    def test_rejects_missing_reg_ap_trib_sn_for_me_epp(
+        self, valid_prestador, valid_tomador, valid_servico
+    ):
+        with pytest.raises(ValidationError):
+            DPS(
+                serie="900",
+                numero=1,
+                competencia="2026-01",
+                data_emissao=datetime.now(),
+                prestador=valid_prestador,
+                tomador=valid_tomador,
+                servico=valid_servico,
+                regime_tributario="simples_nacional",
+                op_simp_nac="3",
+                reg_ap_ibs_cbs_sn="1",
             )
 
     def test_rejects_reg_ap_trib_sn_for_mei(

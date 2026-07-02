@@ -163,7 +163,7 @@ class XMLBuilder:
 
         # regApTribSN: only valid for opSimpNac 3/4
         if dps.op_simp_nac in {"3", "4"}:
-            ET.SubElement(reg_trib, "regApTribSN").text = dps.reg_ap_trib_sn or "1"
+            ET.SubElement(reg_trib, "regApTribSN").text = dps.reg_ap_trib_sn
 
         # regApIBSCBSSN: only valid for opSimpNac 3/4
         if dps.op_simp_nac in {"3", "4"}:
