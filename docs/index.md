@@ -4,14 +4,42 @@ Biblioteca Python para integração com a API do NFSe Nacional.
 
 ## Comece aqui
 
-- Instale a biblioteca.
-- Configure certificado mTLS.
-- Emita a primeira DPS.
-- Consulte, cancele ou substitua NFSe.
+::::{grid} 1 2 2 2
+:gutter: 2
 
-- [Guia de início](getting-started)
-- [Referência da API](api/index)
-- [Arquitetura do site](architecture)
+:::{grid-item-card} Guia de início
+:link: getting-started
+:link-type: doc
+:shadow: md
+
+Instale, configure certificado mTLS e envie a primeira DPS.
+:::
+
+:::{grid-item-card} Referência da API
+:link: api/index
+:link-type: doc
+:shadow: md
+
+Cliente, modelos, XML, PDF e utilitários gerados dos docstrings.
+:::
+
+:::{grid-item-card} Guias
+:link: guides/index
+:link-type: doc
+:shadow: md
+
+Fluxos práticos para emissão, consulta, cancelamento e substituição.
+:::
+
+:::{grid-item-card} Arquitetura
+:link: architecture
+:link-type: doc
+:shadow: md
+
+Stack, navegação, regras de renderização e publicação.
+:::
+
+::::
 
 ## Instalação
 
