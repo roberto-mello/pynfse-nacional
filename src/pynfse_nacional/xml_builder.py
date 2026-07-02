@@ -269,6 +269,17 @@ class XMLBuilder:
             ET.SubElement(p_tot_trib, "pTotTribEst").text = "0"
             ET.SubElement(p_tot_trib, "pTotTribMun").text = "0"
 
+    def _emit_endereco(self, parent: ET.Element, endereco) -> None:
+        end = ET.SubElement(parent, "end")
+        end_nac = ET.SubElement(end, "endNac")
+        ET.SubElement(end_nac, "cMun").text = str(endereco.codigo_municipio)
+        ET.SubElement(end_nac, "CEP").text = endereco.cep
+        ET.SubElement(end, "xLgr").text = endereco.logradouro
+        ET.SubElement(end, "nro").text = endereco.numero
+        if endereco.complemento:
+            ET.SubElement(end, "xCpl").text = endereco.complemento
+        ET.SubElement(end, "xBairro").text = endereco.bairro
+
     def _add_ibscbs(self, parent: ET.Element, dps: DPS) -> None:
         if not dps.ibscbs:
             return
@@ -313,17 +324,7 @@ class XMLBuilder:
             ET.SubElement(dest, "xNome").text = ibscbs.dest.x_nome
 
             if ibscbs.dest.end is not None:
-                end = ET.SubElement(dest, "end")
-                end_nac = ET.SubElement(end, "endNac")
-                ET.SubElement(end_nac, "cMun").text = str(
-                    ibscbs.dest.end.codigo_municipio
-                )
-                ET.SubElement(end_nac, "CEP").text = ibscbs.dest.end.cep
-                ET.SubElement(end, "xLgr").text = ibscbs.dest.end.logradouro
-                ET.SubElement(end, "nro").text = ibscbs.dest.end.numero
-                if ibscbs.dest.end.complemento:
-                    ET.SubElement(end, "xCpl").text = ibscbs.dest.end.complemento
-                ET.SubElement(end, "xBairro").text = ibscbs.dest.end.bairro
+                self._emit_endereco(dest, ibscbs.dest.end)
 
             if ibscbs.dest.fone is not None:
                 ET.SubElement(dest, "fone").text = ibscbs.dest.fone
@@ -339,17 +340,7 @@ class XMLBuilder:
             if ibscbs.imovel.c_cib is not None:
                 ET.SubElement(imovel, "cCIB").text = ibscbs.imovel.c_cib
             elif ibscbs.imovel.end is not None:
-                end = ET.SubElement(imovel, "end")
-                end_nac = ET.SubElement(end, "endNac")
-                ET.SubElement(end_nac, "cMun").text = str(
-                    ibscbs.imovel.end.codigo_municipio
-                )
-                ET.SubElement(end_nac, "CEP").text = ibscbs.imovel.end.cep
-                ET.SubElement(end, "xLgr").text = ibscbs.imovel.end.logradouro
-                ET.SubElement(end, "nro").text = ibscbs.imovel.end.numero
-                if ibscbs.imovel.end.complemento:
-                    ET.SubElement(end, "xCpl").text = ibscbs.imovel.end.complemento
-                ET.SubElement(end, "xBairro").text = ibscbs.imovel.end.bairro
+                self._emit_endereco(imovel, ibscbs.imovel.end)
 
         valores = ET.SubElement(inf_ibscbs, "valores")
 
