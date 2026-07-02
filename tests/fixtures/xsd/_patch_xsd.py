@@ -11,6 +11,74 @@ from pathlib import Path
 
 _BROKEN_TSSERIEDPS_PATTERN = 'value="^0{0,4}\\d{1,5}$"'
 _FIXED_TSSERIEDPS_PATTERN = 'value="0{0,4}\\d{1,5}"'
+_TSRTCFINNFSE_BLOCK = (
+    '<xs:simpleType name="TSRTCFinNFSe">\n'
+    '    <xs:annotation>\n'
+    '      <xs:documentation>\n'
+    '        Indicador da finalidade da emissão de NFS-e:\n'
+    '        0 - NFS-e regular;\n'
+    '      </xs:documentation>\n'
+    '    </xs:annotation>\n'
+    '    <xs:restriction base="xs:string">\n'
+    '      <xs:whiteSpace value="preserve"/>\n'
+    '      <xs:enumeration value="0"/>\n'
+    '    </xs:restriction>\n'
+    '  </xs:simpleType>'
+)
+_TSRTCFINNFSE_BLOCK_PATCHED = (
+    '<xs:simpleType name="TSRTCFinNFSe">\n'
+    '    <xs:annotation>\n'
+    '      <xs:documentation>\n'
+    '        Indicador da finalidade da emissão de NFS-e:\n'
+    '        0 - NFS-e regular;\n'
+    '        1 - NFS-e de crédito;\n'
+    '        2 - NFS-e de débito.\n'
+    '      </xs:documentation>\n'
+    '    </xs:annotation>\n'
+    '    <xs:restriction base="xs:string">\n'
+    '      <xs:whiteSpace value="preserve"/>\n'
+    '      <xs:enumeration value="0"/>\n'
+    '      <xs:enumeration value="1"/>\n'
+    '      <xs:enumeration value="2"/>\n'
+    '    </xs:restriction>\n'
+    '  </xs:simpleType>\n'
+    '  <xs:simpleType name="TSRTCTpNFSeCredito">\n'
+    '    <xs:annotation>\n'
+    '      <xs:documentation>\n'
+    '        Tipo de NFS-e de crédito:\n'
+    '        01 - Multa e juros;\n'
+    '        05 - Transferência em sucessão.\n'
+    '      </xs:documentation>\n'
+    '    </xs:annotation>\n'
+    '    <xs:restriction base="xs:string">\n'
+    '      <xs:whiteSpace value="preserve"/>\n'
+    '      <xs:enumeration value="01"/>\n'
+    '      <xs:enumeration value="05"/>\n'
+    '    </xs:restriction>\n'
+    '  </xs:simpleType>\n'
+    '  <xs:simpleType name="TSRTCTpNFSeDebito">\n'
+    '    <xs:annotation>\n'
+    '      <xs:documentation>\n'
+    '        Tipo de NFS-e de débito:\n'
+    '        01 - Cooperativas;\n'
+    '        02 - Saídas imunes ou isentas;\n'
+    '        03 - NFS-e não processadas;\n'
+    '        04 - Multa e juros;\n'
+    '        05 - Transferência em sucessão;\n'
+    '        06 - Pagamento antecipado.\n'
+    '      </xs:documentation>\n'
+    '    </xs:annotation>\n'
+    '    <xs:restriction base="xs:string">\n'
+    '      <xs:whiteSpace value="preserve"/>\n'
+    '      <xs:enumeration value="01"/>\n'
+    '      <xs:enumeration value="02"/>\n'
+    '      <xs:enumeration value="03"/>\n'
+    '      <xs:enumeration value="04"/>\n'
+    '      <xs:enumeration value="05"/>\n'
+    '      <xs:enumeration value="06"/>\n'
+    '    </xs:restriction>\n'
+    '  </xs:simpleType>'
+)
 _TSOPSIMPNAC_BLOCK = (
     '<xs:simpleType name="TSOpSimpNac">\n'
     '    <xs:annotation>\n'
@@ -159,16 +227,54 @@ _TCREGTRIB_INSERTION_PATCHED_TABBED = (
     '\t</xs:element>\n'
     '\t<xs:element name="regEspTrib" type="TSRegEspTrib">'
 )
+_TCRTCINFOIBSCBS_FIN_BLOCK = (
+    '      <xs:element name="finNFSe" type="TSRTCFinNFSe">\n'
+    '        <xs:annotation>\n'
+    '          <xs:documentation>\n'
+    '            Indicador da finalidade da emissão de NFS-e\n'
+    '          </xs:documentation>\n'
+    '        </xs:annotation>\n'
+    '      </xs:element>\n'
+    '      <xs:element name="indFinal" type="TSRTCIndFinal" minOccurs="0">'
+)
+_TCRTCINFOIBSCBS_FIN_BLOCK_PATCHED = (
+    '      <xs:element name="finNFSe" type="TSRTCFinNFSe">\n'
+    '        <xs:annotation>\n'
+    '          <xs:documentation>\n'
+    '            Indicador da finalidade da emissão de NFS-e\n'
+    '          </xs:documentation>\n'
+    '        </xs:annotation>\n'
+    '      </xs:element>\n'
+    '      <xs:element name="tpNFSeCredito" type="TSRTCTpNFSeCredito" minOccurs="0">\n'
+    '        <xs:annotation>\n'
+    '          <xs:documentation>\n'
+    '            Tipo de NFS-e de crédito\n'
+    '          </xs:documentation>\n'
+    '        </xs:annotation>\n'
+    '      </xs:element>\n'
+    '      <xs:element name="tpNFSeDebito" type="TSRTCTpNFSeDebito" minOccurs="0">\n'
+    '        <xs:annotation>\n'
+    '          <xs:documentation>\n'
+    '            Tipo de NFS-e de débito\n'
+    '          </xs:documentation>\n'
+    '        </xs:annotation>\n'
+    '      </xs:element>\n'
+    '      <xs:element name="indFinal" type="TSRTCIndFinal" minOccurs="0">'
+)
 
 
 def patch_xsd_text(text: str) -> str:
     patched = text.replace(_BROKEN_TSSERIEDPS_PATTERN, _FIXED_TSSERIEDPS_PATTERN)
+    patched = patched.replace(_TSRTCFINNFSE_BLOCK, _TSRTCFINNFSE_BLOCK_PATCHED)
     patched = patched.replace(
         _TSOPSIMPNAC_BLOCK, _TSOPSIMPNAC_BLOCK_PATCHED
     ).replace(_TSOPSIMPNAC_BLOCK_TABBED, _TSOPSIMPNAC_BLOCK_PATCHED_TABBED)
     patched = patched.replace(
         _TCREGTRIB_INSERTION, _TCREGTRIB_INSERTION_PATCHED
     ).replace(_TCREGTRIB_INSERTION_TABBED, _TCREGTRIB_INSERTION_PATCHED_TABBED)
+    patched = patched.replace(
+        _TCRTCINFOIBSCBS_FIN_BLOCK, _TCRTCINFOIBSCBS_FIN_BLOCK_PATCHED
+    )
     return patched
 
 

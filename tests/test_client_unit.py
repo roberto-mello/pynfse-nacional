@@ -543,6 +543,128 @@ class TestQueryNfse:
         assert result.ibscbs.valores.trib.g_ibscbs.cst == "001"
         assert mock_fromstring.call_count == 1
 
+    def test_query_nfse_parses_ibscbs_with_dest_endnac(self, mock_client):
+        """Should keep IBSCBS when response carries dest/end/endNac without UF."""
+        xml_content = _make_nfse_xml("1234").replace(
+            "</infNFSe>",
+            """
+            <IBSCBS>
+                <finNFSe>0</finNFSe>
+                <indFinal>0</indFinal>
+                <cIndOp>020101</cIndOp>
+                <indDest>0</indDest>
+                <dest>
+                    <CNPJ>11222333000181</CNPJ>
+                    <xNome>Cliente Teste LTDA</xNome>
+                    <end>
+                        <endNac>
+                            <cMun>3509502</cMun>
+                            <CEP>13000000</CEP>
+                        </endNac>
+                        <xLgr>Rua Teste</xLgr>
+                        <nro>100</nro>
+                        <xBairro>Centro</xBairro>
+                    </end>
+                </dest>
+                <valores>
+                    <trib>
+                        <gIBSCBS>
+                            <CST>001</CST>
+                            <cClassTrib>123456</cClassTrib>
+                        </gIBSCBS>
+                    </trib>
+                </valores>
+            </IBSCBS>
+            </infNFSe>""",
+        )
+        encoded_xml = _compress_encode(xml_content)
+
+        mock_response = MockResponse(
+            status_code=200,
+            json_data={
+                "chaveAcesso": "12345678901234567890123456789012345678901234567890",
+                "nfse": encoded_xml,
+                "dhEmi": "2026-01-15T10:30:00-03:00",
+            },
+        )
+
+        with patch.object(mock_client, "_get_client") as mock_get_client:
+            mock_http = MagicMock()
+            mock_http.get.return_value = mock_response
+            mock_get_client.return_value.__enter__ = MagicMock(return_value=mock_http)
+            mock_get_client.return_value.__exit__ = MagicMock(return_value=False)
+
+            result = mock_client.query_nfse(
+                "12345678901234567890123456789012345678901234567890"
+            )
+
+        assert result.ibscbs is not None
+        assert result.ibscbs.dest is not None
+        assert result.ibscbs.dest.end is not None
+        assert result.ibscbs.dest.end.uf is None
+        assert result.ibscbs.dest.end.codigo_municipio == 3509502
+
+    def test_query_nfse_parses_ibscbs_gree_rep_res(self, mock_client):
+        """Should parse structured gReeRepRes/documentos payloads."""
+        xml_content = _make_nfse_xml("1234").replace(
+            "</infNFSe>",
+            """
+            <IBSCBS>
+                <finNFSe>0</finNFSe>
+                <indFinal>0</indFinal>
+                <cIndOp>020101</cIndOp>
+                <indDest>0</indDest>
+                <valores>
+                    <gReeRepRes>
+                        <documentos>
+                            <dFeNacional>
+                                <tipoChaveDFe>2</tipoChaveDFe>
+                                <chaveDFe>NFE1234567890</chaveDFe>
+                            </dFeNacional>
+                            <dtEmiDoc>2026-01-15</dtEmiDoc>
+                            <dtCompDoc>2026-01-15</dtCompDoc>
+                            <tpReeRepRes>01</tpReeRepRes>
+                            <vlrReeRepRes>10.00</vlrReeRepRes>
+                        </documentos>
+                    </gReeRepRes>
+                    <trib>
+                        <gIBSCBS>
+                            <CST>001</CST>
+                            <cClassTrib>123456</cClassTrib>
+                        </gIBSCBS>
+                    </trib>
+                </valores>
+            </IBSCBS>
+            </infNFSe>""",
+        )
+        encoded_xml = _compress_encode(xml_content)
+
+        mock_response = MockResponse(
+            status_code=200,
+            json_data={
+                "chaveAcesso": "12345678901234567890123456789012345678901234567890",
+                "nfse": encoded_xml,
+                "dhEmi": "2026-01-15T10:30:00-03:00",
+            },
+        )
+
+        with patch.object(mock_client, "_get_client") as mock_get_client:
+            mock_http = MagicMock()
+            mock_http.get.return_value = mock_response
+            mock_get_client.return_value.__enter__ = MagicMock(return_value=mock_http)
+            mock_get_client.return_value.__exit__ = MagicMock(return_value=False)
+
+            result = mock_client.query_nfse(
+                "12345678901234567890123456789012345678901234567890"
+            )
+
+        assert result.ibscbs is not None
+        assert result.ibscbs.valores.g_ree_rep_res is not None
+        assert result.ibscbs.valores.g_ree_rep_res[0].d_fe_nacional is not None
+        assert (
+            result.ibscbs.valores.g_ree_rep_res[0].d_fe_nacional.tipo_chave_dfe == "2"
+        )
+
     def test_query_nfse_success(self, mock_client):
         """Should query NFSe successfully."""
         mock_response = MockResponse(
@@ -571,6 +693,67 @@ class TestQueryNfse:
             assert isinstance(result, NFSeQueryResult)
             assert result.nfse_number == "1234"
             assert result.status == "emitida"
+
+    def test_query_nfse_malformed_200_missing_chave_acesso(self, mock_client):
+        mock_response = MockResponse(
+            status_code=200,
+            json_data={
+                "nNFSe": "1234",
+                "dhEmi": "2026-01-15T10:30:00-03:00",
+            },
+        )
+
+        with patch.object(mock_client, "_get_client") as mock_get_client:
+            mock_http = MagicMock()
+            mock_http.get.return_value = mock_response
+            mock_get_client.return_value.__enter__ = MagicMock(return_value=mock_http)
+            mock_get_client.return_value.__exit__ = MagicMock(return_value=False)
+
+            with pytest.raises(NFSeAPIError, match="chaveAcesso ausente"):
+                mock_client.query_nfse(
+                    "12345678901234567890123456789012345678901234567890"
+                )
+
+    def test_query_nfse_malformed_200_missing_dhemi(self, mock_client):
+        mock_response = MockResponse(
+            status_code=200,
+            json_data={
+                "chaveAcesso": "12345678901234567890123456789012345678901234567890",
+                "nNFSe": "1234",
+            },
+        )
+
+        with patch.object(mock_client, "_get_client") as mock_get_client:
+            mock_http = MagicMock()
+            mock_http.get.return_value = mock_response
+            mock_get_client.return_value.__enter__ = MagicMock(return_value=mock_http)
+            mock_get_client.return_value.__exit__ = MagicMock(return_value=False)
+
+            with pytest.raises(NFSeAPIError, match="dhEmi ausente"):
+                mock_client.query_nfse(
+                    "12345678901234567890123456789012345678901234567890"
+                )
+
+    def test_query_nfse_malformed_200_missing_nfse_number(self, mock_client):
+        mock_response = MockResponse(
+            status_code=200,
+            json_data={
+                "chaveAcesso": "12345678901234567890123456789012345678901234567890",
+                "dhEmi": "2026-01-15T10:30:00-03:00",
+                "nfse": _compress_encode("<NFSe></NFSe>"),
+            },
+        )
+
+        with patch.object(mock_client, "_get_client") as mock_get_client:
+            mock_http = MagicMock()
+            mock_http.get.return_value = mock_response
+            mock_get_client.return_value.__enter__ = MagicMock(return_value=mock_http)
+            mock_get_client.return_value.__exit__ = MagicMock(return_value=False)
+
+            with pytest.raises(NFSeAPIError, match="nNFSe ausente"):
+                mock_client.query_nfse(
+                    "12345678901234567890123456789012345678901234567890"
+                )
 
     def test_query_nfse_with_cnpj_tomador(self, mock_client):
         """Should handle CNPJ as tomador document."""

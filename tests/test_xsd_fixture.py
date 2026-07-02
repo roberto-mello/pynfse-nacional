@@ -11,7 +11,7 @@ from lxml import etree
 from pynfse_nacional.models import DPS, Endereco, Prestador, Servico, Tomador
 from pynfse_nacional.xml_builder import XMLBuilder
 
-from ._helpers.xsd import load_dps_schema, load_nfse_schema, sample_path
+from ._helpers.xsd import XSD_ROOT, load_dps_schema, load_nfse_schema, sample_path
 
 
 def test_nfse_schema_loads():
@@ -80,3 +80,21 @@ def test_patched_tserie_dps_accepts_plain_serie():
     schema = load_dps_schema()
 
     schema.assertValid(etree.fromstring(xml_str.encode("utf-8")))
+
+
+def test_vendored_xsd_includes_ibscbs_adjustment_patch():
+    tipos_simples = (XSD_ROOT / "tiposSimples_v1.01.xsd").read_text(encoding="utf-8")
+    tipos_complexos = (XSD_ROOT / "tiposComplexos_v1.01.xsd").read_text(
+        encoding="utf-8"
+    )
+
+    assert '<xs:enumeration value="1"/>' in tipos_simples.partition(
+        '<xs:simpleType name="TSRTCFinNFSe">'
+    )[2].partition("</xs:simpleType>")[0]
+    assert '<xs:enumeration value="2"/>' in tipos_simples.partition(
+        '<xs:simpleType name="TSRTCFinNFSe">'
+    )[2].partition("</xs:simpleType>")[0]
+    assert 'name="TSRTCTpNFSeCredito"' in tipos_simples
+    assert 'name="TSRTCTpNFSeDebito"' in tipos_simples
+    assert 'name="tpNFSeCredito" type="TSRTCTpNFSeCredito"' in tipos_complexos
+    assert 'name="tpNFSeDebito" type="TSRTCTpNFSeDebito"' in tipos_complexos
