@@ -29,6 +29,13 @@ def _find(element: ET.Element, path: str) -> Optional[ET.Element]:
     return element.find(_expand_path(path))
 
 
+def _findall(element: ET.Element, path: str) -> list[ET.Element]:
+    found = element.findall(path, NFSE_NAMESPACES)
+    if found:
+        return found
+    return element.findall(_expand_path(path))
+
+
 def _text(element: ET.Element, path: str) -> str:
     found = _find(element, path)
     if found is not None and found.text:
@@ -209,17 +216,9 @@ def parse_ibscbs(
         if g_ref_nfse is not None:
             refs = [
                 child.text.strip()
-                for child in g_ref_nfse.findall(".//nfse:refNFSe", NFSE_NAMESPACES)
+                for child in _findall(g_ref_nfse, ".//nfse:refNFSe")
                 if child.text
             ]
-            if not refs:
-                refs = [
-                    child.text.strip()
-                    for child in g_ref_nfse.findall(
-                        f".//{{{NFSE_NAMESPACE}}}refNFSe"
-                    )
-                    if child.text
-                ]
             if refs:
                 data["g_ref_nfse"] = {"ref_nfse": refs}
 
