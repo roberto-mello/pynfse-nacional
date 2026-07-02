@@ -7,12 +7,17 @@ following the official layout pattern.
 
 import io
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Optional
 from xml.etree import ElementTree as ET
+from xml.sax.saxutils import escape
 
+from .models_ibscbs import IBSCBS
+from .response_parsers import _find as _find_nfse
+from .response_parsers import parse_ibscbs
 from .utils import decode_decompress, format_cnpj, format_cpf
 
 try:
@@ -157,6 +162,19 @@ class NFSeData:
     # Informacoes complementares
     nbs: str = ""
     info_complementar: str = ""
+    ibscbs: Optional[IBSCBS] = None
+    ibscbs_totals: Optional["IBSCBSTotals"] = None
+
+
+@dataclass
+class IBSCBSTotals:
+    """Parsed IBSCBS totalizer values from the response XML."""
+
+    v_tot_nf: str = ""
+    v_ibs_tot: str = ""
+    v_ibs_uf: str = ""
+    v_ibs_mun: str = ""
+    v_cbs: str = ""
 
 
 # XML namespace
@@ -240,6 +258,36 @@ def _format_currency(value: str) -> str:
         return value
 
 
+def _escape_pdf_text(value: str) -> str:
+    """Escape untrusted text before sending it to ReportLab Paragraph."""
+
+    return escape(value or "-")
+
+
+def _format_percent(value: Decimal | None) -> str:
+    """Format a decimal ratio as a percentage string."""
+
+    if value is None:
+        return "-"
+
+    try:
+        return f"{value.quantize(Decimal('0.01')):.2f}%"
+    except (InvalidOperation, ValueError, ArithmeticError):
+        return "-"
+
+
+def _parse_decimal(value: str) -> Optional[Decimal]:
+    """Parse a decimal string safely."""
+
+    if not value:
+        return None
+
+    try:
+        return Decimal(value)
+    except (InvalidOperation, ValueError):
+        return None
+
+
 def _format_cep(cep: str) -> str:
     """Format CEP."""
 
@@ -259,7 +307,10 @@ def _get_simples_nacional_desc(op_simp_nac: str) -> str:
 
     descs = {
         "1": "Optante - Microempreendedor Individual (MEI)",
-        "2": "Optante - Microempresa ou Empresa de Pequeno Porte (ME/EPP) - Excesso de Sublimite",
+        "2": (
+            "Optante - Microempresa ou Empresa de Pequeno Porte "
+            "(ME/EPP) - Excesso de Sublimite"
+        ),
         "3": "Optante - Microempresa ou Empresa de Pequeno Porte (ME/EPP)",
         "4": "Nao Optante",
     }
@@ -270,9 +321,18 @@ def _get_regime_apuracao_desc(reg_ap: str) -> str:
     """Get regime de apuracao description."""
 
     descs = {
-        "1": "Regime de apuração dos tributos federais e municipal pelo Simples Nacional",
-        "2": "Regime de apuração dos tributos federais pelo Simples Nacional e ISSQN por fora",
-        "3": "Regime de apuração dos tributos federais e municipal pelo Simples Nacional",
+        "1": (
+            "Regime de apuração dos tributos federais e municipal "
+            "pelo Simples Nacional"
+        ),
+        "2": (
+            "Regime de apuração dos tributos federais pelo Simples Nacional "
+            "e ISSQN por fora"
+        ),
+        "3": (
+            "Regime de apuração dos tributos federais e municipal "
+            "pelo Simples Nacional"
+        ),
     }
     return descs.get(reg_ap, "-")
 
@@ -300,6 +360,86 @@ def _get_retencao_issqn_desc(ret: str) -> str:
     return descs.get(ret, "-")
 
 
+def _parse_ibscbs_totals(inf_nfse: ET.Element) -> Optional[IBSCBSTotals]:
+    """Extract the IBSCBS totalizers when the XML includes them."""
+
+    ibscbs = _find_nfse(inf_nfse, ".//nfse:IBSCBS")
+    if ibscbs is None:
+        return None
+
+    tot_cibs = _find_nfse(ibscbs, ".//nfse:totCIBS")
+    if tot_cibs is None:
+        return None
+
+    g_ibs = _find_nfse(tot_cibs, ".//nfse:gIBS")
+    g_cbs = _find_nfse(tot_cibs, ".//nfse:gCBS")
+
+    g_ibs_uf = None
+    g_ibs_mun = None
+    if g_ibs is not None:
+        g_ibs_uf = _find_nfse(g_ibs, ".//nfse:gIBSUFTot")
+        g_ibs_mun = _find_nfse(g_ibs, ".//nfse:gIBSMunTot")
+
+    return IBSCBSTotals(
+        v_tot_nf=_get_text(tot_cibs, ".//nfse:vTotNF"),
+        v_ibs_tot=_get_text(g_ibs, ".//nfse:vIBSTot") if g_ibs is not None else "",
+        v_ibs_uf=_get_text(g_ibs_uf, ".//nfse:vIBSUF") if g_ibs_uf is not None else "",
+        v_ibs_mun=(
+            _get_text(g_ibs_mun, ".//nfse:vIBSMun") if g_ibs_mun is not None else ""
+        ),
+        v_cbs=_get_text(g_cbs, ".//nfse:vCBS") if g_cbs is not None else "",
+    )
+
+
+def _build_ibscbs_totals_rows(
+    nfse_data: NFSeData,
+) -> Optional[list[list[tuple[str, str]]]]:
+    """Build the optional IBSCBS totals lane rows for the PDF table."""
+
+    totals = nfse_data.ibscbs_totals
+
+    if totals is None:
+        return None
+
+    totals_values = (
+        totals.v_tot_nf,
+        totals.v_ibs_tot,
+        totals.v_ibs_uf,
+        totals.v_ibs_mun,
+        totals.v_cbs,
+    )
+
+    if not any(totals_values):
+        return None
+
+    v_ibs_tot = _parse_decimal(totals.v_ibs_tot) or Decimal("0")
+    v_cbs = _parse_decimal(totals.v_cbs) or Decimal("0")
+    v_trib = v_ibs_tot + v_cbs
+
+    base = _parse_decimal(nfse_data.bc_issqn) or _parse_decimal(nfse_data.valor_servico)
+    p_aliq = None
+    if base is not None and base != 0:
+        p_aliq = (v_trib / base) * Decimal("100")
+
+    base_value = nfse_data.bc_issqn or nfse_data.valor_servico or "-"
+    total_nf_value = totals.v_tot_nf or nfse_data.valor_liquido or "-"
+
+    return [
+        [
+            ("Base de Calculo (vBC)", _format_currency(base_value)),
+            ("Aliquota Efetiva (pAliq)", _format_percent(p_aliq)),
+            ("Valor do Tributo (vTrib)", _format_currency(str(v_trib))),
+            ("Valor Total da NFS-e", _format_currency(total_nf_value)),
+        ],
+        [
+            ("IBS Estadual", _format_currency(totals.v_ibs_uf)),
+            ("IBS Municipal", _format_currency(totals.v_ibs_mun)),
+            ("IBS Total", _format_currency(totals.v_ibs_tot)),
+            ("CBS", _format_currency(totals.v_cbs)),
+        ],
+    ]
+
+
 def parse_nfse_xml(xml_content: str) -> NFSeData:
     """Parse NFSe XML and extract data for PDF generation."""
 
@@ -314,6 +454,9 @@ def parse_nfse_xml(xml_content: str) -> NFSeData:
 
     if inf_nfse is None:
         raise ValueError("Could not find infNFSe element in XML")
+
+    data.ibscbs = parse_ibscbs(root=inf_nfse)
+    data.ibscbs_totals = _parse_ibscbs_totals(inf_nfse)
 
     # Extract chave from Id attribute
     nfse_id = inf_nfse.get("Id", "")
@@ -424,9 +567,7 @@ def parse_nfse_xml(xml_content: str) -> NFSeData:
                 c_serv = serv.find(".//nfse:cServ", NS)
 
                 if c_serv is None:
-                    c_serv = serv.find(
-                        ".//{http://www.sped.fazenda.gov.br/nfse}cServ"
-                    )
+                    c_serv = serv.find(".//{http://www.sped.fazenda.gov.br/nfse}cServ")
 
                 if c_serv is not None:
                     data.cod_trib_nac = _get_text(c_serv, ".//nfse:cTribNac")
@@ -469,9 +610,7 @@ def parse_nfse_xml(xml_content: str) -> NFSeData:
                 trib = valores.find(".//nfse:trib", NS)
 
                 if trib is None:
-                    trib = valores.find(
-                        ".//{http://www.sped.fazenda.gov.br/nfse}trib"
-                    )
+                    trib = valores.find(".//{http://www.sped.fazenda.gov.br/nfse}trib")
 
                 if trib is not None:
                     trib_mun = trib.find(".//nfse:tribMun", NS)
@@ -614,13 +753,6 @@ def generate_danfse_pdf(
         leading=12,
     )
 
-    style_subtitle = ParagraphStyle(
-        "Subtitle",
-        parent=styles["Normal"],
-        fontSize=7,
-        alignment=1,
-    )
-
     style_header_right = ParagraphStyle(
         "HeaderRight",
         parent=styles["Normal"],
@@ -688,10 +820,10 @@ def generate_danfse_pdf(
             header_img = Paragraph("", style_value)
 
         header_right_text = f"""
-        <b>{header_config.title}</b><br/>
-        {header_config.subtitle}<br/>
-        {header_config.phone}<br/>
-        {header_config.email}
+        <b>{_escape_pdf_text(header_config.title)}</b><br/>
+        {_escape_pdf_text(header_config.subtitle)}<br/>
+        {_escape_pdf_text(header_config.phone)}<br/>
+        {_escape_pdf_text(header_config.email)}
         """
     else:
         header_img = Paragraph(
@@ -699,8 +831,9 @@ def generate_danfse_pdf(
             "<font size='6'>Nota Fiscal de<br/>Servico eletronica</font>",
             style_value,
         )
+        prefeitura = _escape_pdf_text(nfse_data.emit_municipio or "Manaus")
         header_right_text = f"""
-        <b>Prefeitura de {nfse_data.emit_municipio or 'Manaus'}</b><br/>
+        <b>Prefeitura de {prefeitura}</b><br/>
         Secretaria Municipal de Financas<br/>
         """
 
@@ -749,7 +882,7 @@ def generate_danfse_pdf(
                 Paragraph("<b>Chave de Acesso da NFS-e</b>", style_label),
             ],
             [
-                Paragraph(nfse_data.chave_acesso, style_chave),
+                Paragraph(_escape_pdf_text(nfse_data.chave_acesso), style_chave),
             ],
         ],
         colWidths=[196 * mm],
@@ -773,7 +906,7 @@ def generate_danfse_pdf(
     def make_field(label: str, value: str) -> list:
         return [
             Paragraph(f"<b>{label}</b>", style_label),
-            Paragraph(value or "-", style_value),
+            Paragraph(_escape_pdf_text(value), style_value),
         ]
 
     id_data = [
@@ -997,12 +1130,19 @@ def generate_danfse_pdf(
             make_field("Tributacao do ISSQN", nfse_data.trib_issqn),
             make_field("Pais Resultado da Prestacao", nfse_data.pais_resultado or "-"),
             make_field("Municipio de Incidencia do ISSQN", nfse_data.mun_incidencia),
-            make_field("Regime Especial de Tributacao", nfse_data.regime_especial or "Nenhum"),
+            make_field(
+                "Regime Especial de Tributacao", nfse_data.regime_especial or "Nenhum"
+            ),
         ],
         [
             make_field("Tipo de Imunidade", nfse_data.tipo_imunidade or "-"),
-            make_field("Suspensao da Exigibilidade do ISSQN", nfse_data.suspensao_issqn or "Nao"),
-            make_field("Numero Processo Suspensao", nfse_data.num_processo_suspensao or "-"),
+            make_field(
+                "Suspensao da Exigibilidade do ISSQN",
+                nfse_data.suspensao_issqn or "Nao",
+            ),
+            make_field(
+                "Numero Processo Suspensao", nfse_data.num_processo_suspensao or "-"
+            ),
             make_field("Beneficio Municipal", nfse_data.beneficio_municipal or "-"),
         ],
         [
@@ -1012,10 +1152,21 @@ def generate_danfse_pdf(
             make_field("Calculo do BM", nfse_data.calculo_bm or "-"),
         ],
         [
-            make_field("BC ISSQN", _format_currency(nfse_data.bc_issqn) if nfse_data.bc_issqn else "-"),
-            make_field("Aliquota Aplicada", f"{nfse_data.aliquota}%" if nfse_data.aliquota else "-"),
+            make_field(
+                "BC ISSQN",
+                _format_currency(nfse_data.bc_issqn) if nfse_data.bc_issqn else "-",
+            ),
+            make_field(
+                "Aliquota Aplicada",
+                f"{nfse_data.aliquota}%" if nfse_data.aliquota else "-",
+            ),
             make_field("Retencao do ISSQN", nfse_data.retencao_issqn),
-            make_field("ISSQN Apurado", _format_currency(nfse_data.issqn_apurado) if nfse_data.issqn_apurado else "-"),
+            make_field(
+                "ISSQN Apurado",
+                _format_currency(nfse_data.issqn_apurado)
+                if nfse_data.issqn_apurado
+                else "-",
+            ),
         ],
     ]
 
@@ -1038,6 +1189,36 @@ def generate_danfse_pdf(
     )
 
     elements.append(trib_mun_table)
+
+    ibscbs_totals_rows = _build_ibscbs_totals_rows(nfse_data)
+
+    if ibscbs_totals_rows is not None:
+        elements.append(Paragraph("IBS/CBS TOTALIZADORES", style_section))
+
+        ibscbs_totals_data = [
+            [make_field(label, value) for label, value in row]
+            for row in ibscbs_totals_rows
+        ]
+
+        ibscbs_totals_table = Table(
+            ibscbs_totals_data,
+            colWidths=[49 * mm, 49 * mm, 49 * mm, 49 * mm],
+        )
+
+        ibscbs_totals_table.setStyle(
+            TableStyle(
+                [
+                    ("BOX", (0, 0), (-1, -1), 0.5, colors.black),
+                    ("INNERGRID", (0, 0), (-1, -1), 0.25, colors.grey),
+                    ("TOPPADDING", (0, 0), (-1, -1), 0.5 * mm),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 0.5 * mm),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 1 * mm),
+                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ]
+            )
+        )
+
+        elements.append(ibscbs_totals_table)
 
     # TRIBUTACAO FEDERAL section
     elements.append(Paragraph("TRIBUTACAO FEDERAL", style_section))
@@ -1083,15 +1264,32 @@ def generate_danfse_pdf(
     valor_total_data = [
         [
             make_field("Valor do Servico", _format_currency(nfse_data.valor_servico)),
-            make_field("Desconto Condicionado", _format_currency(nfse_data.desconto_cond) if nfse_data.desconto_cond else "R$"),
-            make_field("Desconto Incondicionado", _format_currency(nfse_data.desconto_incond) if nfse_data.desconto_incond else "R$"),
+            make_field(
+                "Desconto Condicionado",
+                _format_currency(nfse_data.desconto_cond)
+                if nfse_data.desconto_cond
+                else "R$",
+            ),
+            make_field(
+                "Desconto Incondicionado",
+                _format_currency(nfse_data.desconto_incond)
+                if nfse_data.desconto_incond
+                else "R$",
+            ),
             make_field("ISSQN Retido", nfse_data.issqn_retido or "-"),
         ],
         [
-            make_field("IRRF, CP, CSLL - Retidos", _format_currency(nfse_data.irrf_cp_csll_retidos) if nfse_data.irrf_cp_csll_retidos else "R$ 0,00"),
+            make_field(
+                "IRRF, CP, CSLL - Retidos",
+                _format_currency(nfse_data.irrf_cp_csll_retidos)
+                if nfse_data.irrf_cp_csll_retidos
+                else "R$ 0,00",
+            ),
             make_field("PIS/COFINS Retidos", nfse_data.pis_cofins_retidos or "-"),
             [],
-            make_field("Valor Liquido da NFS-e", _format_currency(nfse_data.valor_liquido)),
+            make_field(
+                "Valor Liquido da NFS-e", _format_currency(nfse_data.valor_liquido)
+            ),
         ],
     ]
 
@@ -1152,13 +1350,13 @@ def generate_danfse_pdf(
     info_text = ""
 
     if nfse_data.nbs:
-        info_text += f"NBS: {nfse_data.nbs}"
+        info_text += f"NBS: {_escape_pdf_text(nfse_data.nbs)}"
 
     if nfse_data.info_complementar:
         if info_text:
             info_text += "<br/>"
 
-        info_text += nfse_data.info_complementar
+        info_text += _escape_pdf_text(nfse_data.info_complementar)
 
     if not info_text:
         info_text = "-"

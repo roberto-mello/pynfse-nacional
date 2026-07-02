@@ -13,7 +13,8 @@ except ImportError:
     CRYPTOGRAPHY_AVAILABLE = False
 
 try:
-    from signxml import XMLSigner, methods, namespaces as signxml_namespaces
+    from signxml import XMLSigner, methods
+    from signxml import namespaces as signxml_namespaces
 
     SIGNXML_AVAILABLE = True
 except ImportError:
@@ -73,7 +74,10 @@ class XMLSignerService:
         self._load_certificate()
 
         try:
-            xml_element = etree.fromstring(xml.encode("utf-8"))
+            parser = etree.XMLParser(
+                resolve_entities=False, no_network=True, huge_tree=False
+            )
+            xml_element = etree.fromstring(xml.encode("utf-8"), parser=parser)
 
             ns = "http://www.sped.fazenda.gov.br/nfse"
             signed_info = xml_element.find(f".//{{{ns}}}infDPS")
@@ -82,11 +86,13 @@ class XMLSignerService:
                 signed_info = xml_element.find(f".//{{{ns}}}infPedReg")
 
             if signed_info is None:
-                raise NFSeCertificateError("Signed info element (infDPS or infPedReg) not found in XML")
+                raise NFSeCertificateError(
+                    "Signed info element (infDPS or infPedReg) not found in XML"
+                )
 
-            infDPS_id = signed_info.get("Id")
+            inf_dps_id = signed_info.get("Id")
 
-            if not infDPS_id:
+            if not inf_dps_id:
                 raise NFSeCertificateError("infDPS Id attribute not found")
 
             # Use exclusive canonicalization with comments as seen in real NFSe
@@ -104,10 +110,12 @@ class XMLSignerService:
                 xml_element,
                 key=self._private_key,
                 cert=[self._certificate],
-                reference_uri=f"#{infDPS_id}",
+                reference_uri=f"#{inf_dps_id}",
             )
 
-            xml_bytes = etree.tostring(signed_xml, encoding="utf-8", xml_declaration=True)
+            xml_bytes = etree.tostring(
+                signed_xml, encoding="utf-8", xml_declaration=True
+            )
 
             return xml_bytes.decode("utf-8")
 

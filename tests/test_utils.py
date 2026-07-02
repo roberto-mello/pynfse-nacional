@@ -2,17 +2,18 @@
 
 import pytest
 
+from pynfse_nacional.exceptions import NFSeAPIError
 from pynfse_nacional.utils import (
-    compress_encode,
+    clean_document,
     compress_and_encode,
-    decode_decompress,
+    compress_encode,
     decode_and_decompress,
-    validate_cnpj,
-    validate_cpf,
+    decode_decompress,
     format_cnpj,
     format_cpf,
     normalize_document,
-    clean_document,
+    validate_cnpj,
+    validate_cpf,
 )
 
 
@@ -63,6 +64,20 @@ class TestCompression:
         decoded = decode_decompress(encoded)
 
         assert decoded == data
+
+    def test_decode_decompress_rejects_oversized_payload(self, monkeypatch):
+        """Test that decompression stops before exceeding the safety cap."""
+        monkeypatch.setattr(
+            "pynfse_nacional.utils.MAX_DECOMPRESSED_BYTES",
+            1024,
+        )
+        encoded = compress_encode("a" * 2048)
+
+        with pytest.raises(NFSeAPIError) as exc_info:
+            decode_decompress(encoded)
+
+        assert exc_info.value.code == "PAYLOAD_TOO_LARGE"
+        assert "Conteúdo NFSe excede" in str(exc_info.value)
 
 
 class TestCNPJValidation:

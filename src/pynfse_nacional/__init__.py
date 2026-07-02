@@ -5,7 +5,7 @@ This library provides tools for integrating with the NFSe Nacional (Padrao Nacio
 API for electronic service invoice issuance in Brazil.
 """
 
-from .client import NFSeClient
+from .client import NFSeClient, RecoveryOutcome
 from .constants import (
     AMBIENTE_HOMOLOGACAO,
     AMBIENTE_PRODUCAO,
@@ -34,6 +34,18 @@ from .models import (
     Tomador,
     ValoresServico,
 )
+from .models_ibscbs import (
+    GIBSCBS,
+    IBSCBS,
+    DestIBSCBS,
+    GDifIBSCBS,
+    GTribRegularIBSCBS,
+    ImovelIBSCBS,
+    RefNFSe,
+    TribIBSCBS,
+    ValoresIBSCBS,
+)
+from .types import Money15V2, Percent2V2, Percent3V2
 from .utils import (
     clean_document,
     compress_and_encode,
@@ -62,11 +74,12 @@ try:
 except ImportError:
     _PDF_AVAILABLE = False
 
-__version__ = "0.4.7"
+__version__ = "0.9.0"
 
 __all__ = [
     # Client
     "NFSeClient",
+    "RecoveryOutcome",
     # Models
     "DPS",
     "NFSe",
@@ -80,6 +93,18 @@ __all__ = [
     "NFSeQueryResult",
     "ConvenioMunicipal",
     "SubstituicaoNFSe",
+    "IBSCBS",
+    "RefNFSe",
+    "DestIBSCBS",
+    "ImovelIBSCBS",
+    "ValoresIBSCBS",
+    "TribIBSCBS",
+    "GIBSCBS",
+    "GTribRegularIBSCBS",
+    "GDifIBSCBS",
+    "Percent2V2",
+    "Money15V2",
+    "Percent3V2",
     # Exceptions
     "NFSeError",
     "NFSeAPIError",

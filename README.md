@@ -2,6 +2,8 @@
 
 Biblioteca Python para integração com a API do NFSe Nacional (Padrão Nacional).
 
+Documentação completa: [roberto-mello.github.io/pynfse-nacional](https://roberto-mello.github.io/pynfse-nacional/)
+
 ## Índice
 
 - [Visão Geral](#visão-geral)
@@ -25,6 +27,7 @@ Esta biblioteca fornece um cliente para interagir com a API do NFSe Nacional (SE
 - Assinatura digital de XML (XMLDSIG)
 - Compressão GZip e codificação Base64
 - Emissão, consulta, cancelamento e substituição de NFSe
+- Suporte a IBSCBS na DPS, na resposta da API e no DANFSe
 - Download e geração local do DANFSe em PDF
 - Consulta de convênio municipal
 - Validação de campos com mensagens em português
@@ -68,7 +71,7 @@ endereco_prestador = Endereco(
 
 # Criar prestador (emissor da nota)
 prestador = Prestador(
-    cnpj="12345678000199",
+    cnpj="11222333000181",
     inscricao_municipal="12345",
     razao_social="Empresa Exemplo LTDA",
     nome_fantasia="Empresa Exemplo",
@@ -79,7 +82,7 @@ prestador = Prestador(
 
 # Criar tomador (cliente)
 tomador = Tomador(
-    cpf="12345678901",
+    cpf="52998224725",
     razao_social="Joao da Silva",
     endereco=Endereco(
         logradouro="Av. Brasil",
@@ -110,7 +113,9 @@ dps = DPS(
     tomador=tomador,
     servico=servico,
     regime_tributario="simples_nacional",
-    optante_simples=True,
+    op_simp_nac="3",
+    reg_ap_trib_sn="1",
+    reg_ap_ibs_cbs_sn="1",
     incentivador_cultural=False,
 )
 
@@ -131,6 +136,30 @@ else:
     print(f"Erro: {response.error_message}")
 ```
 
+Para contribuintes optantes pelo Simples Nacional com IBSCBS, informe o grupo
+`ibscbs` e mantenha os campos de apuração compatíveis com `op_simp_nac`:
+`"3"` e `"4"` exigem `reg_ap_trib_sn` e `reg_ap_ibs_cbs_sn`; `"1"` e `"2"`
+não devem preenchê-los. Os valores `cst` e `c_class_trib` abaixo são apenas
+exemplos válidos no schema:
+
+```python
+from pynfse_nacional import GIBSCBS, IBSCBS, TribIBSCBS, ValoresIBSCBS
+
+dps.ibscbs = IBSCBS(
+    fin_nfse="0",
+    c_ind_op="020101",
+    ind_dest="0",
+    valores=ValoresIBSCBS(
+        trib=TribIBSCBS(
+            g_ibscbs=GIBSCBS(
+                cst="001",
+                c_class_trib="123456",
+            )
+        )
+    ),
+)
+```
+
 ## Referência da API
 
 ### NFSeClient
@@ -141,9 +170,78 @@ Cliente principal para a API do NFSe Nacional.
 
 - `submit_dps(dps: DPS) -> NFSeResponse` - Envia DPS e recebe NFSe
 - `query_nfse(chave_acesso: str) -> NFSeQueryResult` - Consulta NFSe pela chave de acesso
+- `query_nfse_by_dps(id_dps: str) -> NFSeQueryResult` - Recupera a NFSe pelo identificador da DPS
+- `has_nfse_by_dps(id_dps: str) -> bool` - Verifica se a DPS já gerou uma NFSe
+- `recover_nfse_by_dps(id_dps: str) -> RecoveryOutcome` - Recuperação simplificada combinando `has_nfse_by_dps` e `query_nfse_by_dps` (ver abaixo)
 - `download_danfse(chave_acesso: str) -> bytes` - Baixa o DANFSe em PDF
 - `cancel_nfse(chave_acesso, reason, codigo_motivo=1, cnpj_prestador="") -> EventResponse` - Cancela NFSe
 - `substitute_nfse(chave_acesso_original, new_dps, motivo, codigo_motivo) -> NFSeResponse` - Substitui NFSe existente
+
+**Consulta por DPS:**
+
+Se você só tiver o identificador da DPS, use a consulta por DPS para recuperar
+a chave de acesso e depois obter os dados completos da NFSe:
+
+```python
+dps_id = dps.build_dps_id()
+
+result = client.query_nfse_by_dps(dps_id)
+
+print(result.chave_acesso)
+print(result.nfse_number)
+```
+
+Se você só quiser verificar se a NFSe já foi gerada:
+
+```python
+if client.has_nfse_by_dps(dps_id):
+    print("NFSe já gerada")
+```
+
+`build_dps()` usa o mesmo identificador para montar o XML, mas não grava o
+valor de volta em `dps.id_dps`. Guarde o `dps_id` se quiser consultar depois.
+
+**Recuperação Simplificada de NFSe por DPS:**
+
+Quando o `submit_dps` falha ou a SEFIN já processou a DPS mas a aplicação
+perdeu a `chave_acesso` (ex.: resposta duplicada `e0014`, ou falha de
+transporte após a SEFIN aceitar a DPS), use `recover_nfse_by_dps` para tentar
+recuperar o estado da NFSe em uma única chamada. O retorno é um
+`RecoveryOutcome` (dataclass imutável) com `status` com três valores possíveis:
+
+- `"success"`: a NFSe existe remotamente; `result` (um `NFSeQueryResult`)
+  contém os dados completos para persistir.
+- `"processing"`: a DPS foi recebida mas a NFSe ainda não foi emitida (a SEFIN
+  retornou `202 / 404 / 409` na consulta). A aplicação deve manter o
+  registro como retryable em vez de marcar como falha permanente.
+- `"error"`: a própria consulta falhou (transporte ou erro de API); `error`
+  contém o `NFSeAPIError`. A aplicação deve apresentar o erro original do
+  submit.
+
+Exemplo:
+
+```python
+from pynfse_nacional import RecoveryOutcome
+
+outcome = client.recover_nfse_by_dps(dps_id)
+
+if outcome.status == "success":
+    result = outcome.result  # NFSeQueryResult
+    print(result.chave_acesso, result.nfse_number)
+elif outcome.status == "processing":
+    # DPS aceita, NFSe ainda não emitida — tentar novamente depois
+    ...
+else:  # "error"
+    # recovery falhou — apresentar o erro original do submit
+    print(outcome.error.code, outcome.error.message)
+```
+
+`recover_nfse_by_dps()` é mais eficiente que `query_nfse_by_dps()` no caminho de
+"ainda não está pronto" pois faz primeiro um `HEAD /dps/{id}` (que só retorna
+o status, sem corpo) via `has_nfse_by_dps()`. Só quando o HEAD confirma que a
+NFSe existe é que ele parte para o `GET` completo e decodifica o XML. Assim,
+quando a DPS ainda não gerou NFSe, isso evita tentar baixar e processar um XML
+que não existe.
 
 **Consulta de Convênio Municipal:**
 
@@ -296,6 +394,7 @@ pdf_bytes = generate_danfse_from_base64(
 - `Servico` - Detalhes do serviço
 - `ConvenioMunicipal` - Informações de convênio municipal
 - `SubstituicaoNFSe` - Informações de substituição de NFSe
+- `IBSCBS` - Dados do leiaute IBSCBS da DPS
 
 ## Ambientes
 
@@ -304,12 +403,17 @@ pdf_bytes = generate_danfse_from_base64(
 
 ## Documentação
 
+### Documentação Online
+
+- [Site da documentação](https://roberto-mello.github.io/pynfse-nacional/) - Guias, referência da API e apêndice
+
 ### Documentação Oficial
 
 - [Portal NFSe Nacional](https://www.gov.br/nfse) - Portal principal do sistema nacional
 - [Documentação Técnica](https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/) - Biblioteca de documentos técnicos
 - [Documentação Atual](https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/documentacao-atual) - Versão mais recente dos documentos
-- [Schemas XSD](https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/documentacao-atual/nfse-esquemas_xsd-v1-01-20260122.zip) - Esquemas XML para validação
+- [Schemas XSD](https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/documentacao-atual/nfse-esquemas_xsd-v1-01-20260209.zip) - Esquemas XML para validação
+- [Anexo C - IBSCBS / INDOP](https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/documentacao-atual/anexo_c-indop_ibscbs-snnfse-v1-01-20260122.xlsx) - Tabela oficial de `cIndOp` para IBSCBS
 - [APIs - Produção e Homologação](https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/apis-prod-restrita-e-producao) - Endpoints das APIs
 
 ### Manuais da API
@@ -393,7 +497,7 @@ provider_address = Endereco(
 
 # Create provider (invoice issuer)
 prestador = Prestador(
-    cnpj="12345678000199",
+    cnpj="11222333000181",
     inscricao_municipal="12345",
     razao_social="Example Company LTDA",
     nome_fantasia="Example Company",
@@ -404,7 +508,7 @@ prestador = Prestador(
 
 # Create recipient (client)
 tomador = Tomador(
-    cpf="12345678901",
+    cpf="52998224725",
     razao_social="John Smith",
     endereco=Endereco(
         logradouro="Av. Brasil",
@@ -435,7 +539,9 @@ dps = DPS(
     tomador=tomador,
     servico=servico,
     regime_tributario="simples_nacional",
-    optante_simples=True,
+    op_simp_nac="3",
+    reg_ap_trib_sn="1",
+    reg_ap_ibs_cbs_sn="1",
     incentivador_cultural=False,
 )
 
@@ -456,6 +562,30 @@ else:
     print(f"Error: {response.error_message}")
 ```
 
+For Simples Nacional providers using IBSCBS, include the `ibscbs` group and
+keep the apportionment fields aligned with `op_simp_nac`: `"3"` and `"4"`
+require `reg_ap_trib_sn` and `reg_ap_ibs_cbs_sn`; `"1"` and `"2"` must leave
+them unset. The `cst` and `c_class_trib` values below are just schema-valid
+examples:
+
+```python
+from pynfse_nacional import GIBSCBS, IBSCBS, TribIBSCBS, ValoresIBSCBS
+
+dps.ibscbs = IBSCBS(
+    fin_nfse="0",
+    c_ind_op="020101",
+    ind_dest="0",
+    valores=ValoresIBSCBS(
+        trib=TribIBSCBS(
+            g_ibscbs=GIBSCBS(
+                cst="001",
+                c_class_trib="123456",
+            )
+        )
+    ),
+)
+```
+
 ### API Reference
 
 #### NFSeClient
@@ -466,6 +596,9 @@ Main client for NFSe Nacional API.
 
 - `submit_dps(dps: DPS) -> NFSeResponse` - Submit DPS and receive NFSe
 - `query_nfse(chave_acesso: str) -> NFSeQueryResult` - Query NFSe by access key
+- `query_nfse_by_dps(id_dps: str) -> NFSeQueryResult` - Recover NFSe by DPS identifier
+- `has_nfse_by_dps(id_dps: str) -> bool` - Check whether a DPS already generated an NFSe
+- `recover_nfse_by_dps(id_dps: str) -> RecoveryOutcome` - High-level recovery combining `has_nfse_by_dps` + `query_nfse_by_dps` for the duplicate / lost-`chave_acesso` path; returns a frozen `RecoveryOutcome` with `status="success" | "processing" | "error"` (see Portuguese section for a full example)
 - `download_danfse(chave_acesso: str) -> bytes` - Download DANFSe PDF
 - `cancel_nfse(chave_acesso, reason, codigo_motivo=1, cnpj_prestador="") -> EventResponse` - Cancel NFSe
 - `substitute_nfse(chave_acesso_original, new_dps, motivo, codigo_motivo) -> NFSeResponse` - Substitute existing NFSe
@@ -575,6 +708,7 @@ pdf_bytes = generate_danfse_from_base64(
 - `Servico` - Service details
 - `ConvenioMunicipal` - Municipal agreement information
 - `SubstituicaoNFSe` - NFSe substitution information
+- `IBSCBS` - IBSCBS layout data for DPS
 
 ### Environments
 
@@ -583,10 +717,13 @@ pdf_bytes = generate_danfse_from_base64(
 
 ### Documentation
 
+- [Documentation site](https://roberto-mello.github.io/pynfse-nacional/) - Guides, API reference, and appendix
+
 - [NFSe Nacional Portal](https://www.gov.br/nfse)
 - [Technical Documentation](https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/)
 - [All Documentation](https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/documentacao-atual)
-- [XSD Schemas](https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/documentacao-atual/nfse-esquemas_xsd-v1-01-20260122.zip)
+- [XSD Schemas](https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/documentacao-atual/nfse-esquemas_xsd-v1-01-20260209.zip)
+- [IBSCBS Annex / INDOP](https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/documentacao-atual/anexo_c-indop_ibscbs-snnfse-v1-01-20260122.xlsx) - Official `cIndOp` table for IBSCBS
 - [API Docs](https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/apis-prod-restrita-e-producao)
 
 ### Community Resources

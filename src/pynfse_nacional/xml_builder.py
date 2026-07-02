@@ -1,10 +1,17 @@
 import warnings
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import version as _pkg_version
 from xml.etree import ElementTree as ET
 
 from .constants import Ambiente
 from .models import DPS
+
+try:
+    _VERAPLIC = f"pynfse-{_pkg_version('pynfse-nacional')}"
+except PackageNotFoundError:
+    _VERAPLIC = "pynfse-0.5.0"
 
 
 class XMLBuilder:
@@ -13,7 +20,8 @@ class XMLBuilder:
     NAMESPACE = "http://www.sped.fazenda.gov.br/nfse"
     NAMESPACE_MAP = {"": NAMESPACE}
 
-    # Cancellation event type code (XSD element e101101, TSIdPedRegEvt pattern PRE[0-9]{56})
+    # Cancellation event type code.
+    # XSD element: e101101, TSIdPedRegEvt pattern PRE[0-9]{56}
     _EVENT_TYPE_CANCEL = "101101"
 
     def __init__(self, ambiente: Ambiente = Ambiente.HOMOLOGACAO):
@@ -29,13 +37,7 @@ class XMLBuilder:
         - serie: 5 digits (zero-padded)
         - nDPS: 15 digits (zero-padded)
         """
-        c_loc_emi = str(dps.prestador.endereco.codigo_municipio).zfill(7)
-        tp_insc = "2"  # CNPJ
-        cnpj = dps.prestador.cnpj.zfill(14)
-        serie = dps.serie.zfill(5)
-        n_dps = str(dps.numero).zfill(15)
-
-        return f"DPS{c_loc_emi}{tp_insc}{cnpj}{serie}{n_dps}"
+        return dps.build_dps_id()
 
     def build_dps(self, dps: DPS) -> str:
         """Build DPS XML from model."""
@@ -43,28 +45,33 @@ class XMLBuilder:
 
         # Generate correct DPS ID if not provided or use provided one
         dps_id = dps.id_dps if dps.id_dps else self._build_dps_id(dps)
-        infDPS = ET.SubElement(root, "infDPS", Id=dps_id)
+        inf_dps = ET.SubElement(root, "infDPS", Id=dps_id)
 
-        # NOTE: Based on real NFSe XML, tpAmb in DPS is always "1" for production data
-        # even when submitting to homologacao environment (which uses ambGer in response)
-        tpAmb = "1" if self.ambiente == Ambiente.PRODUCAO else "2"
-        ET.SubElement(infDPS, "tpAmb").text = tpAmb
-        ET.SubElement(infDPS, "dhEmi").text = dps.data_emissao.strftime("%Y-%m-%dT%H:%M:%S-03:00")
-        ET.SubElement(infDPS, "verAplic").text = "pynfse-1.0"
-        ET.SubElement(infDPS, "serie").text = dps.serie
-        ET.SubElement(infDPS, "nDPS").text = str(dps.numero)
-        ET.SubElement(infDPS, "dCompet").text = dps.data_emissao.strftime("%Y-%m-%d")
-        ET.SubElement(infDPS, "tpEmit").text = "1"
-        ET.SubElement(infDPS, "cLocEmi").text = str(dps.prestador.endereco.codigo_municipio)
+        # NOTE: Based on real NFSe XML, tpAmb in DPS is always "1" for
+        # production data, even when submitting to homologacao.
+        tp_amb = "1" if self.ambiente == Ambiente.PRODUCAO else "2"
+        ET.SubElement(inf_dps, "tpAmb").text = tp_amb
+        ET.SubElement(inf_dps, "dhEmi").text = dps.data_emissao.strftime(
+            "%Y-%m-%dT%H:%M:%S-03:00"
+        )
+        ET.SubElement(inf_dps, "verAplic").text = _VERAPLIC
+        ET.SubElement(inf_dps, "serie").text = dps.serie
+        ET.SubElement(inf_dps, "nDPS").text = str(dps.numero)
+        ET.SubElement(inf_dps, "dCompet").text = dps.data_emissao.strftime("%Y-%m-%d")
+        ET.SubElement(inf_dps, "tpEmit").text = "1"
+        ET.SubElement(inf_dps, "cLocEmi").text = str(
+            dps.prestador.endereco.codigo_municipio
+        )
 
         # Add substitution info if present (must come before prest)
         if dps.substituicao:
-            self._add_substituicao(infDPS, dps)
+            self._add_substituicao(inf_dps, dps)
 
-        self._add_prestador(infDPS, dps)
-        self._add_tomador(infDPS, dps)
-        self._add_servico(infDPS, dps)
-        self._add_valores(infDPS, dps)
+        self._add_prestador(inf_dps, dps)
+        self._add_tomador(inf_dps, dps)
+        self._add_servico(inf_dps, dps)
+        self._add_valores(inf_dps, dps)
+        self._add_ibscbs(inf_dps, dps)
 
         return ET.tostring(root, encoding="unicode", xml_declaration=True)
 
@@ -95,21 +102,21 @@ class XMLBuilder:
         brt = timezone(timedelta(hours=-3))
         dh_evento = datetime.now(tz=brt).strftime("%Y-%m-%dT%H:%M:%S-03:00")
 
-        tpAmb = "1" if self.ambiente == Ambiente.PRODUCAO else "2"
+        tp_amb = "1" if self.ambiente == Ambiente.PRODUCAO else "2"
 
         root = ET.Element("pedRegEvento", versao="1.00", xmlns=self.NAMESPACE)
 
-        infPedReg = ET.SubElement(root, "infPedReg", Id=event_id)
-        ET.SubElement(infPedReg, "tpAmb").text = tpAmb
-        ET.SubElement(infPedReg, "verAplic").text = "pynfse-1.0"
-        ET.SubElement(infPedReg, "dhEvento").text = dh_evento
+        inf_ped_reg = ET.SubElement(root, "infPedReg", Id=event_id)
+        ET.SubElement(inf_ped_reg, "tpAmb").text = tp_amb
+        ET.SubElement(inf_ped_reg, "verAplic").text = _VERAPLIC
+        ET.SubElement(inf_ped_reg, "dhEvento").text = dh_evento
 
         if cnpj_prestador:
-            ET.SubElement(infPedReg, "CNPJAutor").text = cnpj_prestador
+            ET.SubElement(inf_ped_reg, "CNPJAutor").text = cnpj_prestador
 
-        ET.SubElement(infPedReg, "chNFSe").text = chave_acesso
+        ET.SubElement(inf_ped_reg, "chNFSe").text = chave_acesso
 
-        e101101 = ET.SubElement(infPedReg, "e101101")
+        e101101 = ET.SubElement(inf_ped_reg, "e101101")
         ET.SubElement(e101101, "xDesc").text = "Cancelamento de NFS-e"
         ET.SubElement(e101101, "cMotivo").text = str(codigo_motivo)
         ET.SubElement(e101101, "xMotivo").text = reason[:255]
@@ -123,10 +130,10 @@ class XMLBuilder:
         """
         subst = dps.substituicao
 
-        infSubst = ET.SubElement(parent, "subst")
-        ET.SubElement(infSubst, "chSubstda").text = subst.chave_nfse_substituida
-        ET.SubElement(infSubst, "cMotivo").text = str(subst.codigo_motivo)
-        ET.SubElement(infSubst, "xMotivo").text = subst.motivo
+        inf_subst = ET.SubElement(parent, "subst")
+        ET.SubElement(inf_subst, "chSubstda").text = subst.chave_nfse_substituida
+        ET.SubElement(inf_subst, "cMotivo").text = str(subst.codigo_motivo)
+        ET.SubElement(inf_subst, "xMotivo").text = subst.motivo
 
     def _add_prestador(self, parent: ET.Element, dps: DPS) -> None:
         prest = ET.SubElement(parent, "prest")
@@ -143,19 +150,22 @@ class XMLBuilder:
         if dps.prestador.email:
             ET.SubElement(prest, "email").text = dps.prestador.email
 
-        regTrib = ET.SubElement(prest, "regTrib")
+        reg_trib = ET.SubElement(prest, "regTrib")
 
-        # opSimpNac: 1=Não Optante, 2=MEI, 3=ME/EPP
-        ET.SubElement(regTrib, "opSimpNac").text = "3" if dps.optante_simples else "1"
+        # opSimpNac: 1=Não Optante, 2=MEI, 3=ME/EPP, 4=Pendente
+        ET.SubElement(reg_trib, "opSimpNac").text = dps.op_simp_nac
 
-        # regApTribSN: Required for Simples Nacional ME/EPP
-        # 1=Tributos federais e municipal pelo SN
-        # 2=Tributos federais pelo SN, ISSQN por fora
-        # 3=Tributos federais e municipal por fora do SN
-        if dps.optante_simples:
-            ET.SubElement(regTrib, "regApTribSN").text = "1"
+        # regApTribSN: only valid for opSimpNac 3/4
+        if dps.op_simp_nac in {"3", "4"}:
+            ET.SubElement(reg_trib, "regApTribSN").text = dps.reg_ap_trib_sn
 
-        ET.SubElement(regTrib, "regEspTrib").text = self._map_regime_especial(dps.regime_tributario)
+        # regApIBSCBSSN: only valid for opSimpNac 3/4
+        if dps.op_simp_nac in {"3", "4"}:
+            ET.SubElement(reg_trib, "regApIBSCBSSN").text = dps.reg_ap_ibs_cbs_sn
+
+        ET.SubElement(reg_trib, "regEspTrib").text = self._map_regime_especial(
+            dps.regime_tributario
+        )
 
     def _add_tomador(self, parent: ET.Element, dps: DPS) -> None:
         toma = ET.SubElement(parent, "toma")
@@ -169,9 +179,11 @@ class XMLBuilder:
 
         if dps.tomador.endereco:
             end = ET.SubElement(toma, "end")
-            endNac = ET.SubElement(end, "endNac")
-            ET.SubElement(endNac, "cMun").text = str(dps.tomador.endereco.codigo_municipio)
-            ET.SubElement(endNac, "CEP").text = dps.tomador.endereco.cep
+            end_nac = ET.SubElement(end, "endNac")
+            ET.SubElement(end_nac, "cMun").text = str(
+                dps.tomador.endereco.codigo_municipio
+            )
+            ET.SubElement(end_nac, "CEP").text = dps.tomador.endereco.cep
 
             ET.SubElement(end, "xLgr").text = dps.tomador.endereco.logradouro
             ET.SubElement(end, "nro").text = dps.tomador.endereco.numero
@@ -184,41 +196,49 @@ class XMLBuilder:
     def _add_servico(self, parent: ET.Element, dps: DPS) -> None:
         serv = ET.SubElement(parent, "serv")
 
-        locPrest = ET.SubElement(serv, "locPrest")
-        ET.SubElement(locPrest, "cLocPrestacao").text = str(dps.prestador.endereco.codigo_municipio)
+        loc_prest = ET.SubElement(serv, "locPrest")
+        ET.SubElement(loc_prest, "cLocPrestacao").text = str(
+            dps.prestador.endereco.codigo_municipio
+        )
 
-        cServ = ET.SubElement(serv, "cServ")
+        c_serv = ET.SubElement(serv, "cServ")
         codigo = dps.servico.codigo_lc116.replace(".", "")
-        ET.SubElement(cServ, "cTribNac").text = codigo.zfill(6)
+        ET.SubElement(c_serv, "cTribNac").text = codigo.zfill(6)
 
         # cTribMun - municipal code (optional but used in real NFSe)
         if dps.servico.codigo_tributacao_municipal:
-            ET.SubElement(cServ, "cTribMun").text = dps.servico.codigo_tributacao_municipal
+            ET.SubElement(
+                c_serv, "cTribMun"
+            ).text = dps.servico.codigo_tributacao_municipal
 
-        ET.SubElement(cServ, "xDescServ").text = dps.servico.discriminacao
+        ET.SubElement(c_serv, "xDescServ").text = dps.servico.discriminacao
 
         # cNBS - NBS code (optional but used in real NFSe)
         if dps.servico.codigo_nbs:
-            ET.SubElement(cServ, "cNBS").text = dps.servico.codigo_nbs
+            ET.SubElement(c_serv, "cNBS").text = dps.servico.codigo_nbs
 
     def _add_valores(self, parent: ET.Element, dps: DPS) -> None:
         valores = ET.SubElement(parent, "valores")
 
-        vServPrest = ET.SubElement(valores, "vServPrest")
-        ET.SubElement(vServPrest, "vServ").text = self._format_decimal(dps.servico.valor_servicos)
+        v_serv_prest = ET.SubElement(valores, "vServPrest")
+        ET.SubElement(v_serv_prest, "vServ").text = self._format_decimal(
+            dps.servico.valor_servicos
+        )
 
         trib = ET.SubElement(valores, "trib")
 
-        tribMun = ET.SubElement(trib, "tribMun")
-        ET.SubElement(tribMun, "tribISSQN").text = "1"
+        trib_mun = ET.SubElement(trib, "tribMun")
+        ET.SubElement(trib_mun, "tribISSQN").text = "1"
 
         # tpRetISSQN: 1=Não Retido, 2=Retido Tomador, 3=Retido Intermediário
-        ET.SubElement(tribMun, "tpRetISSQN").text = "2" if dps.servico.iss_retido else "1"
+        ET.SubElement(trib_mun, "tpRetISSQN").text = (
+            "2" if dps.servico.iss_retido else "1"
+        )
 
-        totTrib = ET.SubElement(trib, "totTrib")
+        tot_trib = ET.SubElement(trib, "totTrib")
 
         # For Simples Nacional, use pTotTribSN with estimated tax percentage
-        if dps.optante_simples:
+        if dps.op_simp_nac in {"3", "4"}:
             # Use aliquota_simples from servico or default to 18.83%
             if dps.servico.aliquota_simples:
                 aliquota_sn = dps.servico.aliquota_simples
@@ -226,19 +246,188 @@ class XMLBuilder:
                 aliquota_sn = Decimal("18.83")
 
                 warnings.warn(
-                    "aliquota_simples not provided, using default 18.83%. "
-                    "Set servico.aliquota_simples to the correct rate for your business.",
+                    "alíquota_simples não informada, usando 18,83% padrão. "
+                    "Defina servico.aliquota_simples com a alíquota correta "
+                    "para a sua empresa.",
                     UserWarning,
                     stacklevel=3,
                 )
 
-            ET.SubElement(totTrib, "pTotTribSN").text = self._format_decimal(aliquota_sn)
+            ET.SubElement(tot_trib, "pTotTribSN").text = self._format_decimal(
+                aliquota_sn
+            )
         else:
             # For non-Simples, use percentage breakdown
-            pTotTrib = ET.SubElement(totTrib, "pTotTrib")
-            ET.SubElement(pTotTrib, "pTotTribFed").text = "0"
-            ET.SubElement(pTotTrib, "pTotTribEst").text = "0"
-            ET.SubElement(pTotTrib, "pTotTribMun").text = "0"
+            p_tot_trib = ET.SubElement(tot_trib, "pTotTrib")
+            ET.SubElement(p_tot_trib, "pTotTribFed").text = "0"
+            ET.SubElement(p_tot_trib, "pTotTribEst").text = "0"
+            ET.SubElement(p_tot_trib, "pTotTribMun").text = "0"
+
+    def _emit_endereco(self, parent: ET.Element, endereco) -> None:
+        end = ET.SubElement(parent, "end")
+        end_nac = ET.SubElement(end, "endNac")
+        ET.SubElement(end_nac, "cMun").text = str(endereco.codigo_municipio)
+        ET.SubElement(end_nac, "CEP").text = endereco.cep
+        ET.SubElement(end, "xLgr").text = endereco.logradouro
+        ET.SubElement(end, "nro").text = endereco.numero
+        if endereco.complemento:
+            ET.SubElement(end, "xCpl").text = endereco.complemento
+        ET.SubElement(end, "xBairro").text = endereco.bairro
+
+    def _add_ibscbs(self, parent: ET.Element, dps: DPS) -> None:
+        if not dps.ibscbs:
+            return
+
+        ibscbs = dps.ibscbs
+        inf_ibscbs = ET.SubElement(parent, "IBSCBS")
+
+        ET.SubElement(inf_ibscbs, "finNFSe").text = ibscbs.fin_nfse
+        if ibscbs.tp_nfse_credito is not None:
+            ET.SubElement(inf_ibscbs, "tpNFSeCredito").text = ibscbs.tp_nfse_credito
+        if ibscbs.tp_nfse_debito is not None:
+            ET.SubElement(inf_ibscbs, "tpNFSeDebito").text = ibscbs.tp_nfse_debito
+        if ibscbs.ind_final is not None:
+            ET.SubElement(inf_ibscbs, "indFinal").text = ibscbs.ind_final
+
+        ET.SubElement(inf_ibscbs, "cIndOp").text = ibscbs.c_ind_op
+
+        if ibscbs.tp_oper is not None:
+            ET.SubElement(inf_ibscbs, "tpOper").text = ibscbs.tp_oper
+
+        if ibscbs.g_ref_nfse is not None:
+            g_ref_nfse = ET.SubElement(inf_ibscbs, "gRefNFSe")
+            for ref_nfse in ibscbs.g_ref_nfse.ref_nfse:
+                ET.SubElement(g_ref_nfse, "refNFSe").text = ref_nfse
+
+        if ibscbs.tp_ente_gov is not None:
+            ET.SubElement(inf_ibscbs, "tpEnteGov").text = ibscbs.tp_ente_gov
+
+        ET.SubElement(inf_ibscbs, "indDest").text = ibscbs.ind_dest
+
+        if ibscbs.dest is not None:
+            dest = ET.SubElement(inf_ibscbs, "dest")
+            if ibscbs.dest.cnpj:
+                ET.SubElement(dest, "CNPJ").text = ibscbs.dest.cnpj
+            elif ibscbs.dest.cpf:
+                ET.SubElement(dest, "CPF").text = ibscbs.dest.cpf
+            elif ibscbs.dest.nif:
+                ET.SubElement(dest, "NIF").text = ibscbs.dest.nif
+            elif ibscbs.dest.c_nao_nif:
+                ET.SubElement(dest, "cNaoNIF").text = ibscbs.dest.c_nao_nif
+
+            ET.SubElement(dest, "xNome").text = ibscbs.dest.x_nome
+
+            if ibscbs.dest.end is not None:
+                self._emit_endereco(dest, ibscbs.dest.end)
+
+            if ibscbs.dest.fone is not None:
+                ET.SubElement(dest, "fone").text = ibscbs.dest.fone
+            if ibscbs.dest.email is not None:
+                ET.SubElement(dest, "email").text = ibscbs.dest.email
+
+        if ibscbs.imovel is not None:
+            imovel = ET.SubElement(inf_ibscbs, "imovel")
+            if ibscbs.imovel.insc_imob_fisc is not None:
+                ET.SubElement(
+                    imovel, "inscImobFisc"
+                ).text = ibscbs.imovel.insc_imob_fisc
+            if ibscbs.imovel.c_cib is not None:
+                ET.SubElement(imovel, "cCIB").text = ibscbs.imovel.c_cib
+            elif ibscbs.imovel.end is not None:
+                self._emit_endereco(imovel, ibscbs.imovel.end)
+
+        valores = ET.SubElement(inf_ibscbs, "valores")
+
+        if ibscbs.valores.g_ree_rep_res:
+            g_ree_rep_res = ET.SubElement(valores, "gReeRepRes")
+            for item in ibscbs.valores.g_ree_rep_res:
+                documentos = ET.SubElement(g_ree_rep_res, "documentos")
+
+                if item.d_fe_nacional is not None:
+                    d_fe_nacional = ET.SubElement(documentos, "dFeNacional")
+                    ET.SubElement(d_fe_nacional, "tipoChaveDFe").text = (
+                        item.d_fe_nacional.tipo_chave_dfe
+                    )
+                    if item.d_fe_nacional.x_tipo_chave_dfe is not None:
+                        ET.SubElement(d_fe_nacional, "xTipoChaveDFe").text = (
+                            item.d_fe_nacional.x_tipo_chave_dfe
+                        )
+                    ET.SubElement(d_fe_nacional, "chaveDFe").text = (
+                        item.d_fe_nacional.chave_dfe
+                    )
+                elif item.doc_fiscal_outro is not None:
+                    doc_fiscal_outro = ET.SubElement(documentos, "docFiscalOutro")
+                    ET.SubElement(doc_fiscal_outro, "cMunDocFiscal").text = (
+                        item.doc_fiscal_outro.c_mun_doc_fiscal
+                    )
+                    ET.SubElement(doc_fiscal_outro, "nDocFiscal").text = (
+                        item.doc_fiscal_outro.n_doc_fiscal
+                    )
+                    ET.SubElement(doc_fiscal_outro, "xDocFiscal").text = (
+                        item.doc_fiscal_outro.x_doc_fiscal
+                    )
+                elif item.doc_outro is not None:
+                    doc_outro = ET.SubElement(documentos, "docOutro")
+                    ET.SubElement(doc_outro, "nDoc").text = item.doc_outro.n_doc
+                    ET.SubElement(doc_outro, "xDoc").text = item.doc_outro.x_doc
+
+                if item.fornec is not None:
+                    fornec = ET.SubElement(documentos, "fornec")
+                    if item.fornec.cnpj is not None:
+                        ET.SubElement(fornec, "CNPJ").text = item.fornec.cnpj
+                    elif item.fornec.cpf is not None:
+                        ET.SubElement(fornec, "CPF").text = item.fornec.cpf
+                    elif item.fornec.nif is not None:
+                        ET.SubElement(fornec, "NIF").text = item.fornec.nif
+                    elif item.fornec.c_nao_nif is not None:
+                        ET.SubElement(fornec, "cNaoNIF").text = item.fornec.c_nao_nif
+                    ET.SubElement(fornec, "xNome").text = item.fornec.x_nome
+
+                ET.SubElement(documentos, "dtEmiDoc").text = item.dt_emi_doc.isoformat()
+                ET.SubElement(documentos, "dtCompDoc").text = (
+                    item.dt_comp_doc.isoformat()
+                )
+                ET.SubElement(documentos, "tpReeRepRes").text = item.tp_ree_rep_res
+                if item.x_tp_ree_rep_res is not None:
+                    ET.SubElement(documentos, "xTpReeRepRes").text = (
+                        item.x_tp_ree_rep_res
+                    )
+                ET.SubElement(documentos, "vlrReeRepRes").text = self._format_decimal(
+                    item.vlr_ree_rep_res
+                )
+
+        trib = ET.SubElement(valores, "trib")
+        g_ibscbs = ET.SubElement(trib, "gIBSCBS")
+        ET.SubElement(g_ibscbs, "CST").text = ibscbs.valores.trib.g_ibscbs.cst
+        ET.SubElement(
+            g_ibscbs, "cClassTrib"
+        ).text = ibscbs.valores.trib.g_ibscbs.c_class_trib
+
+        if ibscbs.valores.trib.g_ibscbs.c_cred_pres is not None:
+            ET.SubElement(
+                g_ibscbs, "cCredPres"
+            ).text = ibscbs.valores.trib.g_ibscbs.c_cred_pres
+
+        if ibscbs.valores.trib.g_ibscbs.g_trib_regular is not None:
+            g_trib_regular = ET.SubElement(g_ibscbs, "gTribRegular")
+            ET.SubElement(
+                g_trib_regular, "CSTReg"
+            ).text = ibscbs.valores.trib.g_ibscbs.g_trib_regular.cst_reg
+            ET.SubElement(
+                g_trib_regular, "cClassTribReg"
+            ).text = ibscbs.valores.trib.g_ibscbs.g_trib_regular.c_class_trib_reg
+
+        if ibscbs.valores.trib.g_ibscbs.g_dif is not None:
+            g_dif = ET.SubElement(g_ibscbs, "gDif")
+            ET.SubElement(g_dif, "pDifUF").text = self._format_decimal(
+                ibscbs.valores.trib.g_ibscbs.g_dif.p_dif_uf
+            )
+            ET.SubElement(g_dif, "pDifMun").text = self._format_decimal(
+                ibscbs.valores.trib.g_ibscbs.g_dif.p_dif_mun
+            )
+            ET.SubElement(g_dif, "pDifCBS").text = self._format_decimal(
+                ibscbs.valores.trib.g_ibscbs.g_dif.p_dif_cbs
+            )
 
     def _format_decimal(self, value: Decimal) -> str:
         return f"{value:.2f}"

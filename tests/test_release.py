@@ -1,7 +1,7 @@
 """Tests for the release helper."""
 
-from pathlib import Path
 import subprocess
+from pathlib import Path
 
 from pynfse_nacional import release
 
