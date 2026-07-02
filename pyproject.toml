@@ -48,7 +48,7 @@ all = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/robmello/pynfse-nacional"
+Homepage = "https://robmello.github.io/pynfse-nacional/"
 Repository = "https://github.com/robmello/pynfse-nacional"
 Documentation = "https://robmello.github.io/pynfse-nacional/"
 
