@@ -249,6 +249,7 @@ def test_builder_simples_ibscbs_with_regapibscbssn_validates_against_patched_xsd
     dps = deepcopy(sample_dps)
     dps.regime_tributario = "simples_nacional"
     dps.op_simp_nac = "3"
+    dps.reg_ap_trib_sn = "1"
     dps.reg_ap_ibs_cbs_sn = "1"
 
     xml_str = XMLBuilder().build_dps(dps)
@@ -263,6 +264,7 @@ def test_builder_pending_simples_ibscbs_validates_against_patched_xsd(
     dps = deepcopy(sample_dps)
     dps.regime_tributario = "simples_nacional"
     dps.op_simp_nac = "4"
+    dps.reg_ap_trib_sn = "1"
     dps.reg_ap_ibs_cbs_sn = "2"
 
     xml_str = XMLBuilder().build_dps(dps)

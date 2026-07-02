@@ -475,6 +475,9 @@ class DPS(BaseModel):
         if self.op_simp_nac in {"1", "2"} and self.reg_ap_ibs_cbs_sn is not None:
             raise ValueError("regApIBSCBSSN é proibido para opSimpNac 1/2.")
 
+        if self.op_simp_nac in {"3", "4"} and self.reg_ap_trib_sn is None:
+            raise ValueError("regApTribSN é obrigatório para opSimpNac 3/4.")
+
         if self.op_simp_nac in {"3", "4"} and self.reg_ap_ibs_cbs_sn is None:
             raise ValueError("regApIBSCBSSN é obrigatório para opSimpNac 3/4.")
 
