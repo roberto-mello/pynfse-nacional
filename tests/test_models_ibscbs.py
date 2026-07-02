@@ -77,6 +77,14 @@ class TestIBSCBSOptionalModels:
 
         assert dest.cnpj == "11222333000181"
 
+    def test_rejects_empty_dest_email(self):
+        with pytest.raises(ValidationError):
+            DestIBSCBS(
+                cnpj="11222333000181",
+                x_nome="Cliente Teste LTDA",
+                email="",
+            )
+
     def test_accepts_imovel_with_cib(self):
         imovel = ImovelIBSCBS(c_cib="12345678")
 
