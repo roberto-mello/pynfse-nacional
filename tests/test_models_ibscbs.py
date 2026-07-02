@@ -8,6 +8,8 @@ from pydantic import TypeAdapter, ValidationError
 from pynfse_nacional.models_ibscbs import (
     GIBSCBS,
     IBSCBS,
+    IBSCBS_C_IND_OP_ALLOWLIST,
+    IBSCBS_C_IND_OP_CODES,
     DestIBSCBS,
     EnderecoIBSCBS,
     GDifIBSCBS,
@@ -146,6 +148,39 @@ class TestIBSCBSDecimals:
 
 
 class TestIBSCBSCodes:
+    def test_c_ind_op_codes_match_official_annex(self):
+        assert IBSCBS_C_IND_OP_CODES == (
+            "020101",
+            "020201",
+            "020301",
+            "030101",
+            "030102",
+            "030103",
+            "030104",
+            "040101",
+            "050101",
+            "050102",
+            "050103",
+            "050104",
+            "050201",
+            "060101",
+            "070101",
+            "070102",
+            "080101",
+            "100101",
+            "100102",
+            "100201",
+            "100301",
+            "100302",
+            "100401",
+            "100501",
+            "100502",
+            "100601",
+        )
+        assert IBSCBS_C_IND_OP_ALLOWLIST == frozenset(
+            code for code in IBSCBS_C_IND_OP_CODES if code != "080101"
+        )
+
     def test_fin_nfse_literal(self):
         ibscbs = build_minimal_ibscbs()
         assert ibscbs.fin_nfse == "0"
@@ -194,6 +229,118 @@ class TestIBSCBSCodes:
             )
 
 
+class TestIBSCBSRules:
+    def test_accepts_fin_nfse_one_with_credit_and_reference(self):
+        ibscbs = IBSCBS(
+            fin_nfse="1",
+            tp_nfse_credito="01",
+            c_ind_op="020101",
+            ind_dest="0",
+            g_ref_nfse=RefNFSe(
+                ref_nfse=[
+                    "12345678901234567890123456789012345678901234567890",
+                ]
+            ),
+            valores=ValoresIBSCBS(
+                trib=TribIBSCBS(
+                    g_ibscbs=GIBSCBS(cst="001", c_class_trib="123456")
+                )
+            ),
+        )
+
+        assert ibscbs.fin_nfse == "1"
+        assert ibscbs.tp_nfse_credito == "01"
+
+    def test_accepts_fin_nfse_two_with_debit_and_reference(self):
+        ibscbs = IBSCBS(
+            fin_nfse="2",
+            tp_nfse_debito="04",
+            c_ind_op="020101",
+            ind_dest="0",
+            g_ref_nfse=RefNFSe(
+                ref_nfse=[
+                    "12345678901234567890123456789012345678901234567890",
+                ]
+            ),
+            valores=ValoresIBSCBS(
+                trib=TribIBSCBS(
+                    g_ibscbs=GIBSCBS(cst="001", c_class_trib="123456")
+                )
+            ),
+        )
+
+        assert ibscbs.fin_nfse == "2"
+        assert ibscbs.tp_nfse_debito == "04"
+
+    def test_rejects_fin_nfse_zero_with_credit(self):
+        with pytest.raises(ValidationError):
+            IBSCBS(
+                fin_nfse="0",
+                tp_nfse_credito="01",
+                c_ind_op="020101",
+                ind_dest="0",
+                valores=ValoresIBSCBS(
+                    trib=TribIBSCBS(
+                        g_ibscbs=GIBSCBS(cst="001", c_class_trib="123456")
+                    )
+                ),
+            )
+
+    def test_rejects_fin_nfse_one_without_credit(self):
+        with pytest.raises(ValidationError):
+            IBSCBS(
+                fin_nfse="1",
+                c_ind_op="020101",
+                ind_dest="0",
+                valores=ValoresIBSCBS(
+                    trib=TribIBSCBS(
+                        g_ibscbs=GIBSCBS(cst="001", c_class_trib="123456")
+                    )
+                ),
+            )
+
+    def test_rejects_fin_nfse_two_without_debit(self):
+        with pytest.raises(ValidationError):
+            IBSCBS(
+                fin_nfse="2",
+                c_ind_op="020101",
+                ind_dest="0",
+                valores=ValoresIBSCBS(
+                    trib=TribIBSCBS(
+                        g_ibscbs=GIBSCBS(cst="001", c_class_trib="123456")
+                    )
+                ),
+            )
+
+    def test_rejects_tp_oper_without_reference(self):
+        with pytest.raises(ValidationError):
+            IBSCBS(
+                fin_nfse="0",
+                c_ind_op="020101",
+                tp_oper="2",
+                ind_dest="0",
+                valores=ValoresIBSCBS(
+                    trib=TribIBSCBS(
+                        g_ibscbs=GIBSCBS(cst="001", c_class_trib="123456")
+                    )
+                ),
+            )
+
+    def test_rejects_empty_reference_group(self):
+        with pytest.raises(ValidationError):
+            IBSCBS(
+                fin_nfse="0",
+                c_ind_op="020101",
+                ind_dest="0",
+                g_ref_nfse=RefNFSe(),
+                valores=ValoresIBSCBS(
+                    trib=TribIBSCBS(
+                        g_ibscbs=GIBSCBS(cst="001", c_class_trib="123456")
+                    )
+                ),
+            )
+
+
 class TestIBSCBSValidation:
     def test_ref_nfse_enforces_max_length(self):
         with pytest.raises(ValidationError):
@@ -211,4 +358,3 @@ class TestIBSCBSValidation:
                 c_class_trib="123456",
                 v_ibs="10.00",
             )
-
