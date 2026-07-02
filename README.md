@@ -25,6 +25,7 @@ Esta biblioteca fornece um cliente para interagir com a API do NFSe Nacional (SE
 - Assinatura digital de XML (XMLDSIG)
 - Compressão GZip e codificação Base64
 - Emissão, consulta, cancelamento e substituição de NFSe
+- Suporte a IBSCBS na DPS, na resposta da API e no DANFSe
 - Download e geração local do DANFSe em PDF
 - Consulta de convênio municipal
 - Validação de campos com mensagens em português
@@ -110,7 +111,9 @@ dps = DPS(
     tomador=tomador,
     servico=servico,
     regime_tributario="simples_nacional",
-    optante_simples=True,
+    op_simp_nac="3",
+    reg_ap_trib_sn="1",
+    reg_ap_ibs_cbs_sn="1",
     incentivador_cultural=False,
 )
 
@@ -129,6 +132,28 @@ if response.success:
     print(f"Chave de acesso: {response.chave_acesso}")
 else:
     print(f"Erro: {response.error_message}")
+```
+
+Para contribuintes optantes pelo Simples Nacional com IBSCBS, informe o grupo
+`ibscbs` e mantenha os campos de apuração compatíveis com `op_simp_nac`.
+Os valores `cst` e `c_class_trib` abaixo são apenas exemplos válidos no schema:
+
+```python
+from pynfse_nacional import GIBSCBS, IBSCBS, TribIBSCBS, ValoresIBSCBS
+
+dps.ibscbs = IBSCBS(
+    fin_nfse="0",
+    c_ind_op="020101",
+    ind_dest="0",
+    valores=ValoresIBSCBS(
+        trib=TribIBSCBS(
+            g_ibscbs=GIBSCBS(
+                cst="001",
+                c_class_trib="123456",
+            )
+        )
+    ),
+)
 ```
 
 ## Referência da API
@@ -317,6 +342,7 @@ pdf_bytes = generate_danfse_from_base64(
 - `Servico` - Detalhes do serviço
 - `ConvenioMunicipal` - Informações de convênio municipal
 - `SubstituicaoNFSe` - Informações de substituição de NFSe
+- `IBSCBS` - Dados do leiaute IBSCBS da DPS
 
 ## Ambientes
 
@@ -331,6 +357,7 @@ pdf_bytes = generate_danfse_from_base64(
 - [Documentação Técnica](https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/) - Biblioteca de documentos técnicos
 - [Documentação Atual](https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/documentacao-atual) - Versão mais recente dos documentos
 - [Schemas XSD](https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/documentacao-atual/nfse-esquemas_xsd-v1-01-20260209.zip) - Esquemas XML para validação
+- [Anexo C - IBSCBS / INDOP](https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/documentacao-atual/anexo_c-indop_ibscbs-snnfse-v1-01-20260122.xlsx) - Tabela oficial de `cIndOp` para IBSCBS
 - [APIs - Produção e Homologação](https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/apis-prod-restrita-e-producao) - Endpoints das APIs
 
 ### Manuais da API
@@ -456,7 +483,9 @@ dps = DPS(
     tomador=tomador,
     servico=servico,
     regime_tributario="simples_nacional",
-    optante_simples=True,
+    op_simp_nac="3",
+    reg_ap_trib_sn="1",
+    reg_ap_ibs_cbs_sn="1",
     incentivador_cultural=False,
 )
 
@@ -475,6 +504,28 @@ if response.success:
     print(f"Access key: {response.chave_acesso}")
 else:
     print(f"Error: {response.error_message}")
+```
+
+For Simples Nacional providers using IBSCBS, include the `ibscbs` group and
+keep the apportionment fields aligned with `op_simp_nac`.
+The `cst` and `c_class_trib` values below are just schema-valid examples:
+
+```python
+from pynfse_nacional import GIBSCBS, IBSCBS, TribIBSCBS, ValoresIBSCBS
+
+dps.ibscbs = IBSCBS(
+    fin_nfse="0",
+    c_ind_op="020101",
+    ind_dest="0",
+    valores=ValoresIBSCBS(
+        trib=TribIBSCBS(
+            g_ibscbs=GIBSCBS(
+                cst="001",
+                c_class_trib="123456",
+            )
+        )
+    ),
+)
 ```
 
 ### API Reference
@@ -598,6 +649,7 @@ pdf_bytes = generate_danfse_from_base64(
 - `Servico` - Service details
 - `ConvenioMunicipal` - Municipal agreement information
 - `SubstituicaoNFSe` - NFSe substitution information
+- `IBSCBS` - IBSCBS layout data for DPS
 
 ### Environments
 
@@ -610,6 +662,7 @@ pdf_bytes = generate_danfse_from_base64(
 - [Technical Documentation](https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/)
 - [All Documentation](https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/documentacao-atual)
 - [XSD Schemas](https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/documentacao-atual/nfse-esquemas_xsd-v1-01-20260209.zip)
+- [IBSCBS Annex / INDOP](https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/documentacao-atual/anexo_c-indop_ibscbs-snnfse-v1-01-20260122.xlsx) - Official `cIndOp` table for IBSCBS
 - [API Docs](https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/apis-prod-restrita-e-producao)
 
 ### Community Resources
