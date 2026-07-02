@@ -191,9 +191,7 @@ class TestIBSCBSCodes:
                 c_ind_op="020101",
                 ind_dest="0",
                 valores=ValoresIBSCBS(
-                    trib=TribIBSCBS(
-                        g_ibscbs=GIBSCBS(cst="001", c_class_trib="123456")
-                    )
+                    trib=TribIBSCBS(g_ibscbs=GIBSCBS(cst="001", c_class_trib="123456"))
                 ),
             )
 
@@ -209,9 +207,7 @@ class TestIBSCBSCodes:
                 c_ind_op="999999",
                 ind_dest="0",
                 valores=ValoresIBSCBS(
-                    trib=TribIBSCBS(
-                        g_ibscbs=GIBSCBS(cst="001", c_class_trib="123456")
-                    )
+                    trib=TribIBSCBS(g_ibscbs=GIBSCBS(cst="001", c_class_trib="123456"))
                 ),
             )
 
@@ -222,9 +218,7 @@ class TestIBSCBSCodes:
                 c_ind_op="080101",
                 ind_dest="0",
                 valores=ValoresIBSCBS(
-                    trib=TribIBSCBS(
-                        g_ibscbs=GIBSCBS(cst="001", c_class_trib="123456")
-                    )
+                    trib=TribIBSCBS(g_ibscbs=GIBSCBS(cst="001", c_class_trib="123456"))
                 ),
             )
 
@@ -242,9 +236,7 @@ class TestIBSCBSRules:
                 ]
             ),
             valores=ValoresIBSCBS(
-                trib=TribIBSCBS(
-                    g_ibscbs=GIBSCBS(cst="001", c_class_trib="123456")
-                )
+                trib=TribIBSCBS(g_ibscbs=GIBSCBS(cst="001", c_class_trib="123456"))
             ),
         )
 
@@ -263,9 +255,7 @@ class TestIBSCBSRules:
                 ]
             ),
             valores=ValoresIBSCBS(
-                trib=TribIBSCBS(
-                    g_ibscbs=GIBSCBS(cst="001", c_class_trib="123456")
-                )
+                trib=TribIBSCBS(g_ibscbs=GIBSCBS(cst="001", c_class_trib="123456"))
             ),
         )
 
@@ -280,9 +270,7 @@ class TestIBSCBSRules:
                 c_ind_op="020101",
                 ind_dest="0",
                 valores=ValoresIBSCBS(
-                    trib=TribIBSCBS(
-                        g_ibscbs=GIBSCBS(cst="001", c_class_trib="123456")
-                    )
+                    trib=TribIBSCBS(g_ibscbs=GIBSCBS(cst="001", c_class_trib="123456"))
                 ),
             )
 
@@ -293,9 +281,7 @@ class TestIBSCBSRules:
                 c_ind_op="020101",
                 ind_dest="0",
                 valores=ValoresIBSCBS(
-                    trib=TribIBSCBS(
-                        g_ibscbs=GIBSCBS(cst="001", c_class_trib="123456")
-                    )
+                    trib=TribIBSCBS(g_ibscbs=GIBSCBS(cst="001", c_class_trib="123456"))
                 ),
             )
 
@@ -306,9 +292,7 @@ class TestIBSCBSRules:
                 c_ind_op="020101",
                 ind_dest="0",
                 valores=ValoresIBSCBS(
-                    trib=TribIBSCBS(
-                        g_ibscbs=GIBSCBS(cst="001", c_class_trib="123456")
-                    )
+                    trib=TribIBSCBS(g_ibscbs=GIBSCBS(cst="001", c_class_trib="123456"))
                 ),
             )
 
@@ -320,9 +304,7 @@ class TestIBSCBSRules:
                 tp_oper="2",
                 ind_dest="0",
                 valores=ValoresIBSCBS(
-                    trib=TribIBSCBS(
-                        g_ibscbs=GIBSCBS(cst="001", c_class_trib="123456")
-                    )
+                    trib=TribIBSCBS(g_ibscbs=GIBSCBS(cst="001", c_class_trib="123456"))
                 ),
             )
 
@@ -334,9 +316,7 @@ class TestIBSCBSRules:
                 ind_dest="0",
                 g_ref_nfse=RefNFSe(),
                 valores=ValoresIBSCBS(
-                    trib=TribIBSCBS(
-                        g_ibscbs=GIBSCBS(cst="001", c_class_trib="123456")
-                    )
+                    trib=TribIBSCBS(g_ibscbs=GIBSCBS(cst="001", c_class_trib="123456"))
                 ),
             )
 

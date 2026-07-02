@@ -1,10 +1,17 @@
 import warnings
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import version as _pkg_version
 from xml.etree import ElementTree as ET
 
 from .constants import Ambiente
 from .models import DPS
+
+try:
+    _VERAPLIC = f"pynfse-{_pkg_version('pynfse-nacional')}"
+except PackageNotFoundError:
+    _VERAPLIC = "pynfse-0.5.0"
 
 
 class XMLBuilder:
@@ -49,13 +56,17 @@ class XMLBuilder:
         # even when submitting to homologacao environment (which uses ambGer in response)
         tpAmb = "1" if self.ambiente == Ambiente.PRODUCAO else "2"
         ET.SubElement(infDPS, "tpAmb").text = tpAmb
-        ET.SubElement(infDPS, "dhEmi").text = dps.data_emissao.strftime("%Y-%m-%dT%H:%M:%S-03:00")
-        ET.SubElement(infDPS, "verAplic").text = "pynfse-1.0"
+        ET.SubElement(infDPS, "dhEmi").text = dps.data_emissao.strftime(
+            "%Y-%m-%dT%H:%M:%S-03:00"
+        )
+        ET.SubElement(infDPS, "verAplic").text = _VERAPLIC
         ET.SubElement(infDPS, "serie").text = dps.serie
         ET.SubElement(infDPS, "nDPS").text = str(dps.numero)
         ET.SubElement(infDPS, "dCompet").text = dps.data_emissao.strftime("%Y-%m-%d")
         ET.SubElement(infDPS, "tpEmit").text = "1"
-        ET.SubElement(infDPS, "cLocEmi").text = str(dps.prestador.endereco.codigo_municipio)
+        ET.SubElement(infDPS, "cLocEmi").text = str(
+            dps.prestador.endereco.codigo_municipio
+        )
 
         # Add substitution info if present (must come before prest)
         if dps.substituicao:
@@ -102,7 +113,7 @@ class XMLBuilder:
 
         infPedReg = ET.SubElement(root, "infPedReg", Id=event_id)
         ET.SubElement(infPedReg, "tpAmb").text = tpAmb
-        ET.SubElement(infPedReg, "verAplic").text = "pynfse-1.0"
+        ET.SubElement(infPedReg, "verAplic").text = _VERAPLIC
         ET.SubElement(infPedReg, "dhEvento").text = dh_evento
 
         if cnpj_prestador:
@@ -157,7 +168,9 @@ class XMLBuilder:
         if dps.op_simp_nac in {"3", "4"}:
             ET.SubElement(regTrib, "regApIBSCBSSN").text = dps.reg_ap_ibs_cbs_sn
 
-        ET.SubElement(regTrib, "regEspTrib").text = self._map_regime_especial(dps.regime_tributario)
+        ET.SubElement(regTrib, "regEspTrib").text = self._map_regime_especial(
+            dps.regime_tributario
+        )
 
     def _add_tomador(self, parent: ET.Element, dps: DPS) -> None:
         toma = ET.SubElement(parent, "toma")
@@ -172,7 +185,9 @@ class XMLBuilder:
         if dps.tomador.endereco:
             end = ET.SubElement(toma, "end")
             endNac = ET.SubElement(end, "endNac")
-            ET.SubElement(endNac, "cMun").text = str(dps.tomador.endereco.codigo_municipio)
+            ET.SubElement(endNac, "cMun").text = str(
+                dps.tomador.endereco.codigo_municipio
+            )
             ET.SubElement(endNac, "CEP").text = dps.tomador.endereco.cep
 
             ET.SubElement(end, "xLgr").text = dps.tomador.endereco.logradouro
@@ -187,7 +202,9 @@ class XMLBuilder:
         serv = ET.SubElement(parent, "serv")
 
         locPrest = ET.SubElement(serv, "locPrest")
-        ET.SubElement(locPrest, "cLocPrestacao").text = str(dps.prestador.endereco.codigo_municipio)
+        ET.SubElement(locPrest, "cLocPrestacao").text = str(
+            dps.prestador.endereco.codigo_municipio
+        )
 
         cServ = ET.SubElement(serv, "cServ")
         codigo = dps.servico.codigo_lc116.replace(".", "")
@@ -195,7 +212,9 @@ class XMLBuilder:
 
         # cTribMun - municipal code (optional but used in real NFSe)
         if dps.servico.codigo_tributacao_municipal:
-            ET.SubElement(cServ, "cTribMun").text = dps.servico.codigo_tributacao_municipal
+            ET.SubElement(
+                cServ, "cTribMun"
+            ).text = dps.servico.codigo_tributacao_municipal
 
         ET.SubElement(cServ, "xDescServ").text = dps.servico.discriminacao
 
@@ -207,7 +226,9 @@ class XMLBuilder:
         valores = ET.SubElement(parent, "valores")
 
         vServPrest = ET.SubElement(valores, "vServPrest")
-        ET.SubElement(vServPrest, "vServ").text = self._format_decimal(dps.servico.valor_servicos)
+        ET.SubElement(vServPrest, "vServ").text = self._format_decimal(
+            dps.servico.valor_servicos
+        )
 
         trib = ET.SubElement(valores, "trib")
 
@@ -215,7 +236,9 @@ class XMLBuilder:
         ET.SubElement(tribMun, "tribISSQN").text = "1"
 
         # tpRetISSQN: 1=Não Retido, 2=Retido Tomador, 3=Retido Intermediário
-        ET.SubElement(tribMun, "tpRetISSQN").text = "2" if dps.servico.iss_retido else "1"
+        ET.SubElement(tribMun, "tpRetISSQN").text = (
+            "2" if dps.servico.iss_retido else "1"
+        )
 
         totTrib = ET.SubElement(trib, "totTrib")
 
@@ -234,7 +257,9 @@ class XMLBuilder:
                     stacklevel=3,
                 )
 
-            ET.SubElement(totTrib, "pTotTribSN").text = self._format_decimal(aliquota_sn)
+            ET.SubElement(totTrib, "pTotTribSN").text = self._format_decimal(
+                aliquota_sn
+            )
         else:
             # For non-Simples, use percentage breakdown
             pTotTrib = ET.SubElement(totTrib, "pTotTrib")
@@ -288,7 +313,9 @@ class XMLBuilder:
             if ibscbs.dest.end is not None:
                 end = ET.SubElement(dest, "end")
                 endNac = ET.SubElement(end, "endNac")
-                ET.SubElement(endNac, "cMun").text = str(ibscbs.dest.end.codigo_municipio)
+                ET.SubElement(endNac, "cMun").text = str(
+                    ibscbs.dest.end.codigo_municipio
+                )
                 ET.SubElement(endNac, "CEP").text = ibscbs.dest.end.cep
                 ET.SubElement(end, "xLgr").text = ibscbs.dest.end.logradouro
                 ET.SubElement(end, "nro").text = ibscbs.dest.end.numero
@@ -304,13 +331,17 @@ class XMLBuilder:
         if ibscbs.imovel is not None:
             imovel = ET.SubElement(infIBSCBS, "imovel")
             if ibscbs.imovel.insc_imob_fisc is not None:
-                ET.SubElement(imovel, "inscImobFisc").text = ibscbs.imovel.insc_imob_fisc
+                ET.SubElement(
+                    imovel, "inscImobFisc"
+                ).text = ibscbs.imovel.insc_imob_fisc
             if ibscbs.imovel.c_cib is not None:
                 ET.SubElement(imovel, "cCIB").text = ibscbs.imovel.c_cib
             elif ibscbs.imovel.end is not None:
                 end = ET.SubElement(imovel, "end")
                 endNac = ET.SubElement(end, "endNac")
-                ET.SubElement(endNac, "cMun").text = str(ibscbs.imovel.end.codigo_municipio)
+                ET.SubElement(endNac, "cMun").text = str(
+                    ibscbs.imovel.end.codigo_municipio
+                )
                 ET.SubElement(endNac, "CEP").text = ibscbs.imovel.end.cep
                 ET.SubElement(end, "xLgr").text = ibscbs.imovel.end.logradouro
                 ET.SubElement(end, "nro").text = ibscbs.imovel.end.numero
@@ -327,22 +358,36 @@ class XMLBuilder:
 
         trib = ET.SubElement(valores, "trib")
         gIBSCBS = ET.SubElement(trib, "gIBSCBS")
-        ET.SubElement(gIBSCBS, "cST").text = ibscbs.valores.trib.g_ibscbs.cst
-        ET.SubElement(gIBSCBS, "cClassTrib").text = ibscbs.valores.trib.g_ibscbs.c_class_trib
+        ET.SubElement(gIBSCBS, "CST").text = ibscbs.valores.trib.g_ibscbs.cst
+        ET.SubElement(
+            gIBSCBS, "cClassTrib"
+        ).text = ibscbs.valores.trib.g_ibscbs.c_class_trib
 
         if ibscbs.valores.trib.g_ibscbs.c_cred_pres is not None:
-            ET.SubElement(gIBSCBS, "cCredPres").text = ibscbs.valores.trib.g_ibscbs.c_cred_pres
+            ET.SubElement(
+                gIBSCBS, "cCredPres"
+            ).text = ibscbs.valores.trib.g_ibscbs.c_cred_pres
 
         if ibscbs.valores.trib.g_ibscbs.g_trib_regular is not None:
             gTribRegular = ET.SubElement(gIBSCBS, "gTribRegular")
-            ET.SubElement(gTribRegular, "cSTReg").text = ibscbs.valores.trib.g_ibscbs.g_trib_regular.cst_reg
-            ET.SubElement(gTribRegular, "cClassTribReg").text = ibscbs.valores.trib.g_ibscbs.g_trib_regular.c_class_trib_reg
+            ET.SubElement(
+                gTribRegular, "CSTReg"
+            ).text = ibscbs.valores.trib.g_ibscbs.g_trib_regular.cst_reg
+            ET.SubElement(
+                gTribRegular, "cClassTribReg"
+            ).text = ibscbs.valores.trib.g_ibscbs.g_trib_regular.c_class_trib_reg
 
         if ibscbs.valores.trib.g_ibscbs.g_dif is not None:
             gDif = ET.SubElement(gIBSCBS, "gDif")
-            ET.SubElement(gDif, "pDifUF").text = self._format_decimal(ibscbs.valores.trib.g_ibscbs.g_dif.p_dif_uf)
-            ET.SubElement(gDif, "pDifMun").text = self._format_decimal(ibscbs.valores.trib.g_ibscbs.g_dif.p_dif_mun)
-            ET.SubElement(gDif, "pDifCBS").text = self._format_decimal(ibscbs.valores.trib.g_ibscbs.g_dif.p_dif_cbs)
+            ET.SubElement(gDif, "pDifUF").text = self._format_decimal(
+                ibscbs.valores.trib.g_ibscbs.g_dif.p_dif_uf
+            )
+            ET.SubElement(gDif, "pDifMun").text = self._format_decimal(
+                ibscbs.valores.trib.g_ibscbs.g_dif.p_dif_mun
+            )
+            ET.SubElement(gDif, "pDifCBS").text = self._format_decimal(
+                ibscbs.valores.trib.g_ibscbs.g_dif.p_dif_cbs
+            )
 
     def _format_decimal(self, value: Decimal) -> str:
         return f"{value:.2f}"

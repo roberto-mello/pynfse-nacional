@@ -20,7 +20,7 @@ _C_CIB_PATTERN = re.compile(r"^[0-9]{8}$")
 _TP_NFSE_CREDITO_VALUES = {"01", "05"}
 _TP_NFSE_DEBITO_VALUES = {"01", "02", "03", "04", "05", "06"}
 
-# Official ANEXO_C-INDOP_IBSCBS-SNNFSe-v1.01-20260122 workbook.
+# Official ANEXO_C-INDOP_IBSCBS-SNNFSe-v1.01-20260209 workbook.
 # Source table contains 26 codes; 080101 is Via-only and is excluded below.
 IBSCBS_C_IND_OP_CODES = (
     "020101",
@@ -252,7 +252,10 @@ class IBSCBS(BaseModel):
                     raise ValueError("gRefNFSe é obrigatório para tpNFSeDebito 03/04.")
                 if self.tp_nfse_debito == "04" and len(self.g_ref_nfse.ref_nfse) != 1:
                     raise ValueError("tpNFSeDebito 04 permite apenas uma refNFSe.")
-            elif self.tp_nfse_debito in {"01", "02", "05", "06"} and self.g_ref_nfse is not None:
+            elif (
+                self.tp_nfse_debito in {"01", "02", "05", "06"}
+                and self.g_ref_nfse is not None
+            ):
                 raise ValueError("gRefNFSe é proibido para tpNFSeDebito 01/02/05/06.")
 
         return self

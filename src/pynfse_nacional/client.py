@@ -64,6 +64,7 @@ def _extract_nfse_number_from_xml(xml_content: str) -> Optional[str]:
 
     return None
 
+
 try:
     from cryptography.hazmat.primitives.serialization import (
         Encoding,
@@ -127,8 +128,7 @@ class NFSeClient:
 
             if not cert_path.exists():
                 raise NFSeCertificateError(
-                    f"Certificate file not found: "
-                    f"{self.cert_path}"
+                    f"Certificate file not found: {self.cert_path}"
                 )
 
             with open(cert_path, "rb") as f:
@@ -341,9 +341,8 @@ class NFSeClient:
         _validate_chave_acesso(chave_acesso)
 
         # DANFSE API is on a different domain than SEFIN
-        danfse_base_url = (
-            self.base_url.replace("sefin.", "adn.")
-            .replace("/SefinNacional", "")
+        danfse_base_url = self.base_url.replace("sefin.", "adn.").replace(
+            "/SefinNacional", ""
         )
         url = (
             f"{danfse_base_url}"
@@ -363,8 +362,7 @@ class NFSeClient:
                         pass
 
                     msg = error_data.get("mensagem") or (
-                        f"Erro ao baixar DANFSe: "
-                        f"HTTP {response.status_code}"
+                        f"Erro ao baixar DANFSe: HTTP {response.status_code}"
                     )
                     raise NFSeAPIError(
                         msg,
@@ -483,8 +481,7 @@ class NFSeClient:
                 success=False,
                 error_code=str(response.status_code),
                 error_message=(
-                    response.text[:500]
-                    or f"HTTP {response.status_code} sem corpo"
+                    response.text[:500] or f"HTTP {response.status_code} sem corpo"
                 ),
             )
 
@@ -500,9 +497,8 @@ class NFSeClient:
                         success=False,
                         error_code=str(c_stat),
                         error_message=(
-                        ret_evento.get("xMotivo")
-                        or "Erro no registro do evento"
-                    ),
+                            ret_evento.get("xMotivo") or "Erro no registro do evento"
+                        ),
                     )
 
                 return EventResponse(
@@ -571,8 +567,7 @@ class NFSeClient:
                         pass
 
                     msg = error_data.get("mensagem") or (
-                        f"Erro ao consultar convenio: "
-                        f"HTTP {response.status_code}"
+                        f"Erro ao consultar convenio: HTTP {response.status_code}"
                     )
                     raise NFSeAPIError(
                         msg,
