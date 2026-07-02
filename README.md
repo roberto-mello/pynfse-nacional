@@ -172,7 +172,7 @@ Cliente principal para a API do NFSe Nacional.
 - `query_nfse(chave_acesso: str) -> NFSeQueryResult` - Consulta NFSe pela chave de acesso
 - `query_nfse_by_dps(id_dps: str) -> NFSeQueryResult` - Recupera a NFSe pelo identificador da DPS
 - `has_nfse_by_dps(id_dps: str) -> bool` - Verifica se a DPS já gerou uma NFSe
-- `recover_nfse_by_dps(id_dps: str) -> RecoveryOutcome` - Recuperação de alto nível combinando `has_nfse_by_dps` + `query_nfse_by_dps` (ver abaixo)
+- `recover_nfse_by_dps(id_dps: str) -> RecoveryOutcome` - Recuperação simplificada combinando `has_nfse_by_dps` e `query_nfse_by_dps` (ver abaixo)
 - `download_danfse(chave_acesso: str) -> bytes` - Baixa o DANFSe em PDF
 - `cancel_nfse(chave_acesso, reason, codigo_motivo=1, cnpj_prestador="") -> EventResponse` - Cancela NFSe
 - `substitute_nfse(chave_acesso_original, new_dps, motivo, codigo_motivo) -> NFSeResponse` - Substitui NFSe existente
@@ -201,13 +201,13 @@ if client.has_nfse_by_dps(dps_id):
 `build_dps()` usa o mesmo identificador para montar o XML, mas não grava o
 valor de volta em `dps.id_dps`. Guarde o `dps_id` se quiser consultar depois.
 
-**Recuperação de NFSe por DPS (alto nível):**
+**Recuperação Simplificada de NFSe por DPS:**
 
 Quando o `submit_dps` falha ou a SEFIN já processou a DPS mas a aplicação
 perdeu a `chave_acesso` (ex.: resposta duplicada `e0014`, ou falha de
 transporte após a SEFIN aceitar a DPS), use `recover_nfse_by_dps` para tentar
 recuperar o estado da NFSe em uma única chamada. O retorno é um
-`RecoveryOutcome` (dataclass imutável) com `status` em um de três valores:
+`RecoveryOutcome` (dataclass imutável) com `status` com três valores possíveis:
 
 - `"success"`: a NFSe existe remotamente; `result` (um `NFSeQueryResult`)
   contém os dados completos para persistir.
@@ -217,6 +217,8 @@ recuperar o estado da NFSe em uma única chamada. O retorno é um
 - `"error"`: a própria consulta falhou (transporte ou erro de API); `error`
   contém o `NFSeAPIError`. A aplicação deve apresentar o erro original do
   submit.
+
+Exemplo:
 
 ```python
 from pynfse_nacional import RecoveryOutcome
@@ -234,9 +236,12 @@ else:  # "error"
     print(outcome.error.code, outcome.error.message)
 ```
 
-`recover_nfse_by_dps` é mais barato que `query_nfse_by_dps` no caminho de
-"ainda não está pronto": faz um `HEAD` primeiro e só busca a NFSe completa
-quando ela existir.
+`recover_nfse_by_dps()` é mais eficiente que `query_nfse_by_dps()` no caminho de
+"ainda não está pronto" pois faz primeiro um `HEAD /dps/{id}` (que só retorna
+o status, sem corpo) via `has_nfse_by_dps()`. Só quando o HEAD confirma que a
+NFSe existe é que ele parte para o `GET` completo e decodifica o XML. Assim,
+quando a DPS ainda não gerou NFSe, isso evita tentar baixar e processar um XML
+que não existe.
 
 **Consulta de Convênio Municipal:**
 
