@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Hardened gzipped NFSe decoding against oversized payloads, switched XML parsing
+  in the signer and response-number extraction paths to a safer parser config,
+  and removed raw sensitive values from validation errors.
+
+### Added
+- Response-side IBSCBS parsing now populates `NFSe`, `NFSeQueryResult`, and the
+  PDF parser data model from the response XML with a single XML parse.
+- DANFSe PDF rendering now shows an optional IBSCBS totals lane when `totCIBS`
+  is present, and leaves the layout unchanged when it is absent.
+- `NFSeClient` now supports recovering an NFSe by DPS identifier with
+  `query_nfse_by_dps(id_dps)` and checking availability with
+  `has_nfse_by_dps(id_dps)`, using the official `GET /dps/{id}` and
+  `HEAD /dps/{id}` endpoints.
+
 ## [0.5.0] - 2026-07-01
 
 ### Added
