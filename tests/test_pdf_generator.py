@@ -6,6 +6,7 @@ Note: Some tests require the optional [pdf] dependencies (reportlab, qrcode).
 
 import base64
 import gzip
+from decimal import Decimal
 from unittest.mock import patch
 from xml.etree import ElementTree as ET
 
@@ -22,6 +23,7 @@ try:
         _format_date,
         _format_datetime,
         _format_phone,
+        _format_percent,
         _get_retencao_issqn_desc,
         _get_simples_nacional_desc,
         _get_trib_issqn_desc,
@@ -334,6 +336,20 @@ class TestFormatCurrency:
     def test_handles_empty_string(self):
         """Should return dash for empty input."""
         result = _format_currency("")
+
+        assert result == "-"
+
+
+class TestFormatPercent:
+    """Tests for _format_percent function."""
+
+    def test_formats_regular_percentage(self):
+        result = _format_percent(Decimal("15.5"))
+
+        assert result == "15.50%"
+
+    def test_handles_invalid_operation(self):
+        result = _format_percent(Decimal("1E+9999999999"))
 
         assert result == "-"
 
