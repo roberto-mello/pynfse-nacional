@@ -538,10 +538,6 @@ IBSCBSOperationCode = Literal[
 
 def get_ibscbs_operation_category(c_ind_op: str) -> Optional[IBSCBSOperationCategory]:
     """Return the grouped operation family for a six-digit `cIndOp`."""
-
-    if len(c_ind_op) < 4:
-        return None
-
     return IBSCBS_OPERATION_CATEGORIES_BY_CODE.get(c_ind_op[:4])
 
 
