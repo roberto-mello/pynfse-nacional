@@ -10,6 +10,7 @@ Motivos:
 - A navegação lateral, a busca e os botões de copiar já vêm no tema.
 - A referência da API sai dos docstrings, sem copiar conteúdo para páginas soltas.
 - O layout cai para drawer no mobile sem precisar de uma camada extra de UI.
+- `navigation.indexes` faz cada seção abrir sua página de visão geral.
 
 ## Mapa do site
 
@@ -58,6 +59,9 @@ Fica no README:
 - exemplos principais;
 - link para a documentação completa.
 
+Os metadados do pacote apontam para o site da documentação como `Homepage`
+e mantêm o repositório separado como `Repository`.
+
 Sai do README:
 
 - referência exaustiva de API;
@@ -86,4 +90,3 @@ Fluxo previsto:
 4. deploy para Pages a partir do artefato gerado
 
 O ponto de entrada do site fica em `https://robmello.github.io/pynfse-nacional/`.
-

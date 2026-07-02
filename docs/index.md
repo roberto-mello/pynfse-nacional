@@ -2,19 +2,30 @@
 
 Biblioteca Python para integração com a API do NFSe Nacional.
 
+## Comece aqui
+
+- Instale a biblioteca.
+- Configure certificado mTLS.
+- Emita a primeira DPS.
+- Consulte, cancele ou substitua NFSe.
+
+[Ver guias](getting-started.md){ .md-button .md-button--primary }
+[Referência da API](api/index.md){ .md-button }
+[Arquitetura do site](architecture.md){ .md-button }
+
 ## Instalação
 
 ```bash
 uv add pynfse-nacional
 ```
 
-Para geração local de DANFSe em PDF:
+Para DANFSe em PDF:
 
 ```bash
 uv add "pynfse-nacional[pdf]"
 ```
 
-## Início rápido
+## Quickstart
 
 ```python
 from decimal import Decimal
@@ -43,10 +54,19 @@ dps = DPS(
 response = client.submit_dps(dps)
 ```
 
-## Próximos passos
+## O que este site cobre
 
-- Leia [Começando](getting-started.md) para ver o fluxo base.
-- Veja os [Guias](guides/index.md) para tarefas comuns.
-- Consulte a [Referência da API](api/index.md) para módulos e classes.
-- Use [Arquitetura](architecture.md) para entender a forma do site.
+- [Guias](guides/index.md) para certificado, emissão, consulta, cancelamento, substituição, PDF e IBSCBS.
+- [Referência da API](api/index.md) gerada dos docstrings do código.
+- [Apêndice](appendix/index.md) para troubleshooting, ambiente e release.
 
+## Documentação oficial
+
+- [Site da documentação](https://robmello.github.io/pynfse-nacional/) - guias, referência da API e apêndice
+- [Portal NFSe Nacional](https://www.gov.br/nfse)
+- [Documentação Técnica](https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/)
+- [Documentação Atual](https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/documentacao-atual)
+
+## Licença
+
+GNU Affero General Public License v3 (AGPL-3.0)

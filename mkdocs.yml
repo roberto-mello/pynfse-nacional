@@ -1,5 +1,5 @@
 site_name: pynfse-nacional
-site_description: Biblioteca Python para integração com a API do NFSe Nacional
+site_description: Documentação da biblioteca Python para integração com a API do NFSe Nacional
 site_url: https://robmello.github.io/pynfse-nacional/
 repo_name: robmello/pynfse-nacional
 repo_url: https://github.com/robmello/pynfse-nacional
@@ -10,6 +10,7 @@ theme:
   language: pt-BR
   features:
     - navigation.sections
+    - navigation.indexes
     - navigation.top
     - search.highlight
     - search.suggest
@@ -76,4 +77,3 @@ markdown_extensions:
   - pymdownx.superfences
   - pymdownx.tabbed:
       alternate_style: true
-
