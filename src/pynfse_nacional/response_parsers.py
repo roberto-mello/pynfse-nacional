@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import Optional
 from xml.etree import ElementTree as ET
+
+from pydantic import ValidationError
 
 from .models_ibscbs import IBSCBS
 
@@ -272,5 +274,5 @@ def parse_ibscbs(
 
         return IBSCBS.model_validate(data)
 
-    except Exception:
+    except (ValidationError, ValueError, InvalidOperation, ArithmeticError):
         return None
