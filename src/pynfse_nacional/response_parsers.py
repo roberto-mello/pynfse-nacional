@@ -103,9 +103,74 @@ def parse_ibscbs(
 
         g_ree_rep_res = _find(ibscbs_elem, ".//nfse:valores/nfse:gReeRepRes")
         if g_ree_rep_res is not None:
-            valores_data["g_ree_rep_res"] = [
-                child.text.strip() for child in list(g_ree_rep_res) if child.text
-            ]
+            documentos_data = []
+            for documentos in g_ree_rep_res.findall("nfse:documentos", NFSE_NAMESPACES):
+                documentos_item: dict[str, object] = {}
+
+                dfe_nacional = _find(documentos, "./nfse:dFeNacional")
+                if dfe_nacional is not None:
+                    documentos_item["d_fe_nacional"] = {
+                        "tipo_chave_dfe": _text(
+                            dfe_nacional, "./nfse:tipoChaveDFe"
+                        ),
+                        "x_tipo_chave_dfe": _text(
+                            dfe_nacional, "./nfse:xTipoChaveDFe"
+                        )
+                        or None,
+                        "chave_dfe": _text(dfe_nacional, "./nfse:chaveDFe"),
+                    }
+
+                doc_fiscal_outro = _find(documentos, "./nfse:docFiscalOutro")
+                if doc_fiscal_outro is not None:
+                    documentos_item["doc_fiscal_outro"] = {
+                        "c_mun_doc_fiscal": _text(
+                            doc_fiscal_outro, "./nfse:cMunDocFiscal"
+                        ),
+                        "n_doc_fiscal": _text(
+                            doc_fiscal_outro, "./nfse:nDocFiscal"
+                        ),
+                        "x_doc_fiscal": _text(
+                            doc_fiscal_outro, "./nfse:xDocFiscal"
+                        ),
+                    }
+
+                doc_outro = _find(documentos, "./nfse:docOutro")
+                if doc_outro is not None:
+                    documentos_item["doc_outro"] = {
+                        "n_doc": _text(doc_outro, "./nfse:nDoc"),
+                        "x_doc": _text(doc_outro, "./nfse:xDoc"),
+                    }
+
+                fornec = _find(documentos, "./nfse:fornec")
+                if fornec is not None:
+                    fornec_data: dict[str, object] = {
+                        "x_nome": _text(fornec, "./nfse:xNome"),
+                    }
+                    for field in ("CNPJ", "CPF", "NIF", "cNaoNIF"):
+                        value = _text(fornec, f"./nfse:{field}")
+                        if value:
+                            key = "c_nao_nif" if field == "cNaoNIF" else field.lower()
+                            fornec_data[key] = value
+                    documentos_item["fornec"] = fornec_data
+
+                documentos_item["dt_emi_doc"] = _text(documentos, "./nfse:dtEmiDoc")
+                documentos_item["dt_comp_doc"] = _text(
+                    documentos, "./nfse:dtCompDoc"
+                )
+                documentos_item["tp_ree_rep_res"] = _text(
+                    documentos, "./nfse:tpReeRepRes"
+                )
+                x_tp_ree_rep_res = _text(documentos, "./nfse:xTpReeRepRes")
+                if x_tp_ree_rep_res:
+                    documentos_item["x_tp_ree_rep_res"] = x_tp_ree_rep_res
+                documentos_item["vlr_ree_rep_res"] = Decimal(
+                    _text(documentos, "./nfse:vlrReeRepRes")
+                )
+
+                documentos_data.append(documentos_item)
+
+            if documentos_data:
+                valores_data["g_ree_rep_res"] = documentos_data
 
         data: dict[str, object] = {
             "fin_nfse": _text(ibscbs_elem, ".//nfse:finNFSe"),
@@ -165,7 +230,6 @@ def parse_ibscbs(
                         "numero": _text(end, ".//nfse:nro"),
                         "bairro": _text(end, ".//nfse:xBairro"),
                         "complemento": _text(end, ".//nfse:xCpl") or None,
-                        "uf": _text(end_nac, ".//nfse:UF") or "00",
                     }
 
             fone = _text(dest, ".//nfse:fone")
@@ -203,7 +267,6 @@ def parse_ibscbs(
                             "numero": _text(end, ".//nfse:nro"),
                             "bairro": _text(end, ".//nfse:xBairro"),
                             "complemento": _text(end, ".//nfse:xCpl") or None,
-                            "uf": _text(end_nac, ".//nfse:UF") or "00",
                         }
 
             if imovel_data:

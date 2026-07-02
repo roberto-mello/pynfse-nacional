@@ -342,14 +342,34 @@ class NFSeClient:
             except XMLParseError:
                 xml_root = None
 
-        return NFSeQueryResult(
-            chave_acesso=data["chaveAcesso"],
-            nfse_number=(
-                extract_nfse_number(xml_root) if xml_root is not None else None
+        chave_retorno = data.get("chaveAcesso")
+        if not chave_retorno:
+            raise NFSeAPIError(
+                "Resposta invalida ao consultar NFSe: chaveAcesso ausente",
+                status_code=response.status_code,
             )
-            or data["nNFSe"],
+
+        data_emissao = data.get("dhEmi")
+        if not data_emissao:
+            raise NFSeAPIError(
+                "Resposta invalida ao consultar NFSe: dhEmi ausente",
+                status_code=response.status_code,
+            )
+
+        nfse_number = extract_nfse_number(xml_root) if xml_root is not None else None
+        if nfse_number is None:
+            nfse_number = data.get("nNFSe")
+        if nfse_number is None:
+            raise NFSeAPIError(
+                "Resposta invalida ao consultar NFSe: nNFSe ausente",
+                status_code=response.status_code,
+            )
+
+        return NFSeQueryResult(
+            chave_acesso=chave_retorno,
+            nfse_number=nfse_number,
             status=data.get("situacao", "emitida"),
-            data_emissao=data["dhEmi"],
+            data_emissao=data_emissao,
             valor_servicos=data.get("vServPrest", 0),
             prestador_cnpj=data.get("CNPJPrest", ""),
             tomador_documento=data.get("CPFToma") or data.get("CNPJToma"),

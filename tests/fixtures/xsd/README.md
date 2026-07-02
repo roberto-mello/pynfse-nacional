@@ -12,6 +12,9 @@ Why patch:
 - The vendored `TCRegTrib` / `TSOpSimpNac` tree predates the IBSCBS Simples
   additions used by this library, so local validation also needs
   `regApIBSCBSSN` plus `opSimpNac=4`.
+- The vendored `TCRTCInfoIBSCBS` / `TSRTCFinNFSe` tree also predates the
+  crédito/débito adjustment fields, so local validation must add
+  `finNFSe=1/2` plus `tpNFSeCredito` / `tpNFSeDebito`.
 
 Layout:
 - Vendored files live under `tests/fixtures/xsd/nfse_v1.01/Schemas/`
@@ -23,5 +26,7 @@ Regeneration:
 - Run `python tests/fixtures/xsd/_patch_xsd.py <zip-path> tests/fixtures/xsd/nfse_v1.01`
 
 The patch script strips the broken `^` / `$` anchors from `TSSerieDPS`, adds the
-`opSimpNac=4` enumeration, and inserts `regApIBSCBSSN` into `TCRegTrib` so the
-vendored schema matches the IBSCBS Simples paths covered by local tests.
+`opSimpNac=4` enumeration, inserts `regApIBSCBSSN` into `TCRegTrib`, and extends
+the IBSCBS adjustment schema with `finNFSe=1/2` and companion
+`tpNFSeCredito` / `tpNFSeDebito` elements so the vendored schema matches the
+IBSCBS paths covered by local tests.

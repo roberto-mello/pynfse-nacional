@@ -1672,11 +1672,51 @@
       <xs:documentation>
         Indicador da finalidade da emissão de NFS-e:
         0 - NFS-e regular;
+        1 - NFS-e de crédito;
+        2 - NFS-e de débito.
       </xs:documentation>
     </xs:annotation>
     <xs:restriction base="xs:string">
       <xs:whiteSpace value="preserve"/>
       <xs:enumeration value="0"/>
+      <xs:enumeration value="1"/>
+      <xs:enumeration value="2"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="TSRTCTpNFSeCredito">
+    <xs:annotation>
+      <xs:documentation>
+        Tipo de NFS-e de crédito:
+        01 - Multa e juros;
+        05 - Transferência em sucessão.
+      </xs:documentation>
+    </xs:annotation>
+    <xs:restriction base="xs:string">
+      <xs:whiteSpace value="preserve"/>
+      <xs:enumeration value="01"/>
+      <xs:enumeration value="05"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="TSRTCTpNFSeDebito">
+    <xs:annotation>
+      <xs:documentation>
+        Tipo de NFS-e de débito:
+        01 - Cooperativas;
+        02 - Saídas imunes ou isentas;
+        03 - NFS-e não processadas;
+        04 - Multa e juros;
+        05 - Transferência em sucessão;
+        06 - Pagamento antecipado.
+      </xs:documentation>
+    </xs:annotation>
+    <xs:restriction base="xs:string">
+      <xs:whiteSpace value="preserve"/>
+      <xs:enumeration value="01"/>
+      <xs:enumeration value="02"/>
+      <xs:enumeration value="03"/>
+      <xs:enumeration value="04"/>
+      <xs:enumeration value="05"/>
+      <xs:enumeration value="06"/>
     </xs:restriction>
   </xs:simpleType>
   <xs:simpleType name="TSRTCIndFinal">

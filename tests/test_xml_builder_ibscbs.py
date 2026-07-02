@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 
 import pytest
@@ -23,6 +23,8 @@ from pynfse_nacional.models_ibscbs import (
     GDifIBSCBS,
     GTribRegularIBSCBS,
     ImovelIBSCBS,
+    ListaDocDFeIBSCBS,
+    ListaDocIBSCBS,
     RefNFSe,
     TribIBSCBS,
     ValoresIBSCBS,
@@ -92,6 +94,18 @@ def sample_ibscbs() -> IBSCBS:
         c_ind_op="020101",
         ind_dest="0",
         valores=ValoresIBSCBS(
+            g_ree_rep_res=[
+                ListaDocIBSCBS(
+                    d_fe_nacional=ListaDocDFeIBSCBS(
+                        tipo_chave_dfe="2",
+                        chave_dfe="NFE1234567890",
+                    ),
+                    dt_emi_doc=date(2026, 1, 15),
+                    dt_comp_doc=date(2026, 1, 15),
+                    tp_ree_rep_res="01",
+                    vlr_ree_rep_res=Decimal("10.00"),
+                )
+            ],
             trib=TribIBSCBS(
                 g_ibscbs=GIBSCBS(
                     cst="001",
@@ -153,6 +167,18 @@ def sample_dps_with_optional_ibscbs(sample_dps: DPS) -> DPS:
             c_cib="12345678",
         ),
         valores=ValoresIBSCBS(
+            g_ree_rep_res=[
+                ListaDocIBSCBS(
+                    d_fe_nacional=ListaDocDFeIBSCBS(
+                        tipo_chave_dfe="2",
+                        chave_dfe="NFE1234567890",
+                    ),
+                    dt_emi_doc=date(2026, 1, 15),
+                    dt_comp_doc=date(2026, 1, 15),
+                    tp_ree_rep_res="01",
+                    vlr_ree_rep_res=Decimal("10.00"),
+                )
+            ],
             trib=TribIBSCBS(
                 g_ibscbs=GIBSCBS(
                     cst="001",
@@ -252,6 +278,51 @@ def test_builder_ibscbs_with_optional_groups_validates_against_patched_xsd(
     schema = load_dps_schema()
 
     schema.assertValid(etree.fromstring(xml_str.encode("utf-8")))
+
+    root = etree.fromstring(xml_str.encode("utf-8"))
+    documentos = root.find(
+        "nfse:infDPS/nfse:IBSCBS/nfse:valores/nfse:gReeRepRes/nfse:documentos", NS
+    )
+
+    assert documentos is not None
+    assert documentos.find("nfse:dFeNacional", NS) is not None
+    assert documentos.find("nfse:item", NS) is None
+
+
+def test_builder_credit_ibscbs_validates_against_patched_xsd(sample_dps: DPS):
+    dps = deepcopy(sample_dps)
+    dps.ibscbs.fin_nfse = "1"
+    dps.ibscbs.tp_nfse_credito = "01"
+    dps.ibscbs.g_ref_nfse = RefNFSe(
+        ref_nfse=[
+            "12345678901234567890123456789012345678901234567890",
+        ]
+    )
+
+    xml_str = XMLBuilder().build_dps(dps)
+    schema = load_dps_schema()
+    root = etree.fromstring(xml_str.encode("utf-8"))
+
+    schema.assertValid(root)
+    assert root.find("nfse:infDPS/nfse:IBSCBS/nfse:tpNFSeCredito", NS).text == "01"
+
+
+def test_builder_debit_ibscbs_validates_against_patched_xsd(sample_dps: DPS):
+    dps = deepcopy(sample_dps)
+    dps.ibscbs.fin_nfse = "2"
+    dps.ibscbs.tp_nfse_debito = "04"
+    dps.ibscbs.g_ref_nfse = RefNFSe(
+        ref_nfse=[
+            "12345678901234567890123456789012345678901234567890",
+        ]
+    )
+
+    xml_str = XMLBuilder().build_dps(dps)
+    schema = load_dps_schema()
+    root = etree.fromstring(xml_str.encode("utf-8"))
+
+    schema.assertValid(root)
+    assert root.find("nfse:infDPS/nfse:IBSCBS/nfse:tpNFSeDebito", NS).text == "04"
 
 
 @pytest.mark.skipif(

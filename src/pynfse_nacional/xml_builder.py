@@ -356,7 +356,60 @@ class XMLBuilder:
         if ibscbs.valores.g_ree_rep_res:
             g_ree_rep_res = ET.SubElement(valores, "gReeRepRes")
             for item in ibscbs.valores.g_ree_rep_res:
-                ET.SubElement(g_ree_rep_res, "item").text = str(item)
+                documentos = ET.SubElement(g_ree_rep_res, "documentos")
+
+                if item.d_fe_nacional is not None:
+                    d_fe_nacional = ET.SubElement(documentos, "dFeNacional")
+                    ET.SubElement(d_fe_nacional, "tipoChaveDFe").text = (
+                        item.d_fe_nacional.tipo_chave_dfe
+                    )
+                    if item.d_fe_nacional.x_tipo_chave_dfe is not None:
+                        ET.SubElement(d_fe_nacional, "xTipoChaveDFe").text = (
+                            item.d_fe_nacional.x_tipo_chave_dfe
+                        )
+                    ET.SubElement(d_fe_nacional, "chaveDFe").text = (
+                        item.d_fe_nacional.chave_dfe
+                    )
+                elif item.doc_fiscal_outro is not None:
+                    doc_fiscal_outro = ET.SubElement(documentos, "docFiscalOutro")
+                    ET.SubElement(doc_fiscal_outro, "cMunDocFiscal").text = (
+                        item.doc_fiscal_outro.c_mun_doc_fiscal
+                    )
+                    ET.SubElement(doc_fiscal_outro, "nDocFiscal").text = (
+                        item.doc_fiscal_outro.n_doc_fiscal
+                    )
+                    ET.SubElement(doc_fiscal_outro, "xDocFiscal").text = (
+                        item.doc_fiscal_outro.x_doc_fiscal
+                    )
+                elif item.doc_outro is not None:
+                    doc_outro = ET.SubElement(documentos, "docOutro")
+                    ET.SubElement(doc_outro, "nDoc").text = item.doc_outro.n_doc
+                    ET.SubElement(doc_outro, "xDoc").text = item.doc_outro.x_doc
+
+                if item.fornec is not None:
+                    fornec = ET.SubElement(documentos, "fornec")
+                    if item.fornec.cnpj is not None:
+                        ET.SubElement(fornec, "CNPJ").text = item.fornec.cnpj
+                    elif item.fornec.cpf is not None:
+                        ET.SubElement(fornec, "CPF").text = item.fornec.cpf
+                    elif item.fornec.nif is not None:
+                        ET.SubElement(fornec, "NIF").text = item.fornec.nif
+                    elif item.fornec.c_nao_nif is not None:
+                        ET.SubElement(fornec, "cNaoNIF").text = item.fornec.c_nao_nif
+                    ET.SubElement(fornec, "xNome").text = item.fornec.x_nome
+
+                ET.SubElement(documentos, "dtEmiDoc").text = item.dt_emi_doc.isoformat()
+                ET.SubElement(documentos, "dtCompDoc").text = (
+                    item.dt_comp_doc.isoformat()
+                )
+                ET.SubElement(documentos, "tpReeRepRes").text = item.tp_ree_rep_res
+                if item.x_tp_ree_rep_res is not None:
+                    ET.SubElement(documentos, "xTpReeRepRes").text = (
+                        item.x_tp_ree_rep_res
+                    )
+                ET.SubElement(documentos, "vlrReeRepRes").text = self._format_decimal(
+                    item.vlr_ree_rep_res
+                )
 
         trib = ET.SubElement(valores, "trib")
         g_ibscbs = ET.SubElement(trib, "gIBSCBS")

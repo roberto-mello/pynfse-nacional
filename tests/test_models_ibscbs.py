@@ -1,5 +1,6 @@
 """Tests for IBSCBS Pydantic models."""
 
+from datetime import date
 from decimal import Decimal
 
 import pytest
@@ -18,6 +19,8 @@ from pynfse_nacional.models_ibscbs import (
     GDifIBSCBS,
     GTribRegularIBSCBS,
     ImovelIBSCBS,
+    ListaDocDFeIBSCBS,
+    ListaDocIBSCBS,
     RefNFSe,
     TribIBSCBS,
     ValoresIBSCBS,
@@ -91,6 +94,17 @@ class TestIBSCBSOptionalModels:
 
         assert endereco.uf == "SP"
 
+    def test_accepts_missing_uf(self):
+        endereco = EnderecoIBSCBS(
+            logradouro="Rua Teste",
+            numero="100",
+            bairro="Centro",
+            codigo_municipio=3550308,
+            cep="01310100",
+        )
+
+        assert endereco.uf is None
+
     def test_rejects_invalid_uf(self):
         with pytest.raises(ValidationError):
             EnderecoIBSCBS(
@@ -115,6 +129,32 @@ class TestIBSCBSOptionalModels:
 
         assert g_trib_regular.cst_reg == "123"
         assert g_dif.p_dif_cbs == Decimal("89.01")
+
+    def test_accepts_g_ree_rep_res_documentos(self):
+        valores = ValoresIBSCBS(
+            g_ree_rep_res=[
+                ListaDocIBSCBS(
+                    d_fe_nacional=ListaDocDFeIBSCBS(
+                        tipo_chave_dfe="2",
+                        chave_dfe="NFE1234567890",
+                    ),
+                    dt_emi_doc=date(2026, 1, 15),
+                    dt_comp_doc=date(2026, 1, 15),
+                    tp_ree_rep_res="01",
+                    vlr_ree_rep_res=Decimal("10.00"),
+                )
+            ],
+            trib=TribIBSCBS(
+                g_ibscbs=GIBSCBS(
+                    cst="001",
+                    c_class_trib="123456",
+                )
+            ),
+        )
+
+        assert valores.g_ree_rep_res is not None
+        assert valores.g_ree_rep_res[0].d_fe_nacional is not None
+        assert valores.g_ree_rep_res[0].d_fe_nacional.tipo_chave_dfe == "2"
 
 
 class TestIBSCBSChoices:

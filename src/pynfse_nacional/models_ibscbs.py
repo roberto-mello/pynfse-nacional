@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from datetime import date
 from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from .exceptions import NFSeValidationError
-from .types import Percent3V2
+from .types import Money15V2, Percent3V2
 from .utils import _redacted_repr
 
 _REF_NFSE_PATTERN = re.compile(r"^[0-9]{50}$")
@@ -606,12 +607,15 @@ class EnderecoIBSCBS(BaseModel):
     complemento: Optional[str] = Field(None, max_length=156)
     bairro: str = Field(..., min_length=1, max_length=60)
     codigo_municipio: int = Field(..., ge=1000000, le=9999999)
-    uf: str = Field(..., min_length=2, max_length=2)
+    uf: Optional[str] = Field(None, min_length=2, max_length=2)
     cep: str = Field(..., pattern=r"^[0-9]{8}$")
 
     @field_validator("uf")
     @classmethod
-    def validate_uf(cls, value: str) -> str:
+    def validate_uf(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+
         from .models import VALID_UFS
 
         value_upper = value.upper()
@@ -712,6 +716,78 @@ class GIBSCBS(BaseModel):
     g_dif: Optional[GDifIBSCBS] = None
 
 
+class ListaDocFornecIBSCBS(BaseModel):
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
+
+    cnpj: Optional[str] = Field(None, pattern=_CNPJ_PATTERN.pattern)
+    cpf: Optional[str] = Field(None, pattern=_CPF_PATTERN.pattern)
+    nif: Optional[str] = Field(None, min_length=1, max_length=40)
+    c_nao_nif: Optional[Literal["0", "1", "2"]] = None
+    x_nome: str = Field(..., min_length=1, max_length=150)
+
+    @model_validator(mode="after")
+    def validate_choice(self) -> "ListaDocFornecIBSCBS":
+        _validate_choice(
+            "ListaDocFornecIBSCBS",
+            [
+                ("cnpj", self.cnpj),
+                ("cpf", self.cpf),
+                ("nif", self.nif),
+                ("c_nao_nif", self.c_nao_nif),
+            ],
+        )
+        return self
+
+
+class ListaDocDFeIBSCBS(BaseModel):
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
+
+    tipo_chave_dfe: Literal["1", "2", "3", "9"]
+    x_tipo_chave_dfe: Optional[str] = Field(None, max_length=255)
+    chave_dfe: str = Field(..., min_length=1, max_length=50)
+
+
+class ListaDocFiscalOutroIBSCBS(BaseModel):
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
+
+    c_mun_doc_fiscal: str = Field(..., pattern=r"^[0-9]{1,7}$")
+    n_doc_fiscal: str = Field(..., min_length=1, max_length=255)
+    x_doc_fiscal: str = Field(..., min_length=1, max_length=255)
+
+
+class ListaDocOutroIBSCBS(BaseModel):
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
+
+    n_doc: str = Field(..., min_length=1, max_length=255)
+    x_doc: str = Field(..., min_length=1, max_length=255)
+
+
+class ListaDocIBSCBS(BaseModel):
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
+
+    d_fe_nacional: Optional[ListaDocDFeIBSCBS] = None
+    doc_fiscal_outro: Optional[ListaDocFiscalOutroIBSCBS] = None
+    doc_outro: Optional[ListaDocOutroIBSCBS] = None
+    fornec: Optional[ListaDocFornecIBSCBS] = None
+    dt_emi_doc: date
+    dt_comp_doc: date
+    tp_ree_rep_res: Literal["01", "02", "03", "04", "99"]
+    x_tp_ree_rep_res: Optional[str] = Field(None, max_length=150)
+    vlr_ree_rep_res: Money15V2
+
+    @model_validator(mode="after")
+    def validate_choice(self) -> "ListaDocIBSCBS":
+        _validate_choice(
+            "ListaDocIBSCBS",
+            [
+                ("d_fe_nacional", self.d_fe_nacional),
+                ("doc_fiscal_outro", self.doc_fiscal_outro),
+                ("doc_outro", self.doc_outro),
+            ],
+        )
+        return self
+
+
 class TribIBSCBS(BaseModel):
     model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
 
@@ -721,7 +797,7 @@ class TribIBSCBS(BaseModel):
 class ValoresIBSCBS(BaseModel):
     model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
 
-    g_ree_rep_res: Optional[list[Any]] = Field(default=None, max_length=1000)
+    g_ree_rep_res: Optional[list[ListaDocIBSCBS]] = Field(default=None, max_length=1000)
     trib: TribIBSCBS
 
 
@@ -820,6 +896,11 @@ class IBSCBS(BaseModel):
 
 
 IBSCBS.model_rebuild()
+ListaDocFornecIBSCBS.model_rebuild()
+ListaDocDFeIBSCBS.model_rebuild()
+ListaDocFiscalOutroIBSCBS.model_rebuild()
+ListaDocOutroIBSCBS.model_rebuild()
+ListaDocIBSCBS.model_rebuild()
 DestIBSCBS.model_rebuild()
 ImovelIBSCBS.model_rebuild()
 RefNFSe.model_rebuild()

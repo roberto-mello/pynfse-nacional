@@ -2223,6 +2223,20 @@
           </xs:documentation>
         </xs:annotation>
       </xs:element>
+      <xs:element name="tpNFSeCredito" type="TSRTCTpNFSeCredito" minOccurs="0">
+        <xs:annotation>
+          <xs:documentation>
+            Tipo de NFS-e de crédito
+          </xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="tpNFSeDebito" type="TSRTCTpNFSeDebito" minOccurs="0">
+        <xs:annotation>
+          <xs:documentation>
+            Tipo de NFS-e de débito
+          </xs:documentation>
+        </xs:annotation>
+      </xs:element>
       <xs:element name="indFinal" type="TSRTCIndFinal" minOccurs="0">
         <xs:annotation>
           <xs:documentation>
