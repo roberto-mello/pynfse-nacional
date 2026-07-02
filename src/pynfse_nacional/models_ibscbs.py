@@ -616,7 +616,7 @@ class DestIBSCBS(BaseModel):
     x_nome: str = Field(..., min_length=1, max_length=150)
     end: Optional[EnderecoIBSCBS] = None
     fone: Optional[str] = Field(None, pattern=_FONE_PATTERN.pattern)
-    email: Optional[str] = Field(None, max_length=80)
+    email: Optional[str] = Field(None, min_length=1, max_length=80)
 
     @model_validator(mode="after")
     def validate_choice(self) -> "DestIBSCBS":
