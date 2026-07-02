@@ -796,13 +796,6 @@ class IBSCBS(BaseModel):
 
         return value
 
-    @field_validator("g_ref_nfse")
-    @classmethod
-    def validate_ref_nfse(cls, value: Optional[RefNFSe]) -> Optional[RefNFSe]:
-        if value is not None and len(value.ref_nfse) > 99:
-            raise ValueError("gRefNFSe suporta no máximo 99 referências.")
-        return value
-
     @model_validator(mode="after")
     def validate_fin_nfse_rules(self) -> "IBSCBS":
         if self.fin_nfse == "0":
