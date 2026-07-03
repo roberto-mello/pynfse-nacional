@@ -4,6 +4,7 @@ import gzip
 import io
 import re
 
+from .error_codes import ErrorCode
 from .exceptions import NFSeAPIError
 
 MAX_DECOMPRESSED_BYTES = 8 * 1024 * 1024
@@ -36,7 +37,7 @@ def decode_decompress(data: str) -> str:
                 if output.tell() > MAX_DECOMPRESSED_BYTES:
                     raise NFSeAPIError(
                         "Conteúdo NFSe excede o limite permitido de descompressão.",
-                        code="PAYLOAD_TOO_LARGE",
+                        code=ErrorCode.PAYLOAD_TOO_LARGE,
                     )
 
         return output.getvalue().decode("utf-8")
@@ -47,7 +48,7 @@ def decode_decompress(data: str) -> str:
     except (ValueError, OSError, EOFError, gzip.BadGzipFile, binascii.Error):
         raise NFSeAPIError(
             "Falha ao decodificar conteúdo NFSe comprimido.",
-            code="DECODE_ERROR",
+            code=ErrorCode.DECODE_ERROR,
         )
 
 

@@ -1,9 +1,13 @@
+from .error_messages import get_error_message
+
+
 class NFSeError(Exception):
     """Base exception for NFSe operations."""
 
-    def __init__(self, message: str, code: str | None = None):
-        super().__init__(message)
-        self.message = message
+    def __init__(self, message: str | None = None, code: int | str | None = None):
+        resolved_message = message if message is not None else get_error_message(code)
+        super().__init__(resolved_message)
+        self.message = resolved_message
         self.code = code
 
 
@@ -12,8 +16,8 @@ class NFSeAPIError(NFSeError):
 
     def __init__(
         self,
-        message: str,
-        code: str | None = None,
+        message: str | None = None,
+        code: int | str | None = None,
         status_code: int | None = None,
         response_body: str | None = None,
     ):

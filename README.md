@@ -31,6 +31,7 @@ Esta biblioteca fornece um cliente para interagir com a API do NFSe Nacional (SE
 - Download e geração local do DANFSe em PDF
 - Consulta de convênio municipal
 - Validação de campos com mensagens em português
+- Códigos numéricos estáveis por categoria para erros da biblioteca
 
 ## Instalação
 
@@ -159,6 +160,29 @@ dps.ibscbs = IBSCBS(
     ),
 )
 ```
+
+## Erros e Códigos
+
+A biblioteca exporta `ErrorCode` no pacote principal para facilitar o tratamento
+programático dos erros:
+
+```python
+from pynfse_nacional import ErrorCode, NFSeAPIError
+
+try:
+    client.query_nfse("123")
+except NFSeAPIError as error:
+    if error.code == ErrorCode.COMMUNICATION_TIMEOUT:
+        ...
+    print(error.message)
+```
+
+- `error.code` é o identificador estável para automação
+- `error.message` é a mensagem em PT-BR para exibição
+- as mensagens geradas pela biblioteca ficam centralizadas internamente
+
+Veja o apêndice de documentação para a lista completa dos códigos por faixa e
+categoria.
 
 ## Referência da API
 
@@ -457,6 +481,7 @@ This library provides a client for interacting with the NFSe Nacional (SEFIN Nac
 - DANFSe PDF download and local generation
 - Municipal agreement (convenio) query
 - Field validation with Portuguese error messages
+- Stable numeric error codes grouped by category
 
 ### Installation
 
@@ -585,6 +610,26 @@ dps.ibscbs = IBSCBS(
     ),
 )
 ```
+
+### Errors and Codes
+
+The library exports `ErrorCode` from the top-level package so callers can
+branch on stable numeric identifiers:
+
+```python
+from pynfse_nacional import ErrorCode, NFSeAPIError
+
+try:
+    client.query_nfse("123")
+except NFSeAPIError as error:
+    if error.code == ErrorCode.COMMUNICATION_TIMEOUT:
+        ...
+    print(error.message)
+```
+
+- `error.code` is the stable value for programmatic handling
+- `error.message` is the PT-BR human-readable message
+- library-generated messages are centralized internally
 
 ### API Reference
 

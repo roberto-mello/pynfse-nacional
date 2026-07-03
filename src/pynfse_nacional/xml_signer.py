@@ -3,6 +3,8 @@ import gzip
 
 from lxml import etree
 
+from .error_codes import ErrorCode
+from .error_messages import get_error_message
 from .exceptions import NFSeCertificateError
 
 try:
@@ -33,7 +35,10 @@ class XMLSignerService:
     def _load_certificate(self) -> None:
         """Load certificate from file."""
         if not CRYPTOGRAPHY_AVAILABLE:
-            raise NFSeCertificateError("cryptography library not installed")
+            raise NFSeCertificateError(
+                get_error_message(ErrorCode.CERTIFICATE_DEPENDENCY_MISSING),
+                code=ErrorCode.CERTIFICATE_DEPENDENCY_MISSING,
+            )
 
         if self._private_key is not None:
             return
@@ -47,18 +52,25 @@ class XMLSignerService:
             )
 
             if self._certificate is None:
-                raise NFSeCertificateError("Certificado nao encontrado no arquivo")
+                raise NFSeCertificateError(
+                    "Certificado não encontrado no arquivo.",
+                    code=ErrorCode.CERTIFICATE_LOAD_FAILED,
+                )
 
         except FileNotFoundError:
             raise NFSeCertificateError(
-                f"Arquivo de certificado nao encontrado: {self.cert_path}"
+                f"Arquivo de certificado não encontrado: {self.cert_path}",
+                code=ErrorCode.CERTIFICATE_FILE_NOT_FOUND,
             )
 
         except NFSeCertificateError:
             raise
 
         except Exception as e:
-            raise NFSeCertificateError(f"Erro ao carregar certificado: {str(e)}")
+            raise NFSeCertificateError(
+                get_error_message(ErrorCode.CERTIFICATE_LOAD_FAILED),
+                code=ErrorCode.CERTIFICATE_LOAD_FAILED,
+            ) from e
 
     def sign(self, xml: str) -> str:
         """Sign XML document with certificate.
@@ -69,7 +81,10 @@ class XMLSignerService:
         """
 
         if not SIGNXML_AVAILABLE:
-            raise NFSeCertificateError("signxml library not installed")
+            raise NFSeCertificateError(
+                "Biblioteca signxml não instalada.",
+                code=ErrorCode.CERTIFICATE_DEPENDENCY_MISSING,
+            )
 
         self._load_certificate()
 
@@ -87,13 +102,17 @@ class XMLSignerService:
 
             if signed_info is None:
                 raise NFSeCertificateError(
-                    "Signed info element (infDPS or infPedReg) not found in XML"
+                    "Elemento assinado (infDPS ou infPedReg) não encontrado no XML.",
+                    code=ErrorCode.RESPONSE_INVALID_XML,
                 )
 
             inf_dps_id = signed_info.get("Id")
 
             if not inf_dps_id:
-                raise NFSeCertificateError("infDPS Id attribute not found")
+                raise NFSeCertificateError(
+                    "Atributo Id do infDPS não encontrado.",
+                    code=ErrorCode.RESPONSE_INVALID_XML,
+                )
 
             # Use exclusive canonicalization with comments as seen in real NFSe
             signer = XMLSigner(
@@ -123,7 +142,10 @@ class XMLSignerService:
             raise
 
         except Exception as e:
-            raise NFSeCertificateError(f"Erro ao assinar XML: {str(e)}")
+            raise NFSeCertificateError(
+                get_error_message(ErrorCode.CERTIFICATE_SIGN_FAILED),
+                code=ErrorCode.CERTIFICATE_SIGN_FAILED,
+            ) from e
 
     def sign_and_encode(self, xml: str) -> str:
         """Sign XML, compress with GZip, and encode with Base64."""

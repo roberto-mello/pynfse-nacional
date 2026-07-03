@@ -3,10 +3,14 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as _pkg_version
+from typing import TYPE_CHECKING
 from xml.etree import ElementTree as ET
 
 from .constants import Ambiente
 from .models import DPS
+
+if TYPE_CHECKING:
+    from .models import Endereco, EnderecoIBSCBS
 
 try:
     _VERAPLIC = f"pynfse-{_pkg_version('pynfse-nacional')}"
@@ -158,9 +162,6 @@ class XMLBuilder:
         # regApTribSN: only valid for opSimpNac 3/4
         if dps.op_simp_nac in {"3", "4"}:
             ET.SubElement(reg_trib, "regApTribSN").text = dps.reg_ap_trib_sn
-
-        # regApIBSCBSSN: only valid for opSimpNac 3/4
-        if dps.op_simp_nac in {"3", "4"}:
             ET.SubElement(reg_trib, "regApIBSCBSSN").text = dps.reg_ap_ibs_cbs_sn
 
         ET.SubElement(reg_trib, "regEspTrib").text = self._map_regime_especial(
@@ -178,20 +179,7 @@ class XMLBuilder:
         ET.SubElement(toma, "xNome").text = dps.tomador.razao_social
 
         if dps.tomador.endereco:
-            end = ET.SubElement(toma, "end")
-            end_nac = ET.SubElement(end, "endNac")
-            ET.SubElement(end_nac, "cMun").text = str(
-                dps.tomador.endereco.codigo_municipio
-            )
-            ET.SubElement(end_nac, "CEP").text = dps.tomador.endereco.cep
-
-            ET.SubElement(end, "xLgr").text = dps.tomador.endereco.logradouro
-            ET.SubElement(end, "nro").text = dps.tomador.endereco.numero
-
-            if dps.tomador.endereco.complemento:
-                ET.SubElement(end, "xCpl").text = dps.tomador.endereco.complemento
-
-            ET.SubElement(end, "xBairro").text = dps.tomador.endereco.bairro
+            self._emit_endereco(toma, dps.tomador.endereco)
 
     def _add_servico(self, parent: ET.Element, dps: DPS) -> None:
         serv = ET.SubElement(parent, "serv")
@@ -263,7 +251,9 @@ class XMLBuilder:
             ET.SubElement(p_tot_trib, "pTotTribEst").text = "0"
             ET.SubElement(p_tot_trib, "pTotTribMun").text = "0"
 
-    def _emit_endereco(self, parent: ET.Element, endereco) -> None:
+    def _emit_endereco(
+        self, parent: ET.Element, endereco: "Endereco | EnderecoIBSCBS"
+    ) -> None:
         end = ET.SubElement(parent, "end")
         end_nac = ET.SubElement(end, "endNac")
         ET.SubElement(end_nac, "cMun").text = str(endereco.codigo_municipio)

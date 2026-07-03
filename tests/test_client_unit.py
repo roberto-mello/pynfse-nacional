@@ -6,16 +6,17 @@ making real API calls.
 
 import base64
 import gzip
-from contextlib import contextmanager
 from datetime import datetime
 from decimal import Decimal
+from json import JSONDecodeError
 from unittest.mock import MagicMock, patch
 from xml.etree import ElementTree as ET
+from xml.etree.ElementTree import ParseError as XMLParseError
 
 import httpx
 import pytest
 
-from pynfse_nacional import NFSeAPIError, NFSeCertificateError, NFSeClient
+from pynfse_nacional import ErrorCode, NFSeAPIError, NFSeCertificateError, NFSeClient
 from pynfse_nacional.client import RecoveryOutcome, _extract_nfse_number_from_xml
 from pynfse_nacional.models import (
     DPS,
@@ -55,6 +56,26 @@ class _FakePrivateKey:
 class _FakeCertificate:
     def public_bytes(self, encoding):
         return b"-----BEGIN CERTIFICATE-----\nfake\n-----END CERTIFICATE-----\n"
+
+
+class _FakeTempFile:
+    def __init__(self, path, fail_on_write=False):
+        self.name = str(path)
+        self._fh = open(path, "wb")
+        self._fail_on_write = fail_on_write
+
+    def write(self, data):
+        self._fh.write(data)
+        self._fh.flush()
+        if self._fail_on_write:
+            raise OSError("disk full")
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        self._fh.close()
+        return False
 
 
 @pytest.fixture
@@ -272,7 +293,7 @@ class TestParseDpsResponseError:
             status_code=400,
             json_data={
                 "codigo": "ERR001",
-                "mensagem": "DPS invalido",
+                "mensagem": "DPS inválido",
             },
         )
 
@@ -280,7 +301,7 @@ class TestParseDpsResponseError:
 
         assert result.success is False
         assert result.error_code == "ERR001"
-        assert result.error_message == "DPS invalido"
+        assert result.error_message == "DPS inválido"
 
     def test_parses_error_without_json(self, mock_client):
         """Should handle error response without JSON."""
@@ -294,7 +315,7 @@ class TestParseDpsResponseError:
 
         assert result.success is False
         assert result.error_code == "500"
-        assert "Internal Server Error" in result.error_message
+        assert result.error_message == "Resposta inválida: corpo não é JSON."
 
     def test_handles_invalid_base64_gracefully(self, mock_client):
         """Should handle invalid base64/gzip content gracefully."""
@@ -316,30 +337,68 @@ class TestParseDpsResponseError:
 
 
 class TestClientCertificateHandling:
-    def test_cert_tempfile_cleanup_on_error(self, mock_client, tmp_path):
+    def test_cert_tempfile_cleanup_on_write_error(self, mock_client, tmp_path):
         cert_path = tmp_path / "cert.pem"
         key_path = tmp_path / "key.pem"
+        created_paths = []
+        call_count = 0
 
-        @contextmanager
+        def fake_named_tempfile(*, mode, suffix, delete):
+            nonlocal call_count
+            path = cert_path if call_count == 0 else key_path
+            created_paths.append(path)
+            handle = _FakeTempFile(path, fail_on_write=call_count == 1)
+            call_count += 1
+            return handle
+
+        with patch("pynfse_nacional.client.tempfile.NamedTemporaryFile") as mock_tmp:
+            mock_tmp.side_effect = fake_named_tempfile
+
+            with pytest.raises(NFSeCertificateError) as exc_info:
+                with mock_client._get_client():
+                    pass
+
+        assert "Erro ao configurar cliente HTTP" in str(exc_info.value)
+        assert cert_path in created_paths
+        assert key_path in created_paths
+        assert not cert_path.exists()
+        assert not key_path.exists()
+
+    def test_cert_error_message_hides_temp_paths(self, mock_client, tmp_path):
+        cert_path = tmp_path / "cert.pem"
+        key_path = tmp_path / "key.pem"
+        seen_cert_paths = []
+
+        class _ClientError(RuntimeError):
+            pass
+
+        def fake_httpx_client(*, cert, verify, timeout):
+            seen_cert_paths.extend(cert)
+            raise _ClientError(f"ssl setup failed: {cert[0]} :: {cert[1]}")
+
         def fake_named_tempfile(*, mode, suffix, delete):
             path = cert_path if not cert_path.exists() else key_path
-            with open(path, mode) as fh:
-                yield fh
+            return _FakeTempFile(path)
 
         with patch(
             "pynfse_nacional.client.tempfile.NamedTemporaryFile"
         ) as mock_tmp, patch(
-            "pynfse_nacional.client.httpx.Client",
-            side_effect=RuntimeError("ssl setup failed"),
+            "pynfse_nacional.client.httpx.Client", side_effect=fake_httpx_client
         ):
             mock_tmp.side_effect = fake_named_tempfile
 
-            with pytest.raises(NFSeCertificateError, match="ssl setup failed"):
+            with pytest.raises(NFSeCertificateError) as exc_info:
                 with mock_client._get_client():
                     pass
 
-        assert not cert_path.exists()
-        assert not key_path.exists()
+        message = str(exc_info.value)
+        assert "ssl setup failed" not in message
+        assert str(cert_path) not in message
+        assert str(key_path) not in message
+        assert isinstance(exc_info.value.__cause__, _ClientError)
+        assert str(cert_path) in str(exc_info.value.__cause__)
+        assert str(key_path) in str(exc_info.value.__cause__)
+        assert len(seen_cert_paths) == 2
 
 
 # =============================================================================
@@ -462,8 +521,8 @@ class TestParseEventResponse:
                 "erro": [
                     {
                         "codigo": "NFSE-E-400",
-                        "descricao": "Chave de acesso invalida",
-                        "complemento": "Campo chNFSe nao encontrado",
+                        "descricao": "Chave de acesso inválida",
+                        "complemento": "Campo chNFSe não encontrado",
                     }
                 ]
             },
@@ -475,7 +534,7 @@ class TestParseEventResponse:
         assert result.error_code == "NFSE-E-400"
         assert (
             result.error_message
-            == "Chave de acesso invalida: Campo chNFSe nao encontrado"
+            == "Chave de acesso inválida: Campo chNFSe não encontrado"
         )
 
     def test_parses_sefin_erro_array_without_complemento(self, mock_client):
@@ -916,7 +975,7 @@ class TestQueryNfseByDps:
             with pytest.raises(NFSeAPIError) as exc_info:
                 mock_client.query_nfse_by_dps(self.DPS_ID)
 
-        assert exc_info.value.code == "TIMEOUT"
+        assert exc_info.value.code == ErrorCode.COMMUNICATION_TIMEOUT
 
     def test_query_nfse_by_dps_normalizes_request_error(self, mock_client):
         request = httpx.Request("GET", "https://example.com")
@@ -930,7 +989,38 @@ class TestQueryNfseByDps:
             with pytest.raises(NFSeAPIError) as exc_info:
                 mock_client.query_nfse_by_dps(self.DPS_ID)
 
-        assert exc_info.value.code == "COMM_ERROR"
+        assert exc_info.value.code == ErrorCode.COMMUNICATION_ERROR
+
+    def test_query_nfse_with_client_rejects_non_dict_json(self, mock_client):
+        mock_response = MockResponse(status_code=200, json_data=[])
+        mock_http = MagicMock()
+        mock_http.get.return_value = mock_response
+
+        with pytest.raises(NFSeAPIError) as exc_info:
+            mock_client._query_nfse_with_client(
+                mock_http,
+                self.CHAVE_ACESSO,
+            )
+
+        assert exc_info.value.code == ErrorCode.RESPONSE_INVALID_STRUCTURE
+        assert exc_info.value.status_code == 200
+
+    def test_query_nfse_with_client_rejects_invalid_json_body(self, mock_client):
+        class _BrokenResponse(MockResponse):
+            def json(self):
+                raise JSONDecodeError("Expecting value", "<html>", 0)
+
+        mock_http = MagicMock()
+        mock_http.get.return_value = _BrokenResponse(status_code=200, text="<html>")
+
+        with pytest.raises(NFSeAPIError) as exc_info:
+            mock_client._query_nfse_with_client(
+                mock_http,
+                self.CHAVE_ACESSO,
+            )
+
+        assert exc_info.value.code == ErrorCode.RESPONSE_INVALID_JSON
+        assert exc_info.value.status_code == 200
 
     def test_has_nfse_by_dps_returns_boolean(self, mock_client):
         with patch.object(mock_client, "_get_client") as mock_get_client:
@@ -993,7 +1083,10 @@ class TestRecoverNfseByDps:
 
     def test_recover_error_when_has_lookup_fails(self, mock_client):
         """Transport/API failure during the has_nfse_by_dps check."""
-        api_error = NFSeAPIError("Timeout ao consultar DPS", code="TIMEOUT")
+        api_error = NFSeAPIError(
+            "Tempo esgotado ao consultar DPS",
+            code=ErrorCode.COMMUNICATION_TIMEOUT,
+        )
         with patch.object(
             mock_client, "has_nfse_by_dps", side_effect=api_error
         ):
@@ -1004,11 +1097,21 @@ class TestRecoverNfseByDps:
         assert outcome.result is None
         assert outcome.error is api_error
 
+    def test_recover_error_when_has_lookup_raises_certificate_error(self, mock_client):
+        cert_error = NFSeCertificateError("ssl setup failed")
+        with patch.object(
+            mock_client, "has_nfse_by_dps", side_effect=cert_error
+        ):
+            outcome = mock_client.recover_nfse_by_dps(self.DPS_ID)
+
+        assert outcome.status == "error"
+        assert outcome.error is cert_error
+
     def test_recover_error_when_query_fails(self, mock_client):
         """has=True but the full query failed — surface the query error."""
         api_error = NFSeAPIError(
             "Resposta da consulta por DPS sem chave de acesso",
-            code="INVALID_RESPONSE",
+            code=ErrorCode.RESPONSE_INVALID_STRUCTURE,
             status_code=200,
         )
         with (
@@ -1021,6 +1124,31 @@ class TestRecoverNfseByDps:
 
         assert outcome.status == "error"
         assert outcome.error is api_error
+
+    def test_recover_error_when_query_raises_xml_parse_error(self, mock_client):
+        with (
+            patch.object(mock_client, "has_nfse_by_dps", return_value=True),
+            patch.object(
+                mock_client,
+                "query_nfse_by_dps",
+                side_effect=XMLParseError("mismatched tag"),
+            ),
+        ):
+            outcome = mock_client.recover_nfse_by_dps(self.DPS_ID)
+
+        assert outcome.status == "error"
+        assert isinstance(outcome.error, NFSeAPIError)
+        assert outcome.error.code == ErrorCode.RESPONSE_INVALID_XML
+
+    def test_recovery_outcome_enforces_invariants(self):
+        with pytest.raises(ValueError):
+            RecoveryOutcome(status="success")
+
+        with pytest.raises(ValueError):
+            RecoveryOutcome(status="processing", result=object())
+
+        with pytest.raises(ValueError):
+            RecoveryOutcome(status="error", result=object())
 
     def test_recover_rejects_invalid_id(self, mock_client):
         with pytest.raises(ValueError):
@@ -1296,8 +1424,9 @@ class TestCancelNfse:
                     with pytest.raises(NFSeAPIError) as exc_info:
                         mock_client.cancel_nfse(self.CHAVE, "Motivo")
 
-        assert exc_info.value.code == "COMM_ERROR"
-        assert "Server disconnected" in exc_info.value.message
+        assert exc_info.value.code == ErrorCode.COMMUNICATION_ERROR
+        assert exc_info.value.message == "Erro de comunicação ao cancelar NFSe."
+        assert "Server disconnected" in str(exc_info.value.__cause__)
 
 
 # =============================================================================
@@ -1433,8 +1562,9 @@ class TestSubmitDps:
                     with pytest.raises(NFSeAPIError) as exc_info:
                         mock_client.submit_dps(sample_dps)
 
-        assert exc_info.value.code == "COMM_ERROR"
-        assert "Server disconnected" in exc_info.value.message
+        assert exc_info.value.code == ErrorCode.COMMUNICATION_ERROR
+        assert exc_info.value.message == "Erro de comunicação com a SEFIN."
+        assert "Server disconnected" in str(exc_info.value.__cause__)
 
 
 # =============================================================================
@@ -1687,7 +1817,7 @@ class TestChaveAcessoValidation:
 
     def test_cancel_nfse_rejects_short_chave(self, mock_client):
         """cancel_nfse should raise ValueError for a short chave_acesso."""
-        with pytest.raises(ValueError, match="50 digitos"):
+        with pytest.raises(ValueError, match="50 dígitos"):
             mock_client.cancel_nfse("1234567890", "motivo")
 
     def test_cancel_nfse_rejects_non_numeric_chave(self, mock_client):
@@ -1696,7 +1826,7 @@ class TestChaveAcessoValidation:
         """
         chave_with_slash = "1234567890/234567890123456789012345678901234567890"
 
-        with pytest.raises(ValueError, match="50 digitos"):
+        with pytest.raises(ValueError, match="50 dígitos"):
             mock_client.cancel_nfse(chave_with_slash, "motivo")
 
     def test_cancel_nfse_accepts_valid_chave(self, mock_client):
@@ -1724,10 +1854,10 @@ class TestChaveAcessoValidation:
 
     def test_query_nfse_rejects_invalid_chave(self, mock_client):
         """query_nfse should raise ValueError for an invalid chave_acesso."""
-        with pytest.raises(ValueError, match="50 digitos"):
+        with pytest.raises(ValueError, match="50 dígitos"):
             mock_client.query_nfse("abc")
 
     def test_download_danfse_rejects_invalid_chave(self, mock_client):
         """download_danfse should raise ValueError for an invalid chave_acesso."""
-        with pytest.raises(ValueError, match="50 digitos"):
+        with pytest.raises(ValueError, match="50 dígitos"):
             mock_client.download_danfse("not-50-digits")

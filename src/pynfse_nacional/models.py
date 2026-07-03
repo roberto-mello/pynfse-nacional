@@ -233,7 +233,7 @@ class Tomador(BaseModel):
         if self.cpf is None and self.cnpj is None:
             raise ValueError(
                 "Tomador deve ter CPF ou CNPJ informado. "
-                "Informe pelo menos um documento de identificacao."
+                "Informe pelo menos um documento de identificação."
             )
 
         return self
@@ -444,6 +444,10 @@ class DPS(BaseModel):
         tp_insc = "2"  # CNPJ
         cnpj = self.prestador.cnpj.zfill(14)
         serie = self.serie.zfill(5)
+
+        if self.numero >= 10**15:
+            raise ValueError("número do DPS excede 15 dígitos.")
+
         n_dps = str(self.numero).zfill(15)
 
         return f"DPS{c_loc_emi}{tp_insc}{cnpj}{serie}{n_dps}"

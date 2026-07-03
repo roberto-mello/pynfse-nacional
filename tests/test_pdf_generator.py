@@ -12,6 +12,9 @@ from xml.etree import ElementTree as ET
 
 import pytest
 
+from pynfse_nacional import ErrorCode
+from pynfse_nacional.exceptions import NFSeXMLError
+
 # Check if PDF dependencies are available
 try:
     from pynfse_nacional.pdf_generator import (
@@ -581,12 +584,13 @@ class TestParseNfseXml:
         assert data.emit_municipio == "Campinas"
 
     def test_raises_on_invalid_xml(self):
-        """Should raise ValueError for XML without infNFSe."""
+        """Should raise NFSeXMLError for XML without infNFSe."""
         invalid_xml = '<?xml version="1.0"?><root>invalid</root>'
 
-        with pytest.raises(ValueError) as exc_info:
+        with pytest.raises(NFSeXMLError) as exc_info:
             parse_nfse_xml(invalid_xml)
 
+        assert exc_info.value.code == ErrorCode.RESPONSE_INVALID_XML
         assert "infNFSe" in str(exc_info.value)
 
     def test_builds_ibscbs_totals_rows(self):
