@@ -1,6 +1,7 @@
 # pynfse-nacional
 
 Biblioteca Python para integração com a API do NFSe Nacional (Padrão Nacional).
+Autor: Project Maintainer
 
 Documentação completa: [roberto-mello.github.io/pynfse-nacional](https://roberto-mello.github.io/pynfse-nacional/)
 
