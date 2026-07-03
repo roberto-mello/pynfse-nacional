@@ -5,9 +5,9 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## 0.9.1 - 2026-07-03
 
-### Changed
+### Added
 - Centralized stable numeric error codes in `error_codes.py` and PT-BR error
   messages in `error_messages.py`.
 - Standardized library-generated error messages to Brazilian Portuguese with
@@ -194,7 +194,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - XML builder and XML signer using `lxml` and `signxml`.
 - Support for homologação and produção environments.
 
-[Unreleased]: https://github.com/roberto-mello/pynfse-nacional/compare/v0.9.0...HEAD
+[0.9.1]: https://github.com/roberto-mello/pynfse-nacional/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/roberto-mello/pynfse-nacional/compare/v0.5.0...v0.9.0
 [0.5.0]: https://github.com/roberto-mello/pynfse-nacional/compare/v0.4.7...v0.5.0
 [0.4.7]: https://github.com/roberto-mello/pynfse-nacional/compare/v0.4.6...v0.4.7
