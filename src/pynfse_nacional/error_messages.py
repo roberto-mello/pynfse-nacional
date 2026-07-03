@@ -1,4 +1,4 @@
-"""Central catalog of PT-BR error messages for NFSe errors."""
+"""Central catalog of pt_BR (Brazilian Portuguese) error messages for NFSe errors."""
 
 from __future__ import annotations
 

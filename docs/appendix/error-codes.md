@@ -17,18 +17,18 @@ except NFSeAPIError as error:
 ## Contrato
 
 - `error.code` é o identificador estável para automação
-- `error.message` é a mensagem em PT-BR para exibição humana
+- `error.message` é a mensagem em Português Brasileiro para exibição
 - mensagens da biblioteca ficam centralizadas no catálogo interno
 - `error_messages.py` existe para uso interno e para lookup auxiliar, não como
   dependência obrigatória para o chamador
 
 ## Faixas
 
-- `1000-1999`: validação
-- `2000-2999`: certificado e assinatura
-- `3000-3999`: comunicação e transporte
-- `4000-4999`: resposta e parsing
-- `5000-5999`: compressão e decodificação
+- `100-199`: validação
+- `200-299`: certificado e assinatura
+- `300-399`: comunicação e transporte
+- `400-499`: resposta e parsing
+- `500-599`: compressão e decodificação
 
 ## Uso recomendado
 

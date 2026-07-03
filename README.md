@@ -178,7 +178,7 @@ except NFSeAPIError as error:
 ```
 
 - `error.code` é o identificador estável para automação
-- `error.message` é a mensagem em PT-BR para exibição
+- `error.message` é a mensagem em Português do Brasil
 - as mensagens geradas pela biblioteca ficam centralizadas internamente
 
 Veja o apêndice de documentação para a lista completa dos códigos por faixa e
@@ -628,7 +628,7 @@ except NFSeAPIError as error:
 ```
 
 - `error.code` is the stable value for programmatic handling
-- `error.message` is the PT-BR human-readable message
+- `error.message` is the human-readable message in Brazilian Portuguese
 - library-generated messages are centralized internally
 
 ### API Reference
