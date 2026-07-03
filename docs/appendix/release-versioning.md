@@ -53,3 +53,7 @@ O workflow em
 
 O que ainda não existe é um workflow separado para publicar pacote no PyPI. Isso
 continua no comando `release` e no processo manual descrito acima.
+
+O botão manual `workflow_dispatch` no workflow de docs só constrói o site. Ele
+não publica no GitHub Pages, porque o job de deploy roda só em `push` na
+branch `master`.
