@@ -33,6 +33,13 @@ def test_publish_command_targets_pypi_by_default():
     ]
 
 
+def test_project_uses_valid_python_classifier():
+    pyproject = Path(__file__).resolve().parents[1] / "pyproject.toml"
+    text = pyproject.read_text(encoding="utf-8")
+
+    assert "Development Status :: 5 - Production/Stable" in text
+
+
 def test_main_cleans_builds_and_publishes(tmp_path, monkeypatch):
     calls = []
 
