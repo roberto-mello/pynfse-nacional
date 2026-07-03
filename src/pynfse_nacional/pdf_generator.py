@@ -15,6 +15,8 @@ from typing import Optional
 from xml.etree import ElementTree as ET
 from xml.sax.saxutils import escape
 
+from .error_codes import ErrorCode
+from .exceptions import NFSeXMLError
 from .models_ibscbs import IBSCBS
 from .response_parsers import _find as _find_nfse
 from .response_parsers import parse_ibscbs
@@ -35,16 +37,16 @@ try:
     )
 except ImportError:
     raise ImportError(
-        "reportlab is required for PDF generation. "
-        "Install with: pip install pynfse-nacional[pdf]"
+        "O pacote reportlab é obrigatório para geração de PDF. "
+        "Instale com: pip install pynfse-nacional[pdf]"
     )
 
 try:
     import qrcode
 except ImportError:
     raise ImportError(
-        "qrcode is required for PDF generation. "
-        "Install with: pip install pynfse-nacional[pdf]"
+        "O pacote qrcode é obrigatório para geração de PDF. "
+        "Instale com: pip install pynfse-nacional[pdf]"
     )
 
 
@@ -453,7 +455,10 @@ def parse_nfse_xml(xml_content: str) -> NFSeData:
         inf_nfse = root.find(".//{http://www.sped.fazenda.gov.br/nfse}infNFSe")
 
     if inf_nfse is None:
-        raise ValueError("Could not find infNFSe element in XML")
+        raise NFSeXMLError(
+            "Não foi possível localizar o elemento infNFSe no XML",
+            code=ErrorCode.RESPONSE_INVALID_XML,
+        )
 
     data.ibscbs = parse_ibscbs(root=inf_nfse)
     data.ibscbs_totals = _parse_ibscbs_totals(inf_nfse)

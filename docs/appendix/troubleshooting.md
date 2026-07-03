@@ -53,6 +53,13 @@ Quando a SEFIN devolve algo diferente do esperado, confira primeiro:
 - validade do certificado
 - se a nota já foi emitida e a aplicação perdeu a `chave_acesso`
 
+Quando o erro vier da própria biblioteca, use o par `error.code` + `error.message`
+para diagnosticar:
+
+- `error.code` identifica a categoria do problema de forma estável
+- `error.message` já vem em PT-BR com acentuação correta
+- os códigos e as mensagens estão catalogados em [Códigos de erro](error-codes)
+
 Se o problema acontecer só em homologação, vale testar o mesmo fluxo em outro
 certificado de homologação. Às vezes o arquivo está bom, mas o cadastro no
 ambiente não está.

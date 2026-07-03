@@ -112,7 +112,7 @@ class TestXMLSignerServiceLoadCertificate:
         with pytest.raises(NFSeCertificateError) as exc_info:
             signer._load_certificate()
 
-        assert "nao encontrado" in str(exc_info.value.message)
+        assert "não encontrado" in str(exc_info.value.message)
 
     @pytest.mark.skipif(not CRYPTOGRAPHY_AVAILABLE, reason="cryptography not installed")
     def test_load_certificate_raises_on_invalid_password(self):

@@ -1,5 +1,6 @@
 """Tests for Pydantic models validation."""
 
+import re
 from datetime import datetime
 from decimal import Decimal
 
@@ -745,6 +746,42 @@ class TestDPSOpSimpNac:
         )
 
         assert dps.build_dps_id() == "DPS350950221122233300018100900000000000000001"
+
+    def test_build_dps_id_rejects_numero_overflow(
+        self, valid_prestador, valid_tomador, valid_servico
+    ):
+        dps = DPS(
+            serie="900",
+            numero=10**15,
+            competencia="2026-01",
+            data_emissao=datetime.now(),
+            prestador=valid_prestador,
+            tomador=valid_tomador,
+            servico=valid_servico,
+            regime_tributario="simples_nacional",
+        )
+
+        with pytest.raises(ValueError, match="número do DPS excede 15 dígitos"):
+            dps.build_dps_id()
+
+    def test_build_dps_id_matches_regex_at_max_valid_numero(
+        self, valid_prestador, valid_tomador, valid_servico
+    ):
+        dps = DPS(
+            serie="900",
+            numero=999_999_999_999_999,
+            competencia="2026-01",
+            data_emissao=datetime.now(),
+            prestador=valid_prestador,
+            tomador=valid_tomador,
+            servico=valid_servico,
+            regime_tributario="simples_nacional",
+        )
+
+        dps_id = dps.build_dps_id()
+
+        assert re.fullmatch(r"DPS\d{42}", dps_id)
+        assert len(dps_id) == 45
 
     def test_accepts_mei_without_reg_ap_ibs_cbs_sn(
         self, valid_prestador, valid_tomador, valid_servico

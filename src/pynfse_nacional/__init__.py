@@ -13,6 +13,7 @@ from .constants import (
     ENDPOINTS,
     Ambiente,
 )
+from .error_codes import ErrorCode
 from .exceptions import (
     NFSeAPIError,
     NFSeCertificateError,
@@ -111,6 +112,7 @@ __all__ = [
     "NFSeValidationError",
     "NFSeCertificateError",
     "NFSeXMLError",
+    "ErrorCode",
     # Constants
     "Ambiente",
     "AMBIENTE_HOMOLOGACAO",

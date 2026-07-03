@@ -2,6 +2,7 @@
 
 import pytest
 
+from pynfse_nacional import ErrorCode
 from pynfse_nacional.exceptions import NFSeAPIError
 from pynfse_nacional.utils import (
     clean_document,
@@ -76,7 +77,7 @@ class TestCompression:
         with pytest.raises(NFSeAPIError) as exc_info:
             decode_decompress(encoded)
 
-        assert exc_info.value.code == "PAYLOAD_TOO_LARGE"
+        assert exc_info.value.code == ErrorCode.PAYLOAD_TOO_LARGE
         assert "Conteúdo NFSe excede" in str(exc_info.value)
 
 

@@ -9,7 +9,9 @@ from xml.etree.ElementTree import ParseError as XMLParseError
 import httpx
 
 from .constants import API_URLS, ENDPOINTS, PARAMETRIZACAO_URLS, Ambiente
-from .exceptions import NFSeAPIError, NFSeCertificateError
+from .error_codes import ErrorCode
+from .error_messages import get_error_message
+from .exceptions import NFSeAPIError, NFSeCertificateError, NFSeError
 from .models import (
     DPS,
     ConvenioMunicipal,
@@ -45,14 +47,31 @@ class RecoveryOutcome:
     - ``status="processing"``: the DPS was received but the NFSe has not been
       emitted yet (SEFIN returned 202 / 404 / 409 on the lookup). The caller
       should keep the issuance retryable rather than marking it failed.
-    - ``status="error"``: the lookup itself failed (transport or API error);
-      ``error`` holds the :class:`NFSeAPIError`. The caller should surface the
-      original submit error.
+    - ``status="error"``: the lookup itself failed (transport, API, or
+      certificate error); ``error`` holds the :class:`NFSeError`. The caller
+      should surface the original submit error.
     """
 
     status: Literal["success", "processing", "error"]
     result: Optional[NFSeQueryResult] = None
-    error: Optional[NFSeAPIError] = None
+    error: Optional[NFSeError] = None
+
+    def __post_init__(self) -> None:
+        if self.status == "success":
+            if self.result is None or self.error is not None:
+                raise ValueError(
+                    "RecoveryOutcome com status='success' requer result e nenhum error."
+                )
+        elif self.status == "processing":
+            if self.result is not None or self.error is not None:
+                raise ValueError(
+                    "RecoveryOutcome com status='processing' requer payload vazio."
+                )
+        elif self.status == "error":
+            if self.error is None or self.result is not None:
+                raise ValueError(
+                    "RecoveryOutcome com status='error' requer error e nenhum result."
+                )
 
     @property
     def recovered(self) -> bool:
@@ -65,7 +84,7 @@ def _validate_chave_acesso(chave: str) -> None:
 
     if not _CHAVE_RE.match(chave):
         raise ValueError(
-            "chave_acesso deve conter exatamente 50 digitos numericos; "
+            "chave_acesso deve conter exatamente 50 dígitos numéricos; "
             f"{_redacted_repr('valor', chave)}."
         )
 
@@ -75,7 +94,7 @@ def _validate_id_dps(id_dps: str) -> None:
 
     if not _ID_DPS_RE.match(id_dps):
         raise ValueError(
-            "id_dps deve seguir o padrão 'DPS' + 42 digitos; "
+            "id_dps deve seguir o padrão 'DPS' + 42 dígitos; "
             f"{_redacted_repr('valor', id_dps)}."
         )
 
@@ -119,6 +138,44 @@ def _extract_chave_acesso_from_dps_response(
         return data.strip()
 
     return None
+
+
+def _error_payload(response: httpx.Response) -> dict[str, object]:
+    """Return a dict payload for error responses, or empty dict on mismatch."""
+
+    try:
+        data = response.json()
+    except Exception:
+        return {}
+
+    if isinstance(data, dict):
+        return data
+
+    return {}
+
+
+def _require_json_object(
+    response: httpx.Response, *, context: str
+) -> dict[str, object]:
+    """Parse a JSON object response or raise a structured NFSeAPIError."""
+
+    try:
+        data = response.json()
+    except Exception as e:
+        raise NFSeAPIError(
+            f"Resposta inválida {context}: corpo não é JSON.",
+            code=ErrorCode.RESPONSE_INVALID_JSON,
+            status_code=response.status_code,
+        ) from e
+
+    if not isinstance(data, dict):
+        raise NFSeAPIError(
+            f"Resposta inválida {context}: JSON não é um objeto.",
+            code=ErrorCode.RESPONSE_INVALID_STRUCTURE,
+            status_code=response.status_code,
+        )
+
+    return data
 
 
 try:
@@ -174,7 +231,10 @@ class NFSeClient:
             Tuple of (private_key, certificate)
         """
         if not CRYPTOGRAPHY_AVAILABLE:
-            raise NFSeCertificateError("cryptography library not installed")
+            raise NFSeCertificateError(
+                get_error_message(ErrorCode.CERTIFICATE_DEPENDENCY_MISSING),
+                code=ErrorCode.CERTIFICATE_DEPENDENCY_MISSING,
+            )
 
         if self._private_key is not None:
             return self._private_key, self._certificate
@@ -184,7 +244,8 @@ class NFSeClient:
 
             if not cert_path.exists():
                 raise NFSeCertificateError(
-                    f"Certificate file not found: {self.cert_path}"
+                    f"Arquivo de certificado não encontrado: {self.cert_path}",
+                    code=ErrorCode.CERTIFICATE_FILE_NOT_FOUND,
                 )
 
             with open(cert_path, "rb") as f:
@@ -195,10 +256,16 @@ class NFSeClient:
             )
 
             if self._private_key is None:
-                raise NFSeCertificateError("Private key not found in certificate")
+                raise NFSeCertificateError(
+                    "Chave privada não encontrada no certificado.",
+                    code=ErrorCode.CERTIFICATE_LOAD_FAILED,
+                )
 
             if self._certificate is None:
-                raise NFSeCertificateError("Certificate not found in PKCS12 file")
+                raise NFSeCertificateError(
+                    "Certificado não encontrado no arquivo PKCS12.",
+                    code=ErrorCode.CERTIFICATE_LOAD_FAILED,
+                )
 
             return self._private_key, self._certificate
 
@@ -206,7 +273,10 @@ class NFSeClient:
             raise
 
         except Exception as e:
-            raise NFSeCertificateError(f"Error loading certificate: {str(e)}")
+            raise NFSeCertificateError(
+                get_error_message(ErrorCode.CERTIFICATE_LOAD_FAILED),
+                code=ErrorCode.CERTIFICATE_LOAD_FAILED,
+            ) from e
 
     @contextmanager
     def _get_client(self) -> Generator[httpx.Client, None, None]:
@@ -228,39 +298,49 @@ class NFSeClient:
         cert_file_path = None
         key_file_path = None
 
-        with tempfile.NamedTemporaryFile(
-            mode="wb", suffix=".pem", delete=False
-        ) as cert_file:
-            cert_file.write(cert_pem)
-            cert_file_path = cert_file.name
-
-        with tempfile.NamedTemporaryFile(
-            mode="wb", suffix=".pem", delete=False
-        ) as key_file:
-            key_file.write(key_pem)
-            key_file_path = key_file.name
-
         client = None
-        try:
-            try:
-                client = httpx.Client(
-                    cert=(cert_file_path, key_file_path),
-                    verify=True,
-                    timeout=self.timeout,
-                )
-            except Exception as e:
-                raise NFSeCertificateError(
-                    f"Error configuring HTTP client: {str(e)}"
-                ) from e
 
-            yield client
-        finally:
+        def _cleanup() -> None:
             if client is not None:
                 client.close()
             if cert_file_path:
                 Path(cert_file_path).unlink(missing_ok=True)
             if key_file_path:
                 Path(key_file_path).unlink(missing_ok=True)
+
+        try:
+            with tempfile.NamedTemporaryFile(
+                mode="wb", suffix=".pem", delete=False
+            ) as cert_file:
+                cert_file_path = cert_file.name
+                cert_file.write(cert_pem)
+
+            with tempfile.NamedTemporaryFile(
+                mode="wb", suffix=".pem", delete=False
+            ) as key_file:
+                key_file_path = key_file.name
+                key_file.write(key_pem)
+
+            client = httpx.Client(
+                cert=(cert_file_path, key_file_path),
+                verify=True,
+                timeout=self.timeout,
+            )
+        except NFSeCertificateError:
+            _cleanup()
+            raise
+
+        except Exception as e:
+            _cleanup()
+            raise NFSeCertificateError(
+                get_error_message(ErrorCode.CERTIFICATE_CLIENT_SETUP_FAILED),
+                code=ErrorCode.CERTIFICATE_CLIENT_SETUP_FAILED,
+            ) from e
+
+        try:
+            yield client
+        finally:
+            _cleanup()
 
     def submit_dps(self, dps: DPS) -> NFSeResponse:
         """Submit DPS and receive NFSe."""
@@ -280,10 +360,16 @@ class NFSeClient:
                 return self._parse_dps_response(response)
 
         except httpx.TimeoutException:
-            raise NFSeAPIError("Timeout ao comunicar com SEFIN", code="TIMEOUT")
+            raise NFSeAPIError(
+                "Tempo esgotado ao comunicar com a SEFIN.",
+                code=ErrorCode.COMMUNICATION_TIMEOUT,
+            )
 
         except httpx.RequestError as e:
-            raise NFSeAPIError(f"Erro de comunicacao: {str(e)}", code="COMM_ERROR")
+            raise NFSeAPIError(
+                "Erro de comunicação com a SEFIN.",
+                code=ErrorCode.COMMUNICATION_ERROR,
+            ) from e
 
     def _parse_dps_response(self, response: httpx.Response) -> NFSeResponse:
         """Parse API response for DPS submission."""
@@ -293,7 +379,7 @@ class NFSeClient:
             return NFSeResponse(
                 success=False,
                 error_code=str(response.status_code),
-                error_message=response.text or "Erro desconhecido",
+                error_message=get_error_message(ErrorCode.RESPONSE_INVALID_JSON),
             )
 
         # Check for chaveAcesso to determine success
@@ -331,7 +417,8 @@ class NFSeClient:
         return NFSeResponse(
             success=False,
             error_code=data.get("codigo") or str(response.status_code),
-            error_message=data.get("mensagem") or str(data),
+            error_message=data.get("mensagem")
+            or get_error_message(ErrorCode.RESPONSE_INVALID_STRUCTURE),
         )
 
     def _query_nfse_with_client(
@@ -343,23 +430,15 @@ class NFSeClient:
         response = client.get(url)
 
         if response.status_code != 200:
-            error_data = {}
-
-            try:
-                error_data = response.json()
-            except Exception:
-                pass
-
-            if not isinstance(error_data, dict):
-                error_data = {}
+            error_data = _error_payload(response)
 
             raise NFSeAPIError(
-                error_data.get("mensagem", "Erro ao consultar NFSe"),
+                error_data.get("mensagem") or "Erro ao consultar NFSe.",
                 code=error_data.get("codigo"),
                 status_code=response.status_code,
             )
 
-        data = response.json()
+        data = _require_json_object(response, context="ao consultar NFSe")
 
         xml_nfse = None
         xml_root = None
@@ -379,14 +458,14 @@ class NFSeClient:
         chave_retorno = data.get("chaveAcesso")
         if not chave_retorno:
             raise NFSeAPIError(
-                "Resposta invalida ao consultar NFSe: chaveAcesso ausente",
+                "Resposta inválida ao consultar NFSe: chaveAcesso ausente",
                 status_code=response.status_code,
             )
 
         data_emissao = data.get("dhEmi")
         if not data_emissao:
             raise NFSeAPIError(
-                "Resposta invalida ao consultar NFSe: dhEmi ausente",
+                "Resposta inválida ao consultar NFSe: dhEmi ausente",
                 status_code=response.status_code,
             )
 
@@ -395,7 +474,7 @@ class NFSeClient:
             nfse_number = data.get("nNFSe")
         if nfse_number is None:
             raise NFSeAPIError(
-                "Resposta invalida ao consultar NFSe: nNFSe ausente",
+                "Resposta inválida ao consultar NFSe: nNFSe ausente",
                 status_code=response.status_code,
             )
 
@@ -425,10 +504,16 @@ class NFSeClient:
             raise
 
         except httpx.TimeoutException:
-            raise NFSeAPIError("Timeout ao consultar NFSe", code="TIMEOUT")
+            raise NFSeAPIError(
+                "Tempo esgotado ao consultar NFSe.",
+                code=ErrorCode.COMMUNICATION_TIMEOUT,
+            )
 
         except httpx.RequestError as e:
-            raise NFSeAPIError(f"Erro de comunicacao: {str(e)}", code="COMM_ERROR")
+            raise NFSeAPIError(
+                "Erro de comunicação com a SEFIN.",
+                code=ErrorCode.COMMUNICATION_ERROR,
+            ) from e
 
     def query_nfse_by_dps(self, id_dps: str) -> NFSeQueryResult:
         """Recover an NFSe by DPS identifier, then fetch the full invoice."""
@@ -441,18 +526,10 @@ class NFSeClient:
                 response = client.get(url)
 
                 if response.status_code != 200:
-                    error_data = {}
-
-                    try:
-                        error_data = response.json()
-                    except Exception:
-                        pass
-
-                    if not isinstance(error_data, dict):
-                        error_data = {}
+                    error_data = _error_payload(response)
 
                     raise NFSeAPIError(
-                        error_data.get("mensagem", "Erro ao consultar DPS"),
+                        error_data.get("mensagem") or "Erro ao consultar DPS.",
                         code=error_data.get("codigo"),
                         status_code=response.status_code,
                     )
@@ -461,7 +538,7 @@ class NFSeClient:
                 if not chave_acesso:
                     raise NFSeAPIError(
                         "Resposta da consulta por DPS sem chave de acesso",
-                        code="INVALID_RESPONSE",
+                        code=ErrorCode.RESPONSE_INVALID_STRUCTURE,
                         status_code=response.status_code,
                     )
 
@@ -471,10 +548,16 @@ class NFSeClient:
             raise
 
         except httpx.TimeoutException:
-            raise NFSeAPIError("Timeout ao consultar DPS", code="TIMEOUT")
+            raise NFSeAPIError(
+                "Tempo esgotado ao consultar DPS.",
+                code=ErrorCode.COMMUNICATION_TIMEOUT,
+            )
 
         except httpx.RequestError as e:
-            raise NFSeAPIError(f"Erro de comunicacao: {str(e)}", code="COMM_ERROR")
+            raise NFSeAPIError(
+                "Erro de comunicação com a SEFIN.",
+                code=ErrorCode.COMMUNICATION_ERROR,
+            ) from e
 
     def has_nfse_by_dps(self, id_dps: str) -> bool:
         """Check whether an NFSe exists for a DPS identifier."""
@@ -492,18 +575,10 @@ class NFSeClient:
                 if response.status_code in (202, 404, 409):
                     return False
 
-                error_data = {}
-
-                try:
-                    error_data = response.json()
-                except Exception:
-                    pass
-
-                if not isinstance(error_data, dict):
-                    error_data = {}
+                error_data = _error_payload(response)
 
                 raise NFSeAPIError(
-                    error_data.get("mensagem", "Erro ao consultar DPS"),
+                    error_data.get("mensagem") or "Erro ao consultar DPS.",
                     code=error_data.get("codigo"),
                     status_code=response.status_code,
                 )
@@ -512,10 +587,16 @@ class NFSeClient:
             raise
 
         except httpx.TimeoutException:
-            raise NFSeAPIError("Timeout ao consultar DPS", code="TIMEOUT")
+            raise NFSeAPIError(
+                "Tempo esgotado ao consultar DPS.",
+                code=ErrorCode.COMMUNICATION_TIMEOUT,
+            )
 
         except httpx.RequestError as e:
-            raise NFSeAPIError(f"Erro de comunicacao: {str(e)}", code="COMM_ERROR")
+            raise NFSeAPIError(
+                "Erro de comunicação com a SEFIN.",
+                code=ErrorCode.COMMUNICATION_ERROR,
+            ) from e
 
     def recover_nfse_by_dps(self, id_dps: str) -> RecoveryOutcome:
         """Recover an NFSe by DPS identifier when submit may have already succeeded.
@@ -523,24 +604,30 @@ class NFSeClient:
         High-level helper that combines :meth:`has_nfse_by_dps` and
         :meth:`query_nfse_by_dps` for the duplicate / lost-``chave_acesso``
         recovery path. Use after ``submit_dps`` failed or raised, when SEFIN
-        may still have processed the DPS.
+        may still have processed the DPS. Swallows NFSeError failures from the
+        lookup path and wraps XML parse failures into ``status="error"``.
 
         See :class:`RecoveryOutcome` for the possible statuses.
         """
-        _validate_id_dps(id_dps)
-
         try:
             if not self.has_nfse_by_dps(id_dps):
                 return RecoveryOutcome(status="processing")
-        except NFSeAPIError as e:
-            return RecoveryOutcome(status="error", error=e)
 
-        try:
             return RecoveryOutcome(
                 status="success",
                 result=self.query_nfse_by_dps(id_dps),
             )
-        except NFSeAPIError as e:
+        except XMLParseError as e:
+            error = NFSeAPIError(
+                "Resposta XML inválida ao consultar NFSe.",
+                code=ErrorCode.RESPONSE_INVALID_XML,
+            )
+            error.__cause__ = e
+            return RecoveryOutcome(
+                status="error",
+                error=error,
+            )
+        except NFSeError as e:
             return RecoveryOutcome(status="error", error=e)
 
     def download_danfse(self, chave_acesso: str) -> bytes:
@@ -568,12 +655,7 @@ class NFSeClient:
                 response = client.get(url)
 
                 if response.status_code != 200:
-                    error_data = {}
-
-                    try:
-                        error_data = response.json()
-                    except Exception:
-                        pass
+                    error_data = _error_payload(response)
 
                     msg = error_data.get("mensagem") or (
                         f"Erro ao baixar DANFSe: HTTP {response.status_code}"
@@ -590,10 +672,16 @@ class NFSeClient:
             raise
 
         except httpx.TimeoutException:
-            raise NFSeAPIError("Timeout ao baixar DANFSe", code="TIMEOUT")
+            raise NFSeAPIError(
+                "Tempo esgotado ao baixar DANFSe.",
+                code=ErrorCode.COMMUNICATION_TIMEOUT,
+            )
 
         except httpx.RequestError as e:
-            raise NFSeAPIError(f"Erro de comunicacao: {str(e)}", code="COMM_ERROR")
+            raise NFSeAPIError(
+                "Erro de comunicação com o convênio municipal.",
+                code=ErrorCode.COMMUNICATION_ERROR,
+            ) from e
 
     def substitute_nfse(
         self,
@@ -674,10 +762,16 @@ class NFSeClient:
                 return self._parse_event_response(response)
 
         except httpx.TimeoutException:
-            raise NFSeAPIError("Timeout ao cancelar NFSe", code="TIMEOUT")
+            raise NFSeAPIError(
+                "Tempo esgotado ao cancelar NFSe.",
+                code=ErrorCode.COMMUNICATION_TIMEOUT,
+            )
 
         except httpx.RequestError as e:
-            raise NFSeAPIError(f"Erro de comunicacao: {str(e)}", code="COMM_ERROR")
+            raise NFSeAPIError(
+                "Erro de comunicação ao cancelar NFSe.",
+                code=ErrorCode.COMMUNICATION_ERROR,
+            ) from e
 
     def _parse_event_response(self, response: httpx.Response) -> EventResponse:
         """Parse API response for event registration.
@@ -694,9 +788,7 @@ class NFSeClient:
             return EventResponse(
                 success=False,
                 error_code=str(response.status_code),
-                error_message=(
-                    response.text[:500] or f"HTTP {response.status_code} sem corpo"
-                ),
+                error_message=get_error_message(ErrorCode.RESPONSE_INVALID_JSON),
             )
 
         if response.status_code in (200, 201):
@@ -711,7 +803,8 @@ class NFSeClient:
                         success=False,
                         error_code=str(c_stat),
                         error_message=(
-                            ret_evento.get("xMotivo") or "Erro no registro do evento"
+                            ret_evento.get("xMotivo")
+                            or "Erro no registro do evento."
                         ),
                     )
 
@@ -739,13 +832,13 @@ class NFSeClient:
             return EventResponse(
                 success=False,
                 error_code=(erros[0].get("codigo") or str(response.status_code)),
-                error_message="; ".join(p for p in parts if p) or "Erro desconhecido",
+                error_message="; ".join(p for p in parts if p) or "Erro desconhecido.",
             )
 
         return EventResponse(
             success=False,
             error_code=data.get("codigo") or str(response.status_code),
-            error_message=data.get("mensagem") or "Erro desconhecido",
+            error_message=data.get("mensagem") or "Erro desconhecido.",
         )
 
     def query_convenio_municipal(self, codigo_municipio: int) -> ConvenioMunicipal:
@@ -773,15 +866,10 @@ class NFSeClient:
                     )
 
                 if response.status_code != 200:
-                    error_data = {}
-
-                    try:
-                        error_data = response.json()
-                    except Exception:
-                        pass
+                    error_data = _error_payload(response)
 
                     msg = error_data.get("mensagem") or (
-                        f"Erro ao consultar convenio: HTTP {response.status_code}"
+                        f"Erro ao consultar convênio: HTTP {response.status_code}"
                     )
                     raise NFSeAPIError(
                         msg,
@@ -789,7 +877,9 @@ class NFSeClient:
                         status_code=response.status_code,
                     )
 
-                data = response.json()
+                data = _require_json_object(
+                    response, context="ao consultar convênio"
+                )
 
                 return ConvenioMunicipal(
                     codigo_municipio=codigo_municipio,
@@ -801,7 +891,13 @@ class NFSeClient:
             raise
 
         except httpx.TimeoutException:
-            raise NFSeAPIError("Timeout ao consultar convenio", code="TIMEOUT")
+            raise NFSeAPIError(
+                "Tempo esgotado ao consultar convênio.",
+                code=ErrorCode.COMMUNICATION_TIMEOUT,
+            )
 
         except httpx.RequestError as e:
-            raise NFSeAPIError(f"Erro de comunicacao: {str(e)}", code="COMM_ERROR")
+            raise NFSeAPIError(
+                "Erro de comunicação ao consultar convênio municipal.",
+                code=ErrorCode.COMMUNICATION_ERROR,
+            ) from e
