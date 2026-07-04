@@ -78,3 +78,5 @@ response = client.submit_dps(dps)
 - [Substituição](guides/substitute)
 - [DANFSe PDF](guides/danfse-pdf)
 - [IBSCBS](guides/ibscbs)
+- Se você precisar do mapeamento `REGIME_TO_SIMPLES_NACIONAL`, veja o exemplo
+  em [Primeira emissão](guides/first-emission).

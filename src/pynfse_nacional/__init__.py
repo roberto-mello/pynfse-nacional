@@ -35,6 +35,7 @@ from .models import (
     Tomador,
     ValoresServico,
 )
+from .regime_mapping import REGIME_TO_SIMPLES_NACIONAL
 from .models_ibscbs import (
     GIBSCBS,
     IBSCBS,
@@ -119,6 +120,7 @@ __all__ = [
     "AMBIENTE_PRODUCAO",
     "API_URLS",
     "ENDPOINTS",
+    "REGIME_TO_SIMPLES_NACIONAL",
     # Utils
     "compress_encode",
     "compress_and_encode",
