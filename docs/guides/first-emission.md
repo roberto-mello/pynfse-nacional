@@ -82,3 +82,19 @@ apuração corretos.
 - `op_simp_nac="1"` e `"2"` não aceitam `reg_ap_trib_sn` nem
   `reg_ap_ibs_cbs_sn`.
 - `op_simp_nac="3"` e `"4"` exigem os dois campos.
+
+## Quando você precisa do mapeamento
+
+Se outra aplicação precisar do mesmo mapeamento que a biblioteca usa para os
+regimes do Simples Nacional, importe `REGIME_TO_SIMPLES_NACIONAL` do pacote
+principal:
+
+```python
+from pynfse_nacional import REGIME_TO_SIMPLES_NACIONAL
+
+mapeamento = REGIME_TO_SIMPLES_NACIONAL["simples_nacional"]
+print(mapeamento["opSimpNac"])
+```
+
+Esse contrato fica exposto no pacote para evitar cópias locais e manter o valor
+usado na emissão sincronizado entre integrações.
