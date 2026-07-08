@@ -35,7 +35,6 @@ from .models import (
     Tomador,
     ValoresServico,
 )
-from .regime_mapping import REGIME_TO_SIMPLES_NACIONAL
 from .models_ibscbs import (
     GIBSCBS,
     IBSCBS,
@@ -47,6 +46,7 @@ from .models_ibscbs import (
     TribIBSCBS,
     ValoresIBSCBS,
 )
+from .regime_mapping import REGIME_TO_SIMPLES_NACIONAL
 from .types import Money15V2, Percent2V2, Percent3V2
 from .utils import (
     clean_document,
@@ -76,7 +76,7 @@ try:
 except ImportError:
     _PDF_AVAILABLE = False
 
-__version__ = "0.9.1"
+__version__ = "0.9.2"
 
 __all__ = [
     # Client

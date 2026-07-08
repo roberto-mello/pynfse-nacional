@@ -303,6 +303,49 @@ class TestParseDpsResponseError:
         assert result.error_code == "ERR001"
         assert result.error_message == "DPS inválido"
 
+    def test_parses_sefin_erro_array(self, mock_client):
+        """Should parse SEFIN's erro array format on DPS submit errors."""
+        mock_response = MockResponse(
+            status_code=400,
+            json_data={
+                "erro": [
+                    {
+                        "codigo": "NFSE-E-400",
+                        "descricao": "JSON não é um objeto",
+                        "complemento": "Corpo enviado para /nfse",
+                    }
+                ]
+            },
+        )
+
+        result = mock_client._parse_dps_response(mock_response)
+
+        assert result.success is False
+        assert result.error_code == "NFSE-E-400"
+        assert (
+            result.error_message
+            == "JSON não é um objeto: Corpo enviado para /nfse"
+        )
+
+    def test_parses_top_level_error_list(self, mock_client):
+        """Should accept a top-level error list without crashing."""
+        mock_response = MockResponse(
+            status_code=400,
+            json_data=[
+                {
+                    "codigo": "NFSE-E-400",
+                    "descricao": "JSON não é um objeto",
+                    "complemento": "",
+                }
+            ],
+        )
+
+        result = mock_client._parse_dps_response(mock_response)
+
+        assert result.success is False
+        assert result.error_code == "NFSE-E-400"
+        assert result.error_message == "JSON não é um objeto"
+
     def test_parses_error_without_json(self, mock_client):
         """Should handle error response without JSON."""
         mock_response = MockResponse(

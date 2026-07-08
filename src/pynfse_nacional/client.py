@@ -154,6 +154,74 @@ def _error_payload(response: httpx.Response) -> dict[str, object]:
     return {}
 
 
+def _format_dps_error_response(
+    data: object,
+    response: httpx.Response,
+    *,
+    default_message: str,
+) -> tuple[str, str]:
+    """Normalize SEFIN DPS error payloads from object or list shapes."""
+
+    if isinstance(data, dict):
+        erros = data.get("erro")
+        if isinstance(erros, list) and erros:
+            return _format_dps_error_entries(
+                erros,
+                response.status_code,
+                default_message=default_message,
+            )
+
+        return (
+            str(data.get("codigo") or response.status_code),
+            str(data.get("mensagem") or default_message),
+        )
+
+    if isinstance(data, list) and data:
+        return _format_dps_error_entries(
+            data,
+            response.status_code,
+            default_message=default_message,
+        )
+
+    return str(response.status_code), default_message
+
+
+def _format_dps_error_entries(
+    entries: list[object],
+    fallback_code: int,
+    *,
+    default_message: str,
+) -> tuple[str, str]:
+    """Render a SEFIN error list into the public NFSe error shape."""
+
+    if not entries:
+        return str(fallback_code), default_message
+
+    parts: list[str] = []
+    first_code: object | None = None
+
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+
+        if first_code is None:
+            first_code = entry.get("codigo")
+
+        descricao = (
+            str(entry.get("descricao") or entry.get("mensagem") or "")
+            .strip()[:255]
+        )
+        complemento = str(entry.get("complemento") or "").strip()[:255]
+
+        if descricao or complemento:
+            parts.append(f"{descricao}: {complemento}" if complemento else descricao)
+
+    return (
+        str(first_code or fallback_code),
+        "; ".join(parts) or default_message,
+    )
+
+
 def _require_json_object(
     response: httpx.Response, *, context: str
 ) -> dict[str, object]:
@@ -384,7 +452,7 @@ class NFSeClient:
 
         # Check for chaveAcesso to determine success
         # (API may return success on non-200 status)
-        if data.get("chaveAcesso"):
+        if isinstance(data, dict) and data.get("chaveAcesso"):
             nfse_xml = None
             nfse_xml_b64 = data.get("nfseXmlGZipB64")
 
@@ -414,11 +482,15 @@ class NFSeClient:
             )
 
         # Error response
+        error_code, error_message = _format_dps_error_response(
+            data,
+            response,
+            default_message=get_error_message(ErrorCode.RESPONSE_INVALID_STRUCTURE),
+        )
         return NFSeResponse(
             success=False,
-            error_code=data.get("codigo") or str(response.status_code),
-            error_message=data.get("mensagem")
-            or get_error_message(ErrorCode.RESPONSE_INVALID_STRUCTURE),
+            error_code=error_code,
+            error_message=error_message,
         )
 
     def _query_nfse_with_client(
