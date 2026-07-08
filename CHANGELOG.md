@@ -10,6 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 The star-spangled-banner release. It became clear we didn't want to replicate
 the regime mapping in clients, so we made this small addition.
 
+### Fixed
+- `submit_dps()` now normalizes SEFIN error payloads that arrive as `erro`
+  arrays or top-level JSON lists, preserving the provider message instead of
+  failing on the response shape.
+
 ### Added
 - Exported `REGIME_TO_SIMPLES_NACIONAL` from the top-level package so callers
   can reuse the canonical Simples Nacional mapping without duplicating it.
