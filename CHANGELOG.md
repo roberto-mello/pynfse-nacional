@@ -5,15 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## 0.9.2 - 2026-07-04
-
-The star-spangled-banner release. It became clear we didn't want to replicate
-the regime mapping in clients, so we made this small addition.
+## 0.9.3 - 2026-07-07
 
 ### Fixed
 - `submit_dps()` now normalizes SEFIN error payloads that arrive as `erro`
   arrays or top-level JSON lists, preserving the provider message instead of
   failing on the response shape.
+
+## 0.9.2 - 2026-07-04
+
+The star-spangled-banner release. It became clear we didn't want to replicate
+the regime mapping in clients, so we made this small addition.
 
 ### Added
 - Exported `REGIME_TO_SIMPLES_NACIONAL` from the top-level package so callers
