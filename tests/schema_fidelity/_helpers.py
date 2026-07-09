@@ -13,13 +13,23 @@ from tests.fixtures.xsd_official._generate_official_fixture import (
     apply_official_typo_fix,
 )
 
+# Official XSD zips are a few MB. Cap well above that to fail closed on
+# hostile/bloated mirrors without rejecting legitimate packages.
+DEFAULT_MAX_DOWNLOAD_BYTES = 32 * 1024 * 1024  # 32 MiB
+_CHUNK_SIZE = 64 * 1024
+
 
 class SchemaFetchError(RuntimeError):
     """Raised when a network fetch cannot be completed."""
 
 
-def fetch_bytes(url: str, timeout: float = 30.0) -> bytes:
-    """Fetch URL bytes or raise ``NetworkUnavailable``."""
+def fetch_bytes(
+    url: str,
+    timeout: float = 30.0,
+    *,
+    max_bytes: int = DEFAULT_MAX_DOWNLOAD_BYTES,
+) -> bytes:
+    """Fetch URL bytes with a hard size bound, or raise ``SchemaFetchError``."""
 
     request = Request(
         url,
@@ -28,15 +38,45 @@ def fetch_bytes(url: str, timeout: float = 30.0) -> bytes:
 
     try:
         with urlopen(request, timeout=timeout) as response:
-            return response.read()
+            content_length = response.headers.get("Content-Length")
+            if content_length is not None:
+                try:
+                    declared = int(content_length)
+                except ValueError:
+                    declared = -1
+                if declared > max_bytes:
+                    raise SchemaFetchError(
+                        f"Content-Length {declared} exceeds max_bytes={max_bytes}"
+                    )
+
+            chunks: list[bytes] = []
+            total = 0
+            while True:
+                chunk = response.read(_CHUNK_SIZE)
+                if not chunk:
+                    break
+                total += len(chunk)
+                if total > max_bytes:
+                    raise SchemaFetchError(
+                        f"Download exceeded max_bytes={max_bytes}"
+                    )
+                chunks.append(chunk)
+            return b"".join(chunks)
+    except SchemaFetchError:
+        raise
     except (HTTPError, URLError, TimeoutError, OSError) as exc:
         raise SchemaFetchError(str(exc)) from exc
 
 
-def fetch_text(url: str, timeout: float = 30.0) -> str:
-    """Fetch UTF-8 text from URL or raise ``NetworkUnavailable``."""
+def fetch_text(
+    url: str,
+    timeout: float = 30.0,
+    *,
+    max_bytes: int = DEFAULT_MAX_DOWNLOAD_BYTES,
+) -> str:
+    """Fetch UTF-8 text from URL or raise ``SchemaFetchError``."""
 
-    return fetch_bytes(url, timeout=timeout).decode("utf-8")
+    return fetch_bytes(url, timeout=timeout, max_bytes=max_bytes).decode("utf-8")
 
 
 def sha256_hex(data: bytes) -> str:
