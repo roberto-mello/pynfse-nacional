@@ -1,0 +1,32 @@
+name: tests
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Install dev dependencies
+        run: uv sync --extra dev --frozen
+
+      - name: Lint
+        run: uv run ruff check src tests
+
+      - name: Run tests with coverage
+        run: uv run pytest --cov=src/pynfse_nacional --cov-report=term-missing
