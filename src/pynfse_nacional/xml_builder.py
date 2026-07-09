@@ -1,3 +1,11 @@
+"""XML builder for NFSe DPS and events."""
+
+# Canonical sources (verify before changing):
+#   Pinned URLs and sha256 hashes live in src/pynfse_nacional/_canonical.py.
+#   XSD: nfse-esquemas_xsd-v1-01-20260209.zip
+#   Manual: manual-contribuintes-emissor-publico-api-sistema-nacional-
+#   nfs-e-v1-2-out2025.pdf
+
 import warnings
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal

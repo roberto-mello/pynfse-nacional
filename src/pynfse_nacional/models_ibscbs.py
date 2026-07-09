@@ -1,5 +1,12 @@
 """IBSCBS models for NFSe Nacional."""
 
+# Canonical sources (verify before changing):
+#   Pinned URLs and sha256 hashes live in src/pynfse_nacional/_canonical.py.
+#   XSD: nfse-esquemas_xsd-v1-01-20260209.zip
+#   ANEXO_C: anexo_c-indop_ibscbs-snnfse-v1-01-20260122.xlsx
+#   Manual: manual-contribuintes-emissor-publico-api-sistema-nacional-
+#   nfs-e-v1-2-out2025.pdf
+
 from __future__ import annotations
 
 import re
@@ -24,6 +31,10 @@ _CLASS_TRIB_PATTERN = re.compile(r"^[0-9]{6}$")
 _OP_BEM_IMOVEL = (
     "Operação com bem imóvel, bem imaterial, inclusive direito, "
     "relacionada a bem imóvel"
+)
+_OP_SERVICO_BEM_IMOVEL = "Serviço prestado fisicamente sobre bem imóvel"
+_OP_ADMIN_BEM_IMOVEL = (
+    "Serviço de administração e intermediação de bem imóvel"
 )
 _OP_BEM_IMOVEL_EXEC = (
     "Execução de operações com bem imóvel, bem imaterial, inclusive direito, "
@@ -51,6 +62,7 @@ _OP_FEIRAS_EXEC = (
     "feiras, exposições, congressos, espetáculos, exibições e congêneres"
 )
 _OP_BEM_MOVEL = "Serviço prestado fisicamente sobre bem móvel material"
+_OP_PORTUARIO = "Serviços portuários"
 _OP_BEM_MOVEL_EXEC = (
     "Execução de serviços diversos fisicamente prestados sobre bem móvel "
     "material"
@@ -73,6 +85,20 @@ _OP_PUBLICIDADE_ONEROSA_EXEC = (
 _OP_PUBLICIDADE_NAO_ONEROSA = (
     "Cessão de espaço para prestação de serviços publicitários, em operações "
     "não onerosas (4)"
+)
+_OP_SERVICOS_DEMAIS_ONEROSOS = "Demais serviços, em operações onerosas"
+_OP_SERVICOS_DEMAIS_ONEROSOS_EXEC = (
+    "Execução dos demais serviços em operações não especificadas anteriormente "
+    "ou, nos serviços de que trata o inc. III, estes sejam, ainda que "
+    "parcialmente, prestados à distância (2)"
+)
+_OP_SERVICOS_DEMAIS_NAO_ONEROSOS = (
+    "Demais serviços, em operações não onerosas"
+)
+_OP_SERVICOS_DEMAIS_NAO_ONEROSOS_EXEC = (
+    "Execução dos demais serviços em operações não especificadas anteriormente "
+    "ou, nos serviços de que tratam o inc. III, estes sejam, ainda que "
+    "parcialmente, prestados à distância"
 )
 _OP_BENS_IMATERIAIS_ONEROSOS = (
     "Demais bens móveis imateriais, inclusive direitos, em operações "
@@ -156,7 +182,7 @@ IBSCBS_OPERATION_CATEGORIES = (
     IBSCBSOperationCategory(
         "Art. 11",
         "II",
-        _OP_BEM_IMOVEL,
+        _OP_SERVICO_BEM_IMOVEL,
         "o local onde o imóvel estiver situado",
         _OP_SERVICO_BEM_IMOVEL_EXEC,
         "0202",
@@ -172,7 +198,7 @@ IBSCBS_OPERATION_CATEGORIES = (
     IBSCBSOperationCategory(
         "Art. 11",
         "II",
-        _OP_BEM_IMOVEL,
+        _OP_ADMIN_BEM_IMOVEL,
         "o local onde o imóvel estiver situado",
         _OP_ADMIN_BEM_IMOVEL_EXEC,
         "0203",
@@ -272,7 +298,7 @@ IBSCBS_OPERATION_CATEGORIES = (
     IBSCBSOperationCategory(
         "Art. 11",
         "V",
-        _OP_BEM_MOVEL,
+        _OP_PORTUARIO,
         "o local da prestação do serviço",
         _OP_PORTUARIO_EXEC,
         "0502",
@@ -351,8 +377,8 @@ IBSCBS_OPERATION_CATEGORIES = (
         "X",
         _OP_PUBLICIDADE_ONEROSA,
         (
-            "o local do domicílio principal do adquirente, nas operações "
-            "onerosas"
+            "o local do domicílio principal do: a) adquirente, nas "
+            "operações onerosas; ..."
         ),
         _OP_PUBLICIDADE_ONEROSA_EXEC,
         "1005",
@@ -379,8 +405,8 @@ IBSCBS_OPERATION_CATEGORIES = (
         "X",
         _OP_PUBLICIDADE_NAO_ONEROSA,
         (
-            "o local do domicílio principal do destinatário, nas operações "
-            "não onerosas"
+            "o local do domicílio principal do: ... b) destinatário, nas "
+            "operações não onerosas."
         ),
         _OP_PUBLICIDADE_ONEROSA_EXEC,
         "1006",
@@ -389,19 +415,19 @@ IBSCBS_OPERATION_CATEGORIES = (
                 "01",
                 "100201",
                 "Local do domicílio principal do destinatário (6)",
-                _PATH_DEST_ONLY,
+                _PATH_TOMA_END_OR_DEST,
             ),
         ),
     ),
     IBSCBSOperationCategory(
         "Art. 11",
         "X",
-        _OP_BENS_IMATERIAIS_ONEROSOS,
+        _OP_SERVICOS_DEMAIS_ONEROSOS,
         (
-            "o local do domicílio principal do adquirente, nas operações "
-            "onerosas"
+            "o local do domicílio principal do: a) adquirente, nas "
+            "operações onerosas; ..."
         ),
-        _OP_BENS_IMATERIAIS_ONEROSOS_EXEC,
+        _OP_SERVICOS_DEMAIS_ONEROSOS_EXEC,
         "1001",
         (
             IBSCBSOperationVariant(
@@ -417,26 +443,26 @@ IBSCBS_OPERATION_CATEGORIES = (
                     "Local do domicílio do destinatário, nos casos de "
                     "adquirente residente ou domiciliado no exterior (5)(6)"
                 ),
-                _PATH_TOMA_END_EXT_OR_DEST_END_EXT,
+                _PATH_TOMA_END_OR_DEST,
             ),
         ),
     ),
     IBSCBSOperationCategory(
         "Art. 11",
         "X",
-        _OP_BENS_IMATERIAIS_NAO_ONEROSOS,
+        _OP_SERVICOS_DEMAIS_NAO_ONEROSOS,
         (
-            "o local do domicílio principal do destinatário, nas operações "
-            "não onerosas"
+            "o local do domicílio principal do: ... b) destinatário, nas "
+            "operações não onerosas."
         ),
-        _OP_BENS_IMATERIAIS_NAO_ONEROSOS_EXEC,
+        _OP_SERVICOS_DEMAIS_NAO_ONEROSOS_EXEC,
         "1002",
         (
             IBSCBSOperationVariant(
                 "01",
                 "100401",
                 "Local do domicílio principal do destinatário (6)",
-                _PATH_DEST_ONLY,
+                _PATH_TOMA_END_OR_DEST,
             ),
         ),
     ),
@@ -445,8 +471,8 @@ IBSCBS_OPERATION_CATEGORIES = (
         "X",
         _OP_BENS_IMATERIAIS_ONEROSOS,
         (
-            "o local do domicílio principal do adquirente, nas operações "
-            "onerosas"
+            "o local do domicílio principal do: a) adquirente, nas "
+            "operações onerosas; ..."
         ),
         _OP_BENS_IMATERIAIS_ONEROSOS_EXEC,
         "1003",
@@ -473,8 +499,8 @@ IBSCBS_OPERATION_CATEGORIES = (
         "X",
         _OP_BENS_IMATERIAIS_NAO_ONEROSOS,
         (
-            "o local do domicílio principal do destinatário, nas operações "
-            "não onerosas"
+            "o local do domicílio principal do: ... b) destinatário, nas "
+            "operações não onerosas."
         ),
         _OP_BENS_IMATERIAIS_NAO_ONEROSOS_EXEC,
         "1004",
@@ -483,7 +509,7 @@ IBSCBS_OPERATION_CATEGORIES = (
                 "01",
                 "100601",
                 "Local do domicílio principal do destinatário (6)",
-                _PATH_DEST_ONLY,
+                _PATH_TOMA_END_OR_DEST,
             ),
         ),
     ),
@@ -498,6 +524,11 @@ IBSCBS_OPERATION_CATEGORIES_BY_CODE = {
 }
 IBSCBS_OPERATION_VARIANTS_BY_CODE = {
     variant.c_ind_op: variant for variant in IBSCBS_OPERATION_VARIANTS
+}
+IBSCBS_OPERATION_VARIANT_TO_CATEGORY = {
+    variant.c_ind_op: category
+    for category in IBSCBS_OPERATION_CATEGORIES
+    for variant in category.variantes
 }
 
 # Official ANEXO_C-INDOP_IBSCBS-SNNFSe-v1.01-20260209 workbook.
@@ -538,7 +569,8 @@ IBSCBSOperationCode = Literal[
 
 def get_ibscbs_operation_category(c_ind_op: str) -> Optional[IBSCBSOperationCategory]:
     """Return the grouped operation family for a six-digit `cIndOp`."""
-    return IBSCBS_OPERATION_CATEGORIES_BY_CODE.get(c_ind_op[:4])
+
+    return IBSCBS_OPERATION_VARIANT_TO_CATEGORY.get(c_ind_op)
 
 
 def get_ibscbs_operation_variant(c_ind_op: str) -> Optional[IBSCBSOperationVariant]:

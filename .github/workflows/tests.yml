@@ -6,6 +6,8 @@ on:
       - master
   pull_request:
   workflow_dispatch:
+  schedule:
+    - cron: "0 6 * * 1"
 
 permissions:
   contents: read
@@ -30,3 +32,21 @@ jobs:
 
       - name: Run tests with coverage
         run: uv run pytest --cov=src/pynfse_nacional --cov-report=term-missing
+
+  schema-fidelity:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Install dev dependencies
+        run: uv sync --extra dev --frozen
+
+      - name: Run schema-fidelity tests
+        run: uv run pytest tests/schema_fidelity

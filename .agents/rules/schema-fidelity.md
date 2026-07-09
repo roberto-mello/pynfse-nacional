@@ -7,6 +7,7 @@ NFSe XSD fixtures MUST mirror the official SEFIN schemas byte-for-byte for every
 - Production XSD: `https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/documentacao-atual/nfse-esquemas_xsd-v1-01-20260209.zip`
 - Produção restrita XSD: `https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/producao-restrita/nfse-esquemas_xsd-prodrest-v1-01-20260209.zip`
 - Manual de Contribuintes (latest v1.2 out2025) for rule context.
+- Pinned source metadata lives in `src/pynfse_nacional/_canonical.py`.
 
 When in doubt, download both zips, extract, and grep. Both environments share the same TCRegTrib / TSOpSimpNac / TCRTCInfoIBSCBS definitions unless verified otherwise.
 

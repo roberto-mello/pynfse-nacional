@@ -1,3 +1,11 @@
+"""Core NFSe models."""
+
+# Canonical sources (verify before changing):
+#   Pinned URLs and sha256 hashes live in src/pynfse_nacional/_canonical.py.
+#   Manual: manual-contribuintes-emissor-publico-api-sistema-nacional-
+#   nfs-e-v1-2-out2025.pdf
+#   ANNEXES: anexo_a/anexo_b/anexo_c from gov.br.
+
 import re
 from datetime import datetime
 from decimal import Decimal
