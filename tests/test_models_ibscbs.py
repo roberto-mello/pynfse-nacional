@@ -170,6 +170,35 @@ class TestIBSCBSOptionalModels:
         assert valores.g_ree_rep_res[0].d_fe_nacional.tipo_chave_dfe == "2"
 
 
+class TestListaDocDFeIBSCBSChaveDfe:
+    def test_tipo_9_requires_x_tipo_chave_dfe(self):
+        with pytest.raises(ValidationError, match="x_tipo_chave_dfe is required"):
+            ListaDocDFeIBSCBS(
+                tipo_chave_dfe="9",
+                chave_dfe="OUTRO123",
+            )
+
+    def test_tipo_9_accepts_x_tipo_chave_dfe(self):
+        doc = ListaDocDFeIBSCBS(
+            tipo_chave_dfe="9",
+            x_tipo_chave_dfe="Documento fiscal próprio",
+            chave_dfe="OUTRO123",
+        )
+        assert doc.x_tipo_chave_dfe == "Documento fiscal próprio"
+
+    def test_tipo_non_9_forbids_x_tipo_chave_dfe(self):
+        with pytest.raises(ValidationError, match="must be omitted"):
+            ListaDocDFeIBSCBS(
+                tipo_chave_dfe="2",
+                x_tipo_chave_dfe="should not be set",
+                chave_dfe="NFE123",
+            )
+
+    def test_tipo_non_9_ok_without_x(self):
+        doc = ListaDocDFeIBSCBS(tipo_chave_dfe="2", chave_dfe="NFE123")
+        assert doc.x_tipo_chave_dfe is None
+
+
 class TestIBSCBSChoices:
     def test_dest_requires_exactly_one_identifier(self):
         with pytest.raises(ValidationError):
