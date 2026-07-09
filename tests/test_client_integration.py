@@ -2,9 +2,8 @@
 
 These tests require:
 - A valid ICP-Brasil A1 test certificate (.pfx)
-- Environment variables:
-  - NFSE_TEST_CERT_PATH: Path to test certificate
-  - NFSE_TEST_CERT_PASSWORD: Certificate password
+- `NFSE_TEST_CERT_PATH` in `.env`
+- `NFSE_TEST_CERT_PASSWORD` in macOS Keychain or the environment
 
 Run with: pytest backend/lib/pynfse_nacional/tests/test_client_integration.py -v -s
 
@@ -17,6 +16,7 @@ from decimal import Decimal
 
 import pytest
 
+import tests._cert_credentials as cert_credentials
 from pynfse_nacional import (
     NFSeAPIError,
     NFSeCertificateError,
@@ -31,14 +31,14 @@ from pynfse_nacional.models import (
 )
 from pynfse_nacional.models_ibscbs import GIBSCBS, IBSCBS, TribIBSCBS, ValoresIBSCBS
 
-CERT_PATH = os.environ.get("NFSE_TEST_CERT_PATH", "")
-CERT_PASSWORD = os.environ.get("NFSE_TEST_CERT_PASSWORD", "")
+CERT_PATH = cert_credentials.cert_path()
+CERT_PASSWORD = cert_credentials.cert_password()
 
 pytestmark = pytest.mark.skipif(
-    not CERT_PATH or not os.path.exists(CERT_PATH),
+    not CERT_PATH or not os.path.exists(CERT_PATH) or not CERT_PASSWORD,
     reason=(
-        "Test certificate not configured. Set NFSE_TEST_CERT_PATH and "
-        "NFSE_TEST_CERT_PASSWORD."
+        "Test certificate not configured. Set NFSE_TEST_CERT_PATH in .env and "
+        "NFSE_TEST_CERT_PASSWORD in macOS Keychain or env."
     ),
 )
 

@@ -3,7 +3,14 @@ from decimal import Decimal
 
 import pytest
 
+import tests._cert_credentials as cert_credentials
 from pynfse_nacional.models import Endereco, Prestador, Servico, Tomador
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    """Load repository .env values before test collection."""
+
+    cert_credentials.load_test_env()
 
 
 @pytest.fixture
@@ -67,3 +74,13 @@ def shared_sample_servico() -> Servico:
 @pytest.fixture
 def sample_servico(shared_sample_servico: Servico) -> Servico:
     return deepcopy(shared_sample_servico)
+
+
+@pytest.fixture(scope="session")
+def cert_path() -> str:
+    return cert_credentials.cert_path()
+
+
+@pytest.fixture(scope="session")
+def cert_password() -> str:
+    return cert_credentials.cert_password()

@@ -74,6 +74,8 @@ markers = [
 
 [dependency-groups]
 dev = [
+    "keyring>=25.7.0",
+    "python-dotenv>=1.2.2",
     "ruff>=0.14.13",
 ]
 docs = [

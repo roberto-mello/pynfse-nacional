@@ -10,6 +10,7 @@ import pytest
 from lxml import etree
 from lxml.etree import XMLParser as RealXMLParser
 
+import tests._cert_credentials as cert_credentials
 from pynfse_nacional.exceptions import NFSeCertificateError
 from pynfse_nacional.xml_signer import (
     CRYPTOGRAPHY_AVAILABLE,
@@ -258,7 +259,7 @@ class TestXMLSignerServiceIntegration:
     @pytest.fixture
     def test_cert_path(self):
         """Path to test certificate if available."""
-        cert_path = os.environ.get("NFSE_TEST_CERT_PATH")
+        cert_path = cert_credentials.cert_path()
 
         if not cert_path or not os.path.exists(cert_path):
             pytest.skip("Test certificate not available (set NFSE_TEST_CERT_PATH)")
@@ -268,11 +269,12 @@ class TestXMLSignerServiceIntegration:
     @pytest.fixture
     def test_cert_password(self):
         """Password for test certificate."""
-        password = os.environ.get("NFSE_TEST_CERT_PASSWORD")
+        password = cert_credentials.cert_password()
 
         if not password:
             pytest.skip(
-                "Test certificate password not set (set NFSE_TEST_CERT_PASSWORD)"
+                "Test certificate password not set "
+                "(set NFSE_TEST_CERT_PASSWORD or Keychain)"
             )
 
         return password
