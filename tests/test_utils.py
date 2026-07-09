@@ -12,6 +12,7 @@ from pynfse_nacional.utils import (
     decode_decompress,
     format_cnpj,
     format_cpf,
+    is_valid_chave_acesso,
     normalize_document,
     validate_cnpj,
     validate_cpf,
@@ -79,6 +80,21 @@ class TestCompression:
 
         assert exc_info.value.code == ErrorCode.PAYLOAD_TOO_LARGE
         assert "Conteúdo NFSe excede" in str(exc_info.value)
+
+
+class TestChaveAcessoValidation:
+    """Tests for shared 50-digit chave_acesso helper."""
+
+    def test_valid_chave(self):
+        assert is_valid_chave_acesso("1" * 50) is True
+
+    def test_wrong_length(self):
+        assert is_valid_chave_acesso("1" * 49) is False
+        assert is_valid_chave_acesso("1" * 51) is False
+
+    def test_non_digits(self):
+        assert is_valid_chave_acesso("not50digits") is False
+        assert is_valid_chave_acesso("NFS" + "1" * 47) is False
 
 
 class TestCNPJValidation:

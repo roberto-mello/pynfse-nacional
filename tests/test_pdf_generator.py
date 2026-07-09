@@ -529,6 +529,16 @@ class TestParseNfseXml:
 
         assert data.chave_acesso == "12345678901234567890123456789012345678901234567890"
 
+    def test_malformed_chave_acesso_falls_back_to_empty(self):
+        """Malformed Id must not leak garbage into chave_acesso / QR URL."""
+        bad_xml = SAMPLE_NFSE_XML.replace(
+            'Id="NFS12345678901234567890123456789012345678901234567890"',
+            'Id="NFSnot50digits"',
+        )
+        data = parse_nfse_xml(bad_xml)
+
+        assert data.chave_acesso == ""
+
     def test_parses_numero_nfse(self):
         """Should extract numero_nfse."""
         data = parse_nfse_xml(SAMPLE_NFSE_XML)

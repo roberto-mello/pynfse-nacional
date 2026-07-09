@@ -22,7 +22,7 @@ from .exceptions import NFSeXMLError
 from .models_ibscbs import IBSCBS
 from .response_parsers import _find as _find_nfse
 from .response_parsers import parse_ibscbs
-from .utils import decode_decompress, format_cnpj, format_cpf
+from .utils import decode_decompress, format_cnpj, format_cpf, is_valid_chave_acesso
 
 try:
     from reportlab.lib import colors
@@ -461,13 +461,10 @@ def parse_nfse_xml(xml_content: str) -> NFSeData:
     data.ibscbs = parse_ibscbs(root=inf_nfse)
     data.ibscbs_totals = _parse_ibscbs_totals(inf_nfse)
 
-    # Extract chave from Id attribute
+    # Extract chave from Id attribute; enforce shared 50-digit invariant.
     nfse_id = inf_nfse.get("Id", "")
-
-    if nfse_id.startswith("NFS"):
-        data.chave_acesso = nfse_id[3:]
-    else:
-        data.chave_acesso = nfse_id
+    candidate = nfse_id[3:] if nfse_id.startswith("NFS") else nfse_id
+    data.chave_acesso = candidate if is_valid_chave_acesso(candidate) else ""
 
     # NFS-e data
     data.numero_nfse = _get_text(inf_nfse, ".//nfse:nNFSe")

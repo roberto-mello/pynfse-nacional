@@ -9,6 +9,15 @@ from .exceptions import NFSeAPIError
 
 MAX_DECOMPRESSED_BYTES = 8 * 1024 * 1024
 
+# Official TSChaveNFSe: exactly 50 decimal digits.
+CHAVE_ACESSO_RE = re.compile(r"^\d{50}$")
+
+
+def is_valid_chave_acesso(chave: str) -> bool:
+    """True when ``chave`` is exactly 50 decimal digits (TSChaveNFSe)."""
+
+    return bool(CHAVE_ACESSO_RE.fullmatch(chave))
+
 
 def compress_encode(data: str) -> str:
     """Compress with GZip and encode with Base64."""
