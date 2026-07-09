@@ -11,6 +11,7 @@ Note: producaorestrita environment may return mock/simulated responses.
 """
 
 import os
+import re
 from datetime import datetime, timezone
 from decimal import Decimal
 
@@ -30,6 +31,53 @@ from pynfse_nacional.models import (
     Tomador,
 )
 from pynfse_nacional.models_ibscbs import GIBSCBS, IBSCBS, TribIBSCBS, ValoresIBSCBS
+
+# E1xxx = schema/structure rejections (code bugs). Never acceptable in homologação.
+# SEFIN codes look like E1235; also catch multi-error strings containing E1xxx.
+_SCHEMA_ERROR_CODE_RE = re.compile(r"(?:^|[,;\s])E1\d{3}\b", re.IGNORECASE)
+_SCHEMA_FAILURE_MSG_RE = re.compile(
+    r"invalid child element|The element \w+ has invalid",
+    re.IGNORECASE,
+)
+
+
+def is_schema_rejection(
+    error_code: str | None,
+    error_message: str | None = None,
+) -> bool:
+    """True when SEFIN rejected DPS for schema/structure reasons (E1xxx class)."""
+    code = (error_code or "").strip()
+    if code and _SCHEMA_ERROR_CODE_RE.search(code):
+        return True
+
+    # Bare "E1" prefix with digits (E1, E12, E123, E1235, ...)
+    if re.match(r"^E1\d*$", code, re.IGNORECASE):
+        return True
+
+    msg = (error_message or "").strip()
+    if msg and _SCHEMA_ERROR_CODE_RE.search(msg):
+        return True
+
+    if msg and _SCHEMA_FAILURE_MSG_RE.search(msg):
+        return True
+
+    return False
+
+
+def assert_dps_rejection_acceptable(
+    error_code: str | None,
+    error_message: str | None,
+) -> None:
+    """Fail hard on E1xxx/schema rejections; allow E2xxx/E3xxx business rules."""
+    if is_schema_rejection(error_code, error_message):
+        pytest.fail(
+            "Schema/structure rejection (code bug, not expected in homologação): "
+            f"{error_code} — {error_message}"
+        )
+
+    assert error_code is not None or error_message is not None, (
+        "Rejected DPS must include error_code or error_message"
+    )
 
 CERT_PATH = cert_credentials.cert_path()
 CERT_PASSWORD = cert_credentials.cert_password()
@@ -186,6 +234,10 @@ class TestNFSeClientSubmitDPS:
 
         Note: This test makes a real API call to producaorestrita.
         The response may vary depending on SEFIN's test environment status.
+
+        Rejection policy (Layer 2 gate from pynfse-a90):
+        - E1xxx / schema-structure failures → test FAIL (code bug).
+        - E2xxx / E3xxx business-rule failures → allowed with assertions.
         """
         try:
             response = client.submit_dps(sample_dps)
@@ -201,13 +253,13 @@ class TestNFSeClientSubmitDPS:
                 print(f"  NFSe Number: {response.nfse_number}")
 
             else:
-                print("DPS rejected (expected in homologacao):")
+                print("DPS rejected (business-rule OK in homologacao):")
                 print(f"  Error Code: {response.error_code}")
                 print(f"  Error Message: {response.error_message}")
 
-                assert (
-                    response.error_code is not None
-                    or response.error_message is not None
+                assert_dps_rejection_acceptable(
+                    response.error_code,
+                    response.error_message,
                 )
 
         except NFSeAPIError as e:
@@ -217,6 +269,8 @@ class TestNFSeClientSubmitDPS:
 
             if e.code == "TIMEOUT":
                 pytest.skip("API timeout - SEFIN may be unavailable")
+
+            assert_dps_rejection_acceptable(e.code, e.message)
 
 
 class TestNFSeClientQueryNFSe:
