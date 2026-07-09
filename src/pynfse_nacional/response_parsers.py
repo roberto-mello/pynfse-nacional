@@ -206,14 +206,6 @@ def parse_ibscbs(
             "valores": valores_data,
         }
 
-        tp_nfse_credito = _text(ibscbs_elem, ".//nfse:tpNFSeCredito")
-        if tp_nfse_credito:
-            data["tp_nfse_credito"] = tp_nfse_credito
-
-        tp_nfse_debito = _text(ibscbs_elem, ".//nfse:tpNFSeDebito")
-        if tp_nfse_debito:
-            data["tp_nfse_debito"] = tp_nfse_debito
-
         g_ref_nfse = _find(ibscbs_elem, ".//nfse:gRefNFSe")
         if g_ref_nfse is not None:
             refs = [

@@ -1,12 +1,10 @@
 """DPS XML compliance against the unpatched official SEFIN XSD.
 
 This harness validates DPS XML produced by ``XMLBuilder.build_dps`` against
-the **unpatched** official NFSe schema vendored under
-``tests/fixtures/xsd_official``. The patched fixture at
-``tests/fixtures/xsd/nfse_v1.01`` accepts library-invented elements
-(``regApIBSCBSSN``, ``opSimpNac=4``, ``tpNFSeCredito``, ``tpNFSeDebito``,
-``finNFSe=1/2``) and so cannot catch the class of bug that produced the E1235
-production rejection in 0.9.0. This harness closes that gap.
+the official NFSe schema vendored under ``tests/fixtures/xsd_official``.
+There is no patched fixture anymore. The old xsd/nfse_v1.01 copy was the lie:
+it blessed invented elements and hid the E1235 production rejection.
+This harness is the gate that catches that drift.
 
 Runs on every CI push, needs no certificate and no network.
 
@@ -59,7 +57,7 @@ from pynfse_nacional.models_ibscbs import (
 )
 from pynfse_nacional.xml_builder import XMLBuilder
 
-from ._helpers.xsd import load_official_dps_schema
+from ._helpers.xsd import load_dps_schema
 
 ENV_PREST_COD_MUN = 3509502
 ENV_PREST_CNPJ = "11222333000181"
@@ -157,7 +155,7 @@ def _build_dps(
 
 
 def _assert_validates_official(dps: DPS) -> None:
-    schema = load_official_dps_schema()
+    schema = load_dps_schema()
     xml_str = XMLBuilder().build_dps(dps)
     tree = etree.fromstring(xml_str.encode("utf-8"))
 
