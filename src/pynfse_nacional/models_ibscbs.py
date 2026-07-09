@@ -732,6 +732,22 @@ class ListaDocDFeIBSCBS(BaseModel):
     x_tipo_chave_dfe: Optional[str] = Field(None, max_length=255)
     chave_dfe: str = Field(..., min_length=1, max_length=50)
 
+    @model_validator(mode="after")
+    def validate_x_tipo_chave_dfe(self) -> "ListaDocDFeIBSCBS":
+        # Official XSD (TCRTCListaDocDFeIBSCBS): xTipoChaveDFe minOccurs=0 with
+        # annotation "Deve ser preenchido apenas quando tipoChaveDFe = 9 (Outro)".
+        # Emit-side enforcement: required for 9, forbidden otherwise.
+        if self.tipo_chave_dfe == "9":
+            if not self.x_tipo_chave_dfe:
+                raise ValueError(
+                    "x_tipo_chave_dfe is required when tipo_chave_dfe is '9' (Outro)"
+                )
+        elif self.x_tipo_chave_dfe:
+            raise ValueError(
+                "x_tipo_chave_dfe must be omitted unless tipo_chave_dfe is '9'"
+            )
+        return self
+
 
 class ListaDocFiscalOutroIBSCBS(BaseModel):
     model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
