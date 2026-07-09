@@ -794,6 +794,23 @@ class TestDPSOpSimpNac:
 
         assert dps.op_simp_nac == "2"
 
+    def test_rejects_assignment_that_breaks_reg_ap_trib_sn_rules(
+        self, valid_prestador, valid_tomador, valid_servico
+    ):
+        dps = DPS(
+            serie="900",
+            numero=1,
+            competencia="2026-01",
+            data_emissao=datetime.now(),
+            prestador=valid_prestador,
+            tomador=valid_tomador,
+            servico=valid_servico,
+            regime_tributario="normal",
+        )
+
+        with pytest.raises(ValidationError, match="regApTribSN"):
+            dps.op_simp_nac = "3"
+
     def test_rejects_invalid_op_simp_nac(
         self, valid_prestador, valid_tomador, valid_servico
     ):

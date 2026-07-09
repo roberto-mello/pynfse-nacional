@@ -215,10 +215,14 @@ def test_builder_simples_ibscbs_validates_against_official_xsd(
 ):
     """opSimpNac=3 emits regApTribSN only; no regApIBSCBSSN."""
 
-    dps = deepcopy(sample_dps)
-    dps.regime_tributario = "simples_nacional"
-    dps.op_simp_nac = "3"
-    dps.reg_ap_trib_sn = "1"
+    dps = DPS(
+        **{
+            **sample_dps.model_dump(),
+            "regime_tributario": "simples_nacional",
+            "op_simp_nac": "3",
+            "reg_ap_trib_sn": "1",
+        }
+    )
 
     xml_str = XMLBuilder().build_dps(dps)
     schema = load_dps_schema()
