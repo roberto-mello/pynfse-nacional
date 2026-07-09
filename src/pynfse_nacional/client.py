@@ -25,11 +25,16 @@ from .response_parsers import (
     parse_ibscbs,
     parse_nfse_root,
 )
-from .utils import _redacted_repr, compress_encode, decode_decompress
+from .utils import (
+    CHAVE_ACESSO_RE,
+    _redacted_repr,
+    compress_encode,
+    decode_decompress,
+)
 from .xml_builder import XMLBuilder
 from .xml_signer import XMLSignerService
 
-_CHAVE_RE = re.compile(r"^\d{50}$")
+_CHAVE_RE = CHAVE_ACESSO_RE
 _ID_DPS_RE = re.compile(r"^DPS\d{42}$")
 
 
