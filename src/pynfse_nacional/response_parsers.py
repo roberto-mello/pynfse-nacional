@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 from typing import Optional
 from xml.etree import ElementTree as ET
 
@@ -63,10 +63,7 @@ def _parse_endereco(end: ET.Element) -> Optional[dict[str, object]]:
 def extract_nfse_number(root: ET.Element) -> Optional[str]:
     """Extract nNFSe from a parsed response XML tree."""
 
-    nfse_elem = root.find(".//nfse:nNFSe", NFSE_NAMESPACES)
-    if nfse_elem is None:
-        nfse_elem = root.find(f".//{{{NFSE_NAMESPACE}}}nNFSe")
-
+    nfse_elem = _find(root, ".//nfse:nNFSe")
     if nfse_elem is not None and nfse_elem.text:
         return nfse_elem.text.strip()
 
@@ -128,7 +125,7 @@ def parse_ibscbs(
         g_ree_rep_res = _find(ibscbs_elem, ".//nfse:valores/nfse:gReeRepRes")
         if g_ree_rep_res is not None:
             documentos_data = []
-            for documentos in g_ree_rep_res.findall("nfse:documentos", NFSE_NAMESPACES):
+            for documentos in _findall(g_ree_rep_res, "nfse:documentos"):
                 documentos_item: dict[str, object] = {}
 
                 dfe_nacional = _find(documentos, "./nfse:dFeNacional")
@@ -266,5 +263,5 @@ def parse_ibscbs(
 
         return IBSCBS.model_validate(data)
 
-    except (ValidationError, ValueError, InvalidOperation, ArithmeticError):
+    except (ValidationError, ValueError, ArithmeticError):
         return None
