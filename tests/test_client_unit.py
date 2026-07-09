@@ -10,7 +10,6 @@ from datetime import datetime
 from decimal import Decimal
 from json import JSONDecodeError
 from unittest.mock import MagicMock, patch
-from xml.etree import ElementTree as ET
 from xml.etree.ElementTree import ParseError as XMLParseError
 
 import httpx
@@ -120,9 +119,11 @@ class TestParseDpsResponseNfseNumberExtraction:
 
     def test_extract_uses_hardened_xml_parser(self):
         """The XML extraction helper should disable external entity expansion."""
+        from pynfse_nacional.response_parsers import _safe_fromstring
+
         with patch(
-            "pynfse_nacional.response_parsers.ET.fromstring",
-            wraps=ET.fromstring,
+            "pynfse_nacional.response_parsers._safe_fromstring",
+            wraps=_safe_fromstring,
         ) as mock_fromstring:
             assert _extract_nfse_number_from_xml(_make_nfse_xml("42")) == "42"
 
@@ -655,9 +656,11 @@ class TestQueryNfse:
             },
         )
 
+        from pynfse_nacional.response_parsers import _safe_fromstring
+
         with patch.object(mock_client, "_get_client") as mock_get_client, patch(
-            "pynfse_nacional.response_parsers.ET.fromstring",
-            wraps=ET.fromstring,
+            "pynfse_nacional.response_parsers._safe_fromstring",
+            wraps=_safe_fromstring,
         ) as mock_fromstring:
             mock_http = MagicMock()
             mock_http.get.return_value = mock_response

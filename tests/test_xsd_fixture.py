@@ -29,16 +29,7 @@ def test_dps_schema_loads():
 @pytest.mark.parametrize(
     "filename",
     [
-        pytest.param(
-            "ibscbs_minimal.xml",
-            marks=pytest.mark.xfail(
-                strict=True,
-                reason=(
-                    "Known-bad fixture for pynfse-a90: contains regApIBSCBSSN, "
-                    "which the official schema rejects. Keep as regression proof."
-                ),
-            ),
-        ),
+        "ibscbs_minimal.xml",
         "ibscbs_with_retention.xml",
     ],
 )
