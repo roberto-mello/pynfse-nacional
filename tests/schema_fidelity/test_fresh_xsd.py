@@ -33,7 +33,13 @@ def test_fresh_official_xsd_matches_vendored_fixture(source):
     fresh_files = official_xsd_files(zip_bytes)
     fixture_files = local_xsd_files(FIXTURE_ROOT)
 
-    assert fresh_files.keys() >= fixture_files.keys()
+    # Exact key-set match: vendored fixture must not silently omit (or invent)
+    # XSD files relative to the official zip.
+    only_fresh = sorted(fresh_files.keys() - fixture_files.keys())
+    only_fixture = sorted(fixture_files.keys() - fresh_files.keys())
+    assert fresh_files.keys() == fixture_files.keys(), (
+        f"key-set drift: only-in-fresh={only_fresh} only-in-fixture={only_fixture}"
+    )
 
     for relative_path, fixture_bytes in fixture_files.items():
         assert fresh_files[relative_path] == fixture_bytes, relative_path
