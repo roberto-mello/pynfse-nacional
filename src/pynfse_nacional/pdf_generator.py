@@ -15,6 +15,8 @@ from typing import Optional
 from xml.etree import ElementTree as ET
 from xml.sax.saxutils import escape
 
+from defusedxml.ElementTree import fromstring as _safe_fromstring
+
 from .error_codes import ErrorCode
 from .exceptions import NFSeXMLError
 from .models_ibscbs import IBSCBS
@@ -441,7 +443,7 @@ def _build_ibscbs_totals_rows(
 def parse_nfse_xml(xml_content: str) -> NFSeData:
     """Parse NFSe XML and extract data for PDF generation."""
 
-    root = ET.fromstring(xml_content.encode("utf-8"))
+    root = _safe_fromstring(xml_content.encode("utf-8"))
     data = NFSeData()
 
     # Find infNFSe element

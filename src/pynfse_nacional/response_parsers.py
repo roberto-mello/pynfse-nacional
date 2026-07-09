@@ -6,6 +6,7 @@ from decimal import Decimal
 from typing import Optional
 from xml.etree import ElementTree as ET
 
+from defusedxml.ElementTree import fromstring as _safe_fromstring
 from pydantic import ValidationError
 
 from .models_ibscbs import IBSCBS
@@ -15,9 +16,9 @@ NFSE_NAMESPACES = {"nfse": NFSE_NAMESPACE}
 
 
 def parse_nfse_root(xml_content: str) -> ET.Element:
-    """Parse XML once with the standard library parser."""
+    """Parse XML once with a defusedxml parser (blocks entity expansion DoS)."""
 
-    return ET.fromstring(xml_content.encode("utf-8"))
+    return _safe_fromstring(xml_content.encode("utf-8"))
 
 
 def _expand_path(path: str) -> str:
