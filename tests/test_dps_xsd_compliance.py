@@ -141,7 +141,7 @@ def _assert_validates_official(dps: DPS) -> None:
 
 
 def test_non_simples_validates_against_official_xsd() -> None:
-    """opSimpNac=1 never emits inventados; sanity gate."""
+    """opSimpNac=1 never invents elements; sanity gate."""
 
     dps = _build_dps(op_simp_nac="1", regime_tributario="normal")
     _assert_validates_official(dps)

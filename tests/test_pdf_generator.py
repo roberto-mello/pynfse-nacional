@@ -389,31 +389,31 @@ class TestFormatCep:
 
 
 class TestGetSimplesNacionalDesc:
-    """Tests for _get_simples_nacional_desc function."""
+    """Tests for _get_simples_nacional_desc (official TSOpSimpNac)."""
+
+    def test_nao_optante(self):
+        """opSimpNac=1 is Não Optante."""
+        result = _get_simples_nacional_desc("1")
+
+        assert "Não Optante" in result
 
     def test_mei(self):
-        """Should return MEI description."""
-        result = _get_simples_nacional_desc("1")
+        """opSimpNac=2 is MEI."""
+        result = _get_simples_nacional_desc("2")
 
         assert "MEI" in result
 
-    def test_me_epp_excesso(self):
-        """Should return ME/EPP excesso description."""
-        result = _get_simples_nacional_desc("2")
-
-        assert "Excesso" in result
-
     def test_me_epp(self):
-        """Should return ME/EPP description."""
+        """opSimpNac=3 is ME/EPP."""
         result = _get_simples_nacional_desc("3")
 
         assert "ME/EPP" in result
 
-    def test_nao_optante(self):
-        """Should return non-optante description."""
+    def test_unsupported_code(self):
+        """opSimpNac=4 is not official; falls back to dash."""
         result = _get_simples_nacional_desc("4")
 
-        assert "Nao Optante" in result
+        assert result == "-"
 
     def test_unknown(self):
         """Should return dash for unknown code."""

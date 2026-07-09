@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Fixed
+- DPS XML no longer emits invented `regApIBSCBSSN` under `regTrib` (SEFIN
+  E1235 schema rejection). Official `TCRegTrib` only allows `opSimpNac`,
+  optional `regApTribSN`, and `regEspTrib`.
+- `DPS.op_simp_nac` restricted to official `TSOpSimpNac` values `1`/`2`/`3`
+  (removed unsupported `"4"`).
+- DANFSe PDF Simples Nacional labels corrected to match the official enum
+  (`1`=Não Optante, `2`=MEI, `3`=ME/EPP).
+
+### Removed
+- `DPS.reg_ap_ibs_cbs_sn` field and `REGIME_TO_SIMPLES_NACIONAL["regApIbsCbsSn"]`
+  mapping key (never present in the official schema).
+
+### Migration
+- Drop any `reg_ap_ibs_cbs_sn=...` arguments; they are now `extra_forbidden`.
+- Replace `op_simp_nac="4"` with a valid value (`"1"`, `"2"`, or `"3"`).
+- For ME/EPP (`op_simp_nac="3"`), keep providing `reg_ap_trib_sn` only.
+
 ## 0.9.3 - 2026-07-07
 
 ### Fixed
