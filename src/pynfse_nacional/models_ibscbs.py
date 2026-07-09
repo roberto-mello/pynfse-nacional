@@ -758,9 +758,7 @@ class ValoresIBSCBS(BaseModel):
 class IBSCBS(BaseModel):
     model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
 
-    fin_nfse: Literal["0", "1", "2"]
-    tp_nfse_credito: Optional[Literal["01", "05"]] = None
-    tp_nfse_debito: Optional[Literal["01", "02", "03", "04", "05", "06"]] = None
+    fin_nfse: Literal["0"]
     ind_final: Optional[Literal["0", "1"]] = None
     c_ind_op: IBSCBSOperationCode
     tp_oper: Optional[Literal["1", "2", "3", "4", "5"]] = None
@@ -794,50 +792,15 @@ class IBSCBS(BaseModel):
 
     @model_validator(mode="after")
     def validate_fin_nfse_rules(self) -> "IBSCBS":
-        if self.fin_nfse == "0":
-            if self.tp_nfse_credito is not None or self.tp_nfse_debito is not None:
-                raise ValueError(
-                    "tpNFSeCredito e tpNFSeDebito são proibidos para finNFSe 0."
-                )
-
-        if self.fin_nfse == "1":
-            if self.tp_nfse_credito is None:
-                raise ValueError("tpNFSeCredito é obrigatório para finNFSe 1.")
-            if self.tp_nfse_debito is not None:
-                raise ValueError("tpNFSeDebito é proibido para finNFSe 1.")
-
-        if self.fin_nfse == "2":
-            if self.tp_nfse_debito is None:
-                raise ValueError("tpNFSeDebito é obrigatório para finNFSe 2.")
-            if self.tp_nfse_credito is not None:
-                raise ValueError("tpNFSeCredito é proibido para finNFSe 2.")
-
+        # a90.1 restricted fin_nfse to Literal["0"] (the sole official
+        # TSRTCFinNFSe value). The crédito/débito fields and their
+        # conditional cross-references against gRefNFSe were removed; the
+        # remaining tpOper / gRefNFSe consistency rules stay.
         if self.tp_oper in {"2", "3"} and self.g_ref_nfse is None:
             raise ValueError("gRefNFSe é obrigatório para tpOper 2/3.")
 
         if self.tp_oper in {"1", "4", "5"} and self.g_ref_nfse is not None:
             raise ValueError("gRefNFSe é proibido para tpOper 1/4/5.")
-
-        if self.fin_nfse == "1":
-            if self.tp_nfse_credito == "01":
-                if self.g_ref_nfse is None:
-                    raise ValueError("gRefNFSe é obrigatório para tpNFSeCredito 01.")
-                if len(self.g_ref_nfse.ref_nfse) != 1:
-                    raise ValueError("tpNFSeCredito 01 permite apenas uma refNFSe.")
-            elif self.tp_nfse_credito == "05" and self.g_ref_nfse is not None:
-                raise ValueError("gRefNFSe é proibido para tpNFSeCredito 05.")
-
-        if self.fin_nfse == "2":
-            if self.tp_nfse_debito in {"03", "04"}:
-                if self.g_ref_nfse is None:
-                    raise ValueError("gRefNFSe é obrigatório para tpNFSeDebito 03/04.")
-                if self.tp_nfse_debito == "04" and len(self.g_ref_nfse.ref_nfse) != 1:
-                    raise ValueError("tpNFSeDebito 04 permite apenas uma refNFSe.")
-            elif (
-                self.tp_nfse_debito in {"01", "02", "05", "06"}
-                and self.g_ref_nfse is not None
-            ):
-                raise ValueError("gRefNFSe é proibido para tpNFSeDebito 01/02/05/06.")
 
         return self
 

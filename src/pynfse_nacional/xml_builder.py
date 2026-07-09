@@ -272,10 +272,6 @@ class XMLBuilder:
         inf_ibscbs = ET.SubElement(parent, "IBSCBS")
 
         ET.SubElement(inf_ibscbs, "finNFSe").text = ibscbs.fin_nfse
-        if ibscbs.tp_nfse_credito is not None:
-            ET.SubElement(inf_ibscbs, "tpNFSeCredito").text = ibscbs.tp_nfse_credito
-        if ibscbs.tp_nfse_debito is not None:
-            ET.SubElement(inf_ibscbs, "tpNFSeDebito").text = ibscbs.tp_nfse_debito
         if ibscbs.ind_final is not None:
             ET.SubElement(inf_ibscbs, "indFinal").text = ibscbs.ind_final
 

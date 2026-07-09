@@ -6,12 +6,12 @@ Source package:
 
 ## Purpose
 
-This fixture is the **unpatched** official SEFIN schema. It exists to catch
-library code that emits elements the official schema does not declare
-(e.g. `regApIBSCBSSN`, `opSimpNac=4`, `tpNFSeCredito`, `tpNFSeDebito`,
-`finNFSe=1/2`). The patched fixture at `tests/fixtures/xsd/nfse_v1.01/`
-accepts those invented elements, which is how the E1235 production rejection
-shipped green in 0.9.0. See beads `pynfse-a90` / `pynfse-a90.2`.
+This fixture is the **official** SEFIN schema. It exists to catch library
+code that emits elements the official schema does not declare (e.g.
+`regApIBSCBSSN`, `opSimpNac=4`, `tpNFSeCredito`, `tpNFSeDebito`,
+`finNFSe=1/2`). The old patched XSD was removed because it blessed invented
+elements and hid the E1235 production rejection. See beads `pynfse-a90` /
+`pynfse-a90.2`.
 
 ## What is patched here
 
@@ -25,8 +25,7 @@ and the only fix permitted on this fixture.
 ## What is NOT patched here
 
 Everything else. In particular the following are deliberately **absent** from
-this fixture, even though the patched fixture adds them, so that this fixture
-rejects any library code that emits them:
+this fixture, so that it rejects any library code that emits them:
 
 - `regApIBSCBSSN` element inside `TCRegTrib` (invented; causes E1235).
 - `TSOpSimpNac` enumeration value `4` (invented; only 1/2/3 are official).
