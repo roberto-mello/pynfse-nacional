@@ -308,13 +308,9 @@ def _get_simples_nacional_desc(op_simp_nac: str) -> str:
     """Get Simples Nacional description."""
 
     descs = {
-        "1": "Optante - Microempreendedor Individual (MEI)",
-        "2": (
-            "Optante - Microempresa ou Empresa de Pequeno Porte "
-            "(ME/EPP) - Excesso de Sublimite"
-        ),
+        "1": "Não Optante",
+        "2": "Optante - Microempreendedor Individual (MEI)",
         "3": "Optante - Microempresa ou Empresa de Pequeno Porte (ME/EPP)",
-        "4": "Nao Optante",
     }
     return descs.get(op_simp_nac, "-")
 

@@ -123,7 +123,7 @@ def sample_dps():
         servico=servico,
         regime_tributario="simples_nacional",
         op_simp_nac="3",
-        reg_ap_ibs_cbs_sn="1",
+        reg_ap_trib_sn="1",
         ibscbs=ibscbs,
         incentivador_cultural=False,
     )

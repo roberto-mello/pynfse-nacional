@@ -8,35 +8,14 @@ This harness is the gate that catches that drift.
 
 Runs on every CI push, needs no certificate and no network.
 
-Expected state on ``main`` before the ``pynfse-a90`` fix lands
--------------------------------------------------------------
+Post-a90 state
+--------------
 
-Scenarios that emit ``regApIBSCBSSN`` (``simples_nacional`` and
-``simples_nacional_with_ibscbs``) are marked ``xfail(strict=True)`` because
-the current ``xml_builder`` emits that element inside ``regTrib`` for
-``opSimpNac`` 3/4 even though the official ``TCRegTrib`` complex type does
-not declare it. The official schema therefore rejects the emitted XML at
-that element -- which is exactly the E1235 failure SEFIN returned from
-production.
+``regApIBSCBSSN`` is no longer emitted. Simples scenarios (opSimpNac=3 with
+or without IBSCBS group) validate against the official ``TCRegTrib`` which
+only allows ``opSimpNac``, optional ``regApTribSN``, and ``regEspTrib``.
 
-``strict=True`` makes the harness a forcing function, not a silent pass:
-
-- Pre-a90 on ``main``: the scenarios ``xfail`` and CI stays green. The xfail
-  reason names ``regApIBSCBSSN`` so the bug is documented in the test output.
-- Post-a90 (the ``pynfse-a90`` fix PR): the scenarios ``xpass`` and
-  ``strict=True`` turns that into a HARD failure, so CI goes red until the
-  ``pynfse-a90`` PR removes the ``xfail`` marker. That forces the a90 author
-  to own the cleanup and proves the harness now passes.
-
-Running the scenarios by hand without the ``xfail`` marker (or inspecting
-``schema.error_log``) prints the exact rejection, e.g. ``Element
-regApIBSCBSSN: This element is not expected. Expected is regEspTrib``. That
-is the E1235 signature and the proof the harness catches the bug.
-
-The ``non_simples`` and ``mei`` scenarios are sanity gates: they never emit
-``regApIBSCBSSN`` so they validate cleanly today. If they ever fail, the
-harness is catching a different schema violation than E1235 and the failure
-must be investigated.
+The ``non_simples`` and ``mei`` scenarios remain sanity gates.
 """
 
 from __future__ import annotations
@@ -45,7 +24,6 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Literal
 
-import pytest
 from lxml import etree
 
 from pynfse_nacional.models import DPS, Endereco, Prestador, Servico, Tomador
@@ -63,15 +41,8 @@ ENV_PREST_COD_MUN = 3509502
 ENV_PREST_CNPJ = "11222333000181"
 ENV_TOMA_CPF = "52998224725"
 
-_A90_REGAP_XFAIL_REASON = (
-    "pynfse-a90: xml_builder emits regApIBSCBSSN inside regTrib for "
-    "opSimpNac 3/4, which the official TCRegTrib does not declare. "
-    "E1235 in production. Remove this xfail once a90 drops the element."
-)
-
 _SIMPLES_DEFAULTS = {
     "reg_ap_trib_sn": "1",
-    "reg_ap_ibs_cbs_sn": "1",
     "aliquota_simples": Decimal("15.50"),
 }
 
@@ -131,11 +102,10 @@ def _regular_ibscbs() -> IBSCBS:
 
 def _build_dps(
     *,
-    op_simp_nac: Literal["1", "2", "3", "4"],
+    op_simp_nac: Literal["1", "2", "3"],
     regime_tributario: str,
     ibscbs: IBSCBS | None = None,
     reg_ap_trib_sn: str | None = None,
-    reg_ap_ibs_cbs_sn: str | None = None,
     aliquota_simples: Decimal | None = None,
 ) -> DPS:
     return DPS(
@@ -149,7 +119,6 @@ def _build_dps(
         regime_tributario=regime_tributario,
         op_simp_nac=op_simp_nac,
         reg_ap_trib_sn=reg_ap_trib_sn,
-        reg_ap_ibs_cbs_sn=reg_ap_ibs_cbs_sn,
         ibscbs=ibscbs,
     )
 
@@ -172,26 +141,21 @@ def _assert_validates_official(dps: DPS) -> None:
 
 
 def test_non_simples_validates_against_official_xsd() -> None:
-    """opSimpNac=1 never emits regApIBSCBSSN; sanity gate."""
+    """opSimpNac=1 never emits inventados; sanity gate."""
 
     dps = _build_dps(op_simp_nac="1", regime_tributario="normal")
     _assert_validates_official(dps)
 
 
 def test_mei_validates_against_official_xsd() -> None:
-    """opSimpNac=2 (MEI) never emits regApIBSCBSSN; sanity gate."""
+    """opSimpNac=2 (MEI) validates; sanity gate."""
 
     dps = _build_dps(op_simp_nac="2", regime_tributario="mei")
     _assert_validates_official(dps)
 
 
-@pytest.mark.xfail(reason=_A90_REGAP_XFAIL_REASON, strict=True)
 def test_simples_nacional_validates_against_official_xsd() -> None:
-    """opSimpNac=3 currently emits regApIBSCBSSN; official schema rejects it.
-
-    Pre-a90 this xfails (E1235-class). Post-a90 it xpasses and the xfail
-    marker must be removed.
-    """
+    """opSimpNac=3 emits regApTribSN only; official TCRegTrib accepts it."""
 
     dps = _build_dps(
         op_simp_nac="3",
@@ -201,14 +165,8 @@ def test_simples_nacional_validates_against_official_xsd() -> None:
     _assert_validates_official(dps)
 
 
-@pytest.mark.xfail(reason=_A90_REGAP_XFAIL_REASON, strict=True)
 def test_simples_nacional_with_ibscbs_validates_against_official_xsd() -> None:
-    """opSimpNac=3 with IBSCBS group; pre-a90 fails on regApIBSCBSSN.
-
-    The IBSCBS group itself (infDPS/IBSCBS, finNFSe=0) IS valid in the
-    official schema; only regApIBSCBSSN in regTrib is rejected. Post-a90
-    this xpasses and the xfail marker must be removed.
-    """
+    """opSimpNac=3 with IBSCBS group validates against official schema."""
 
     dps = _build_dps(
         op_simp_nac="3",
