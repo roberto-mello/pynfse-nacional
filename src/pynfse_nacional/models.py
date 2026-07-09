@@ -390,7 +390,11 @@ class DPS(BaseModel):
     official TCRegTrib and must never be emitted (E1235).
     """
 
-    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
+    model_config = ConfigDict(
+        extra="forbid",
+        hide_input_in_errors=True,
+        validate_assignment=True,
+    )
 
     id_dps: Optional[str] = Field(
         None, description="DPS ID (gerado automaticamente se não informado)"

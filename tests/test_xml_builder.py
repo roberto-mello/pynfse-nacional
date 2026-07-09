@@ -325,8 +325,7 @@ class TestXMLBuilderPrestador:
 
     def test_build_dps_opsimpnac_for_non_simples(self, sample_dps):
         """opSimpNac should be 1 for non-optante."""
-        sample_dps.op_simp_nac = "1"
-        sample_dps.reg_ap_trib_sn = None
+        sample_dps = DPS(**{**sample_dps.model_dump(), "op_simp_nac": "1", "reg_ap_trib_sn": None})
         builder = XMLBuilder()
 
         xml_str = builder.build_dps(sample_dps)
@@ -364,8 +363,7 @@ class TestXMLBuilderPrestador:
 
     def test_build_dps_regaptribsn_absent_for_non_simples(self, sample_dps):
         """regApTribSN should not be present for non-Simples."""
-        sample_dps.op_simp_nac = "1"
-        sample_dps.reg_ap_trib_sn = None
+        sample_dps = DPS(**{**sample_dps.model_dump(), "op_simp_nac": "1", "reg_ap_trib_sn": None})
         builder = XMLBuilder()
 
         xml_str = builder.build_dps(sample_dps)
@@ -379,7 +377,7 @@ class TestXMLBuilderPrestador:
 
     def test_build_dps_regesptrib_default(self, sample_dps):
         """regEspTrib should default to 0."""
-        sample_dps.regime_tributario = "unknown"
+        sample_dps = sample_dps.model_copy(update={"regime_tributario": "unknown"})
         builder = XMLBuilder()
 
         xml_str = builder.build_dps(sample_dps)
@@ -662,8 +660,7 @@ class TestXMLBuilderValores:
 
     def test_build_dps_ptottrib_for_non_simples(self, sample_dps):
         """pTotTrib should be set for non-Simples Nacional."""
-        sample_dps.op_simp_nac = "1"
-        sample_dps.reg_ap_trib_sn = None
+        sample_dps = DPS(**{**sample_dps.model_dump(), "op_simp_nac": "1", "reg_ap_trib_sn": None})
         builder = XMLBuilder()
 
         xml_str = builder.build_dps(sample_dps)
