@@ -76,12 +76,11 @@ else:
 ## Se houver IBSCBS
 
 Se o prestador for optante pelo Simples Nacional e o caso pedir IBSCBS,
-preencha `dps.ibscbs` e use `op_simp_nac="3"` ou `"4"`, com os campos de
-apuração corretos.
+preencha `dps.ibscbs` e use `op_simp_nac="3"` com `reg_ap_trib_sn`.
 
-- `op_simp_nac="1"` e `"2"` não aceitam `reg_ap_trib_sn` nem
-  `reg_ap_ibs_cbs_sn`.
-- `op_simp_nac="3"` e `"4"` exigem os dois campos.
+- `op_simp_nac` aceita apenas `"1"`, `"2"` e `"3"` (TSOpSimpNac oficial).
+- `op_simp_nac="1"` e `"2"` não aceitam `reg_ap_trib_sn`.
+- `op_simp_nac="3"` exige `reg_ap_trib_sn`.
 
 ## Quando você precisa do mapeamento
 

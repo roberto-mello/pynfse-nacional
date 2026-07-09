@@ -13,6 +13,7 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.serialization import pkcs12
 from cryptography.x509.oid import NameOID
 from lxml import etree
+from pydantic import ValidationError
 
 from pynfse_nacional.models import DPS, Prestador, Servico, Tomador
 from pynfse_nacional.models_ibscbs import (
@@ -77,7 +78,7 @@ def sample_ibscbs() -> IBSCBS:
                     cst="001",
                     c_class_trib="123456",
                 )
-            )
+            ),
         ),
     )
 
@@ -209,48 +210,40 @@ def test_builder_minimal_ibscbs_validates_against_official_xsd(sample_dps: DPS):
     schema.assertValid(etree.fromstring(xml_str.encode("utf-8")))
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "pynfse-a90: XMLBuilder emits regApIBSCBSSN inside regTrib for "
-        "opSimpNac 3/4; official TCRegTrib rejects it. Remove once a90 lands."
-    ),
-)
-def test_builder_simples_ibscbs_with_regapibscbssn_validates_against_official_xsd(
+def test_builder_simples_ibscbs_validates_against_official_xsd(
     sample_dps: DPS,
 ):
+    """opSimpNac=3 emits regApTribSN only; no regApIBSCBSSN."""
+
     dps = deepcopy(sample_dps)
     dps.regime_tributario = "simples_nacional"
     dps.op_simp_nac = "3"
     dps.reg_ap_trib_sn = "1"
-    dps.reg_ap_ibs_cbs_sn = "1"
 
     xml_str = XMLBuilder().build_dps(dps)
     schema = load_dps_schema()
+    root = etree.fromstring(xml_str.encode("utf-8"))
 
-    schema.assertValid(etree.fromstring(xml_str.encode("utf-8")))
+    schema.assertValid(root)
+    assert (
+        root.find("nfse:infDPS/nfse:prest/nfse:regTrib/nfse:regApIBSCBSSN", NS) is None
+    )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "pynfse-a90: opSimpNac=4 is not official; XMLBuilder still emits it. "
-        "Remove once a90 lands."
-    ),
-)
-def test_builder_pending_simples_ibscbs_validates_against_official_xsd(
-    sample_dps: DPS,
-):
-    dps = deepcopy(sample_dps)
-    dps.regime_tributario = "simples_nacional"
-    dps.op_simp_nac = "4"
-    dps.reg_ap_trib_sn = "1"
-    dps.reg_ap_ibs_cbs_sn = "2"
+def test_builder_rejects_op_simp_nac_4(sample_dps: DPS):
+    """opSimpNac=4 is not official; model must reject before emission."""
 
-    xml_str = XMLBuilder().build_dps(dps)
-    schema = load_dps_schema()
+    payload = sample_dps.model_dump()
+    payload.update(
+        {
+            "regime_tributario": "simples_nacional",
+            "op_simp_nac": "4",
+            "reg_ap_trib_sn": "1",
+        }
+    )
 
-    schema.assertValid(etree.fromstring(xml_str.encode("utf-8")))
+    with pytest.raises(ValidationError):
+        DPS(**payload)
 
 
 def test_builder_ibscbs_with_optional_groups_validates_against_official_xsd(
