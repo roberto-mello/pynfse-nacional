@@ -8,7 +8,6 @@ import base64
 import gzip
 from decimal import Decimal
 from unittest.mock import patch
-from xml.etree import ElementTree as ET
 
 import pytest
 
@@ -513,14 +512,17 @@ class TestParseNfseXml:
             </infDPS>""",
         )
 
+        from pynfse_nacional.pdf_generator import _safe_fromstring
+
         with patch(
-            "pynfse_nacional.response_parsers.ET.fromstring",
-            wraps=ET.fromstring,
+            "pynfse_nacional.pdf_generator._safe_fromstring",
+            wraps=_safe_fromstring,
         ) as mock_fromstring:
             data = parse_nfse_xml(xml_content)
 
         assert data.ibscbs is not None
         assert data.ibscbs.c_ind_op == "020101"
+        # Single parse: parse_nfse_xml + parse_ibscbs(root=...) shares the tree.
         assert mock_fromstring.call_count == 1
 
     def test_parses_chave_acesso(self):
