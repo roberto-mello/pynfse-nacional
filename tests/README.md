@@ -21,9 +21,9 @@ The `homologacao` marker selects `tests/test_client_integration.py`.
 
 Known issue:
 
-- SEFIN homologacao may return `E0116` when issuer municipal registration is
-  absent or inconsistent in the CNC. This is a cadastral/business-rule
-  rejection, not an XML schema failure; local XSD validation cannot verify it.
+- `E0116` requires the issuer IM in the CNC canonical representation. Numeric
+  IM values are now zero-padded to 15 characters before DPS submission; the
+  live issuer fixture now succeeds in homologacao.
 - SEFIN homologacao may return `E999 / Erro não catalogado` for a valid DPS.
 - The live integration test skips that response as server-side instability.
 - During live repro, SEFIN returned a JSON body with top-level `erros` and

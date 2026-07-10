@@ -185,14 +185,6 @@ def sample_dps():
     tomador = Tomador(
         cnpj="11222333000181",
         razao_social="Tomador de homologacao",
-        endereco=Endereco(
-            logradouro="Rua Teste",
-            numero="100",
-            bairro="Centro",
-            codigo_municipio=3509502,
-            uf="SP",
-            cep="13000000",
-        ),
     )
 
     servico = Servico(

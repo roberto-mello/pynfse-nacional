@@ -150,10 +150,13 @@ class XMLBuilder:
         prest = ET.SubElement(parent, "prest")
         ET.SubElement(prest, "CNPJ").text = dps.prestador.cnpj
 
-        # IM padded with spaces to 15 chars as seen in real NFSe
+        # CNC stores numeric IM values as 15-character identifiers. Remove
+        # display whitespace, then preserve alphanumeric municipal formats.
         if dps.prestador.inscricao_municipal:
-            im_padded = dps.prestador.inscricao_municipal.rjust(15)
-            ET.SubElement(prest, "IM").text = im_padded
+            inscricao_municipal = dps.prestador.inscricao_municipal.strip()
+            if inscricao_municipal.isdigit():
+                inscricao_municipal = inscricao_municipal.zfill(15)
+            ET.SubElement(prest, "IM").text = inscricao_municipal
 
         if dps.prestador.telefone:
             ET.SubElement(prest, "fone").text = dps.prestador.telefone

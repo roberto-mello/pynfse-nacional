@@ -250,8 +250,8 @@ class TestXMLBuilderPrestador:
 
         assert cnpj.text == "11222333000181"
 
-    def test_build_dps_includes_prestador_im_padded(self, sample_dps):
-        """Prestador section should include IM right-padded to 15 chars."""
+    def test_build_dps_includes_prestador_im_zero_padded(self, sample_dps):
+        """Numeric prestador IM should use the CNC 15-character representation."""
         builder = XMLBuilder()
 
         xml_str = builder.build_dps(sample_dps)
@@ -260,8 +260,17 @@ class TestXMLBuilderPrestador:
         prest = root.find("nfse:infDPS/nfse:prest", NS)
         im = prest.find("nfse:IM", NS)
 
-        assert im.text == "          12345"
-        assert len(im.text) == 15
+        assert im.text == "000000000012345"
+
+    def test_build_dps_strips_prestador_im_whitespace(self, sample_dps):
+        """Submitted IM must not contain leading/trailing lookup whitespace."""
+        sample_dps.prestador.inscricao_municipal = " 12345 "
+
+        xml_str = XMLBuilder().build_dps(sample_dps)
+        root = ET.fromstring(xml_str)
+        im = root.find("nfse:infDPS/nfse:prest/nfse:IM", NS)
+
+        assert im.text == "000000000012345"
 
     def test_build_dps_omits_im_when_missing(self, sample_dps):
         """Prestador section should omit IM when inscricao_municipal is not provided."""
