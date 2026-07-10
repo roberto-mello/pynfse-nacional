@@ -18,12 +18,13 @@ package metadata in the repository.
   calls the external SEFIN service:
 
   ```bash
-  NFSE_TEST_CERT_PATH=/path/to/certificate.pfx \\
   uv run pytest \\
     tests/test_client_integration.py::TestNFSeClientSubmitDPS::test_submit_dps_homologacao \\
     -v -s
   ```
 
+  Set `NFSE_TEST_CERT_PATH` in the git-ignored repository `.env` file before
+  running the command.
   Resolve `NFSE_TEST_CERT_PASSWORD` through the configured secret manager or
   Keychain; never commit or inline the password. Release gate passes only when
   the test reports `NFSe issued successfully`, with an access key and NFSe
