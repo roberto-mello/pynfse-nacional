@@ -572,7 +572,7 @@ dps = DPS(
 # Initialize client with certificate
 client = NFSeClient(
     cert_path="/path/to/certificate.pfx",
-    cert_password="your-password",
+    cert_password="<cert-password>",
     ambiente="homologacao",  # or "producao"
 )
 

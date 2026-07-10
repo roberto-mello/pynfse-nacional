@@ -34,12 +34,18 @@ def cert_password() -> str:
     try:
         import keyring
     except Exception:
-        return ""
+        keyring = None
 
-    try:
-        return keyring.get_password("pynfse-nacional-tests", "cert-password") or ""
-    except Exception:
-        return ""
+    if keyring is not None:
+        try:
+            password = keyring.get_password("pynfse-nacional-tests", "cert-password")
+        except Exception:
+            password = None
+
+        if password:
+            return password
+
+    return ""
 
 
 load_test_env()
