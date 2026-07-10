@@ -137,10 +137,10 @@ else:
     print(f"Erro: {response.error_message}")
 ```
 
-**Inscricao municipal (IM):** valores numericos sao normalizados para 15
-digitos no XML enviado, conforme a chave de cadastro CNC (municipio + CNPJ +
-IM). Essa normalizacao evita a rejeicao `E0116` quando a IM cadastrada no CNC
-possui zeros a esquerda.
+**Inscrição municipal (IM):** valores numéricos são normalizados para 15
+dígitos no XML enviado, conforme a chave de cadastro CNC (município + CNPJ +
+IM). Essa normalização evita a rejeição `E0116` quando a IM cadastrada no CNC
+possui zeros à esquerda.
 
 Para contribuintes optantes pelo Simples Nacional com IBSCBS, informe o grupo
 `ibscbs` e mantenha os campos de apuração compatíveis com `op_simp_nac`:
