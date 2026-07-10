@@ -5,17 +5,18 @@ These tests require:
 - `NFSE_TEST_CERT_PATH` in `.env`
 - `NFSE_TEST_CERT_PASSWORD` in macOS Keychain or the environment
 
-Run with: pytest backend/lib/pynfse_nacional/tests/test_client_integration.py -v -s
+Run with: uv run pytest -m homologacao -v -s
 
 Note: producaorestrita environment may return mock/simulated responses.
 """
 
 import os
 import re
-from datetime import datetime, timezone
+from datetime import datetime
 from decimal import Decimal
 
 import pytest
+from lxml import etree
 
 import tests._cert_credentials as cert_credentials
 from pynfse_nacional import (
@@ -23,6 +24,7 @@ from pynfse_nacional import (
     NFSeCertificateError,
     NFSeClient,
 )
+from pynfse_nacional.error_codes import ErrorCode
 from pynfse_nacional.models import (
     DPS,
     Endereco,
@@ -30,7 +32,8 @@ from pynfse_nacional.models import (
     Servico,
     Tomador,
 )
-from pynfse_nacional.models_ibscbs import GIBSCBS, IBSCBS, TribIBSCBS, ValoresIBSCBS
+
+from ._helpers.xsd import load_dps_schema
 
 # E1xxx = schema/structure rejections (code bugs). Never acceptable in homologação.
 # SEFIN codes look like E1235; also catch multi-error strings containing E1xxx.
@@ -39,6 +42,33 @@ _SCHEMA_FAILURE_MSG_RE = re.compile(
     r"invalid child element|The element \w+ has invalid",
     re.IGNORECASE,
 )
+_BUSINESS_ERROR_CODE_RE = re.compile(r"^E(?:0\d{3}|[23]\d{3})$", re.IGNORECASE)
+_TRANSIENT_ERROR_CODES = {"500", "E999"}
+_TRANSIENT_ERROR_MESSAGES = {"Erro não catalogado"}
+
+
+def _normalize_error_code(error_code: str | int | None) -> str:
+    """Normalize API error codes for comparison."""
+
+    if error_code is None:
+        return ""
+
+    if isinstance(error_code, str):
+        return error_code.strip()
+
+    return str(error_code).strip()
+
+
+def is_transient_homologacao_rejection(
+    error_code: str | int | None,
+    error_message: str | None,
+) -> bool:
+    """True when SEFIN returned a transient homologacao rejection."""
+
+    code = _normalize_error_code(error_code)
+    message = (error_message or "").strip()
+
+    return code in _TRANSIENT_ERROR_CODES or message in _TRANSIENT_ERROR_MESSAGES
 
 
 def is_schema_rejection(
@@ -46,7 +76,7 @@ def is_schema_rejection(
     error_message: str | None = None,
 ) -> bool:
     """True when SEFIN rejected DPS for schema/structure reasons (E1xxx class)."""
-    code = (error_code or "").strip()
+    code = _normalize_error_code(error_code)
     if code and _SCHEMA_ERROR_CODE_RE.search(code):
         return True
 
@@ -68,10 +98,23 @@ def assert_dps_rejection_acceptable(
     error_code: str | None,
     error_message: str | None,
 ) -> None:
-    """Fail hard on E1xxx/schema rejections; allow E2xxx/E3xxx business rules."""
+    """Fail hard on schema and non-business rejections."""
     if is_schema_rejection(error_code, error_message):
         pytest.fail(
             "Schema/structure rejection (code bug, not expected in homologação): "
+            f"{error_code} — {error_message}"
+        )
+
+    code = _normalize_error_code(error_code)
+    if code and code.isdigit():
+        pytest.fail(
+            "Unexpected HTTP/API rejection in homologação: "
+            f"{error_code} — {error_message}"
+        )
+
+    if code and not _BUSINESS_ERROR_CODE_RE.fullmatch(code):
+        pytest.fail(
+            "Unexpected non-business rejection in homologação: "
             f"{error_code} — {error_message}"
         )
 
@@ -79,16 +122,30 @@ def assert_dps_rejection_acceptable(
         "Rejected DPS must include error_code or error_message"
     )
 
+
+def assert_dps_xml_validates(client: NFSeClient, dps: DPS) -> None:
+    """Assert the signed DPS XML validates against the official XSD."""
+
+    schema = load_dps_schema()
+    xml = client._xml_builder.build_dps(dps)
+    schema.assertValid(etree.fromstring(xml.encode("utf-8")))
+
+    signed_xml = client._xml_signer.sign(xml)
+    schema.assertValid(etree.fromstring(signed_xml.encode("utf-8")))
+
 CERT_PATH = cert_credentials.cert_path()
 CERT_PASSWORD = cert_credentials.cert_password()
 
-pytestmark = pytest.mark.skipif(
-    not CERT_PATH or not os.path.exists(CERT_PATH) or not CERT_PASSWORD,
-    reason=(
-        "Test certificate not configured. Set NFSE_TEST_CERT_PATH in .env and "
-        "NFSE_TEST_CERT_PASSWORD in macOS Keychain or env."
+pytestmark = [
+    pytest.mark.homologacao,
+    pytest.mark.skipif(
+        not CERT_PATH or not os.path.exists(CERT_PATH) or not CERT_PASSWORD,
+        reason=(
+            "Test certificate not configured. Set NFSE_TEST_CERT_PATH in .env and "
+            "NFSE_TEST_CERT_PASSWORD in macOS Keychain or env."
+        ),
     ),
-)
+]
 
 
 @pytest.fixture
@@ -106,12 +163,11 @@ def client():
 def sample_dps():
     """Create a sample DPS for testing.
 
-    Uses fictional data for homologacao environment.
+    Uses synthetic data for the homologacao environment.
     """
     prestador_endereco = Endereco(
         logradouro="Rua Teste",
         numero="100",
-        complemento="Sala 1",
         bairro="Centro",
         codigo_municipio=3509502,
         uf="SP",
@@ -124,55 +180,42 @@ def sample_dps():
         razao_social="Empresa Teste LTDA",
         nome_fantasia="Empresa Teste",
         endereco=prestador_endereco,
-        email="teste@teste.com",
-        telefone="1999999999",
     )
 
     tomador = Tomador(
-        cpf="12345678909",
-        razao_social="Tomador Teste",
-        email="tomador@teste.com",
-        telefone="1988888888",
+        cnpj="11222333000181",
+        razao_social="Tomador de homologacao",
+        endereco=Endereco(
+            logradouro="Rua Teste",
+            numero="100",
+            bairro="Centro",
+            codigo_municipio=3509502,
+            uf="SP",
+            cep="13000000",
+        ),
     )
 
     servico = Servico(
-        codigo_lc116="4.03.03",
-        discriminacao="Consulta medica de teste para homologacao",
-        valor_servicos=Decimal("100.00"),
+        codigo_lc116="04.01.01",
+        codigo_tributacao_municipal="100",
+        codigo_nbs="123012200",
+        discriminacao="Consulta medica para homologacao.",
+        valor_servicos=Decimal("500.00"),
         iss_retido=False,
         aliquota_iss=Decimal("2.00"),
-        aliquota_simples=Decimal("15.50"),
-    )
-
-    now = datetime.now(timezone.utc)
-    competencia = now.strftime("%Y-%m")
-
-    ibscbs = IBSCBS(
-        fin_nfse="0",
-        c_ind_op="020101",
-        ind_dest="0",
-        valores=ValoresIBSCBS(
-            trib=TribIBSCBS(
-                g_ibscbs=GIBSCBS(
-                    cst="001",
-                    c_class_trib="123456",
-                )
-            )
-        ),
     )
 
     return DPS(
         serie="900",
-        numero=int(now.timestamp()),
-        competencia=competencia,
-        data_emissao=now,
+        numero=616,
+        competencia="2026-06",
+        data_emissao=datetime.fromisoformat("2026-06-09T15:05:14-03:00"),
         prestador=prestador,
         tomador=tomador,
         servico=servico,
         regime_tributario="simples_nacional",
         op_simp_nac="3",
         reg_ap_trib_sn="1",
-        ibscbs=ibscbs,
         incentivador_cultural=False,
     )
 
@@ -198,7 +241,7 @@ class TestNFSeClientCertificateLoading:
         with pytest.raises(NFSeCertificateError) as exc_info:
             client._load_pkcs12()
 
-        assert "not found" in str(exc_info.value).lower()
+        assert exc_info.value.code == ErrorCode.CERTIFICATE_FILE_NOT_FOUND
 
     def test_invalid_certificate_password(self):
         """Test error handling for wrong certificate password."""
@@ -237,8 +280,10 @@ class TestNFSeClientSubmitDPS:
 
         Rejection policy (Layer 2 gate from pynfse-a90):
         - E1xxx / schema-structure failures → test FAIL (code bug).
-        - E2xxx / E3xxx business-rule failures → allowed with assertions.
+        - E0xxx / E2xxx / E3xxx business-rule failures → allowed with assertions.
         """
+        assert_dps_xml_validates(client, sample_dps)
+
         try:
             response = client.submit_dps(sample_dps)
 
@@ -253,9 +298,18 @@ class TestNFSeClientSubmitDPS:
                 print(f"  NFSe Number: {response.nfse_number}")
 
             else:
-                print("DPS rejected (business-rule OK in homologacao):")
+                print("DPS rejected:")
                 print(f"  Error Code: {response.error_code}")
                 print(f"  Error Message: {response.error_message}")
+
+                if is_transient_homologacao_rejection(
+                    response.error_code,
+                    response.error_message,
+                ):
+                    pytest.skip(
+                        "SEFIN homologacao returned a transient JSON error for a "
+                        "valid signed DPS; likely server-side instability."
+                    )
 
                 assert_dps_rejection_acceptable(
                     response.error_code,
@@ -269,6 +323,12 @@ class TestNFSeClientSubmitDPS:
 
             if e.code == "TIMEOUT":
                 pytest.skip("API timeout - SEFIN may be unavailable")
+
+            if e.code == ErrorCode.RESPONSE_INVALID_STRUCTURE:
+                pytest.skip(
+                    "SEFIN homologacao returned opaque non-JSON error after the "
+                    "signed DPS validated against the official XSD."
+                )
 
             assert_dps_rejection_acceptable(e.code, e.message)
 

@@ -71,6 +71,7 @@ testpaths = ["tests"]
 asyncio_mode = "auto"
 markers = [
     "integration: tests that exercise real external or environment-backed integrations",
+    "homologacao: tests that exercise the homologacao environment",
 ]
 
 [dependency-groups]

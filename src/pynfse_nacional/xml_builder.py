@@ -59,8 +59,7 @@ class XMLBuilder:
         dps_id = dps.id_dps if dps.id_dps else self._build_dps_id(dps)
         inf_dps = ET.SubElement(root, "infDPS", Id=dps_id)
 
-        # NOTE: Based on real NFSe XML, tpAmb in DPS is always "1" for
-        # production data, even when submitting to homologacao.
+        # DPS tpAmb follows submission environment.
         tp_amb = "1" if self.ambiente == Ambiente.PRODUCAO else "2"
         ET.SubElement(inf_dps, "tpAmb").text = tp_amb
         ET.SubElement(inf_dps, "dhEmi").text = dps.data_emissao.strftime(

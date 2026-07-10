@@ -168,7 +168,9 @@ def _format_dps_error_response(
     """Normalize SEFIN DPS error payloads from object or list shapes."""
 
     if isinstance(data, dict):
-        erros = data.get("erro")
+        erros = data.get("erros")
+        if not isinstance(erros, list):
+            erros = data.get("erro")
         if isinstance(erros, list) and erros:
             return _format_dps_error_entries(
                 erros,
@@ -205,18 +207,27 @@ def _format_dps_error_entries(
     parts: list[str] = []
     first_code: object | None = None
 
+    def _entry_value(entry: dict[str, object], *names: str) -> object | None:
+        wanted = {name.lower() for name in names}
+
+        for key, value in entry.items():
+            if str(key).lower() in wanted and value not in (None, ""):
+                return value
+
+        return None
+
     for entry in entries:
         if not isinstance(entry, dict):
             continue
 
         if first_code is None:
-            first_code = entry.get("codigo")
+            first_code = _entry_value(entry, "codigo")
 
         descricao = (
-            str(entry.get("descricao") or entry.get("mensagem") or "")
+            str(_entry_value(entry, "descricao", "mensagem") or "")
             .strip()[:255]
         )
-        complemento = str(entry.get("complemento") or "").strip()[:255]
+        complemento = str(_entry_value(entry, "complemento") or "").strip()[:255]
 
         if descricao or complemento:
             parts.append(f"{descricao}: {complemento}" if complemento else descricao)
