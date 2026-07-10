@@ -137,6 +137,11 @@ else:
     print(f"Erro: {response.error_message}")
 ```
 
+**Inscricao municipal (IM):** valores numericos sao normalizados para 15
+digitos no XML enviado, conforme a chave de cadastro CNC (municipio + CNPJ +
+IM). Essa normalizacao evita a rejeicao `E0116` quando a IM cadastrada no CNC
+possui zeros a esquerda.
+
 Para contribuintes optantes pelo Simples Nacional com IBSCBS, informe o grupo
 `ibscbs` e mantenha os campos de apuração compatíveis com `op_simp_nac`:
 `"3"` exige `reg_ap_trib_sn`; `"1"` e `"2"` não devem preenchê-lo.
@@ -585,6 +590,10 @@ if response.success:
 else:
     print(f"Error: {response.error_message}")
 ```
+
+**Municipal registration (IM):** numeric values are normalized to 15 digits
+in the submitted XML, matching the CNC registration key (municipality + CNPJ +
+IM). This avoids `E0116` when the CNC record contains leading zeros.
 
 For Simples Nacional providers using IBSCBS, include the `ibscbs` group and
 keep the apportionment fields aligned with `op_simp_nac`: `"3"` requires

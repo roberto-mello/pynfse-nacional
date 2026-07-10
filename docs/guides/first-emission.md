@@ -66,6 +66,13 @@ else:
     print(response.error_code, response.error_message)
 ```
 
+### Inscricao municipal
+
+`Prestador.inscricao_municipal` accepts the municipal registration value without
+display padding. Numeric values are normalized to 15 digits in the submitted
+XML, matching the CNC key used by SEFIN. This is required by some municipal
+records and prevents `E0116` when the CNC value contains leading zeros.
+
 ## Por baixo dos panos
 
 - A DPS vira XML.
