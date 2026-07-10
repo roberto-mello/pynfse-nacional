@@ -135,7 +135,15 @@ class Prestador(BaseModel):
     model_config = ConfigDict(hide_input_in_errors=True)
 
     cnpj: str = Field(..., description="CNPJ com 14 digitos, sem formatacao")
-    inscricao_municipal: Optional[str] = Field(None, min_length=1, max_length=15)
+    inscricao_municipal: Optional[str] = Field(
+        None,
+        min_length=1,
+        max_length=15,
+        description=(
+            "Inscricao municipal; valores numericos sao normalizados para 15 "
+            "digitos no XML da DPS"
+        ),
+    )
     razao_social: str = Field(..., min_length=1, max_length=300)
     nome_fantasia: Optional[str] = Field(None, max_length=150)
     endereco: Endereco
