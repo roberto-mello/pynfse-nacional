@@ -13,6 +13,21 @@ package metadata in the repository.
 - Run the test suite, or at minimum the affected tests for the release scope.
 - Run the linter on the touched files, or the repo-wide lint command when the
   change is broad.
+- Run the manual homologacao issuance test with a valid certificate. This test
+  is intentionally not part of CI/CD because it requires mTLS credentials and
+  calls the external SEFIN service:
+
+  ```bash
+  NFSE_TEST_CERT_PATH=/path/to/certificate.pfx \\
+  uv run pytest \\
+    tests/test_client_integration.py::TestNFSeClientSubmitDPS::test_submit_dps_homologacao \\
+    -v -s
+  ```
+
+  Resolve `NFSE_TEST_CERT_PASSWORD` through the configured secret manager or
+  Keychain; never commit or inline the password. Release gate passes only when
+  the test reports `NFSe issued successfully`, with an access key and NFSe
+  number. A business-rule rejection such as `E0116` is not a passing result.
 - Check `git status --short --branch` and confirm there are no unexpected files.
 - Confirm the release tag does not already exist.
 
