@@ -88,6 +88,27 @@ When planning new features or modifications to the NFSe integration:
 
 4. **Follow existing patterns** in the codebase for consistency (xml_builder.py, models.py)
 
+## Security and Data Handling
+
+- Use synthetic, schema-valid CNPJ, CPF, IM, names, addresses, contacts, NFSe
+  access keys, XML, and PDF fixtures. Never commit real taxpayer, patient,
+  invoice, or medical data, even when the data came from homologacao.
+- Keep live homologacao credentials and any registered issuer CNPJ/IM in the
+  git-ignored `.env` or a secret manager. Run live tests only with the explicit
+  `--run-homologacao` flag because they call SEFIN and may issue an NFSe.
+- Never commit `.pfx`/`.p12` files, private keys, certificate passwords, API
+  tokens, local certificate paths, personal email addresses, or generated
+  response artifacts. Treat `.beads`/`.lavra` logs, databases, backups, and
+  memory files as potentially sensitive local state.
+- Before committing, scan the staged diff for secrets and personal data with
+  `git diff --cached` and `rg`. A later deletion is not remediation: if
+  sensitive data was committed, stop and rewrite every affected branch/tag
+  with `git filter-repo`, expire reflogs, prune unreachable objects, and
+  rotate any exposed credential.
+- Do not push rewritten history without coordinating the force-push and
+  checking all remote branches and tags. Assume previously published data may
+  already have been copied.
+
 ## Release Checklist
 
 Use [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md) before cutting a release.
