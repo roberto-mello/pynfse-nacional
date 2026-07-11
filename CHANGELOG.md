@@ -5,10 +5,6 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
-
-No unreleased changes.
-
 ## 0.9.4 - 2026-07-10
 
 ### Added
@@ -55,7 +51,8 @@ No unreleased changes.
 - Replace `op_simp_nac="4"` with `"1"`, `"2"`, or `"3"`.
 - For ME/EPP (`op_simp_nac="3"`), provide `reg_ap_trib_sn` only.
 - Use the manual homologacao issuance gate in `RELEASE_CHECKLIST.md`; live
-  SEFIN issuance is intentionally not part of CI/CD.
+  SEFIN issuance is run as part of our pre-release process. It's intentionally
+  not part of automated CI/CD to avoid having to need certificates in GH.
 
 ## 0.9.3 - 2026-07-07
 
