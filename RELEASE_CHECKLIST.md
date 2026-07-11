@@ -19,12 +19,16 @@ package metadata in the repository.
 
   ```bash
   uv run pytest \\
+    --run-homologacao \\
     tests/test_client_integration.py::TestNFSeClientSubmitDPS::test_submit_dps_homologacao \\
     -v -s
   ```
 
   Set `NFSE_TEST_CERT_PATH` in the git-ignored repository `.env` file before
   running the command.
+  Set `NFSE_TEST_PRESTADOR_CNPJ` and `NFSE_TEST_PRESTADOR_IM` there as well when
+  using a registered homologacao identity; the checked-in defaults are
+  synthetic and may receive a business-rule rejection.
   Resolve `NFSE_TEST_CERT_PASSWORD` through the configured secret manager or
   Keychain; never commit or inline the password. Release gate passes only when
   the test reports `NFSe issued successfully`, with an access key and NFSe

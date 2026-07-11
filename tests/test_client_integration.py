@@ -5,7 +5,7 @@ These tests require:
 - `NFSE_TEST_CERT_PATH` in `.env`
 - `NFSE_TEST_CERT_PASSWORD` in macOS Keychain or the environment
 
-Run with: uv run pytest -m homologacao -v -s
+Run with: uv run pytest --run-homologacao -m homologacao -v -s
 
 Note: producaorestrita environment may return mock/simulated responses.
 """
@@ -135,6 +135,8 @@ def assert_dps_xml_validates(client: NFSeClient, dps: DPS) -> None:
 
 CERT_PATH = cert_credentials.cert_path()
 CERT_PASSWORD = cert_credentials.cert_password()
+TEST_PRESTADOR_CNPJ = os.environ.get("NFSE_TEST_PRESTADOR_CNPJ", "11222333000181")
+TEST_PRESTADOR_IM = os.environ.get("NFSE_TEST_PRESTADOR_IM", "12345")
 
 pytestmark = [
     pytest.mark.homologacao,
@@ -175,15 +177,15 @@ def sample_dps():
     )
 
     prestador = Prestador(
-        cnpj="11222333000181",
-        inscricao_municipal="12345",
+        cnpj=TEST_PRESTADOR_CNPJ,
+        inscricao_municipal=TEST_PRESTADOR_IM,
         razao_social="Empresa Teste LTDA",
         nome_fantasia="Empresa Teste",
         endereco=prestador_endereco,
     )
 
     tomador = Tomador(
-        cnpj="11222333000181",
+        cnpj="33444555000181",
         razao_social="Tomador de homologacao",
     )
 
@@ -192,7 +194,7 @@ def sample_dps():
         codigo_tributacao_municipal="100",
         codigo_nbs="123012200",
         discriminacao="Consulta medica para homologacao.",
-        valor_servicos=Decimal("500.00"),
+        valor_servicos=Decimal("100.00"),
         iss_retido=False,
         aliquota_iss=Decimal("2.00"),
     )
