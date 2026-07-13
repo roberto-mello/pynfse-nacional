@@ -1808,7 +1808,7 @@ class TestSubmitDps:
         assert "set-cookie" not in raw.headers
         assert "location" not in raw.headers
         assert len(raw.body) == _RAW_RESPONSE_BODY_LIMIT
-        assert raw.content_length == len(body)
+        assert raw.content_length == _RAW_RESPONSE_BODY_LIMIT
         assert raw.truncated is True
         mock_get_client.return_value.__exit__.assert_called_once()
 
@@ -1946,7 +1946,7 @@ class TestRawNfseRecoveryResponse:
             encoding = "utf-8"
 
             @staticmethod
-            def iter_bytes():
+            def iter_raw():
                 yield b"partial"
                 raise httpx.ReadError("stream failed")
 

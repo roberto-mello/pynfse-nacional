@@ -622,11 +622,11 @@ class NFSeClient:
                 code=ErrorCode.COMMUNICATION_TIMEOUT,
             )
 
-        except httpx.RequestError as e:
+        except httpx.RequestError:
             raise NFSeAPIError(
                 "Erro de comunicação com a SEFIN.",
                 code=ErrorCode.COMMUNICATION_ERROR,
-            ) from e
+            ) from None
 
     @staticmethod
     def _stream_raw_response(
@@ -637,25 +637,29 @@ class NFSeClient:
     ) -> RawNFSeResponse:
         """Stream a diagnostic response while retaining only a bounded body."""
         with client.stream(method, url, **kwargs) as response:
-            retained = bytearray()
-            declared_length = None
-            try:
-                declared_length = int(response.headers.get("content-length", ""))
-            except (TypeError, ValueError):
-                pass
+            if getattr(response, "is_stream_consumed", False):
+                body = bytes(response.content)
+                return _detach_response(
+                    response,
+                    method=method,
+                    url=url,
+                    body=body[:_RAW_RESPONSE_BODY_LIMIT],
+                    content_length=min(len(body), _RAW_RESPONSE_BODY_LIMIT),
+                    truncated=len(body) > _RAW_RESPONSE_BODY_LIMIT,
+                )
 
-            for chunk in response.iter_bytes():
+            retained = bytearray()
+            truncated = False
+
+            for chunk in response.iter_raw():
                 remaining = _RAW_RESPONSE_BODY_LIMIT - len(retained)
                 if remaining > 0:
                     retained.extend(chunk[:remaining])
                 if len(retained) >= _RAW_RESPONSE_BODY_LIMIT:
+                    truncated = True
                     break
 
-            content_length = declared_length or len(retained)
-            truncated = content_length > _RAW_RESPONSE_BODY_LIMIT or (
-                declared_length is None
-                and len(retained) >= _RAW_RESPONSE_BODY_LIMIT
-            )
+            content_length = len(retained)
 
             return _detach_response(
                 response,

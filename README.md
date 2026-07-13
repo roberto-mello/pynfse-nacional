@@ -283,7 +283,8 @@ HTTP, certificados ou chaves privadas. `RawNFSeRecoveryResponse` reúne a
 resposta de `GET /dps/{id}` e, quando há uma chave válida, a resposta de
 `GET /nfse/{chaveAcesso}`. Os corpos podem conter dados de contribuintes e do
 serviço: mascare, anonimize ou remova dados sensíveis e limite qualquer preview antes de registrar logs; use
-`content_length` para preservar apenas o tamanho quando isso for suficiente.
+`content_length` para saber quantos bytes do transporte foram retidos e
+`truncated` para detectar respostas limitadas.
 
 **Consulta de Convênio Municipal:**
 

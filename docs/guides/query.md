@@ -111,8 +111,10 @@ Quando for necessário investigar a resposta exata da SEFIN, use as operações
 diagnósticas públicas. Elas fecham o cliente mTLS antes de retornar e entregam
 um `RawNFSeResponse` imutável com `status_code`, headers seguros, `body`,
 `text`, `content_length`, `truncated`, método e URL com identificadores
-removidos. O corpo retido é limitado a 1 MiB; `content_length` preserva o
-tamanho original.
+removidos. O corpo de bytes do transporte é limitado a 1 MiB;
+`content_length` preserva o tamanho retido, e `truncated=True` indica que ele
+é apenas um limite inferior porque a leitura foi interrompida. Se a resposta
+tiver `Content-Encoding`, consulte esse header antes de interpretar `body`.
 
 ```python
 import os
