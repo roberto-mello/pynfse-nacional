@@ -24,7 +24,9 @@ A referência completa sai dos docstrings, mas esta página serve como mapa ráp
 - Separe homologação e produção.
 - Guarde o certificado fora do repositório.
 - Use os métodos `*_raw_response()` somente para diagnóstico; os corpos podem conter
-  dados fiscais e de contribuintes.
+  dados fiscais e de contribuintes. `RawNFSeResponse.redacted_preview()` oferece
+  um preview limitado e de melhor esforço para começar a investigar logs; revise-o
+  antes de enviá-lo a serviços externos.
 
 ## Onde ver os detalhes
 

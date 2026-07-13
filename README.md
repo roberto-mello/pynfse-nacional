@@ -202,13 +202,17 @@ Cliente principal para a API do NFSe Nacional.
 - `query_nfse_by_dps(id_dps: str) -> NFSeQueryResult` - Recupera a NFSe pelo identificador da DPS
 - `has_nfse_by_dps(id_dps: str) -> bool` - Verifica se a DPS já gerou uma NFSe
 - `recover_nfse_by_dps(id_dps: str) -> RecoveryOutcome` - Recuperação simplificada combinando `has_nfse_by_dps` e `query_nfse_by_dps` (ver abaixo)
-- `submit_dps_raw_response(dps: DPS) -> RawNFSeResponse` - Captura um snapshot bruto limitado do envio para diagnóstico
-- `query_nfse_raw_response(chave_acesso: str) -> RawNFSeResponse` - Captura um snapshot bruto limitado da consulta por chave
-- `query_nfse_by_dps_raw_response(id_dps: str) -> RawNFSeResponse` - Captura um snapshot bruto limitado da consulta por DPS
-- `recover_nfse_by_dps_raw_response(id_dps: str) -> RawNFSeRecoveryResponse` - Captura as respostas das consultas por DPS e por chave
 - `download_danfse(chave_acesso: str) -> bytes` - Baixa o DANFSe em PDF
 - `cancel_nfse(chave_acesso, reason, codigo_motivo=1, cnpj_prestador="") -> EventResponse` - Cancela NFSe
 - `substitute_nfse(chave_acesso_original, new_dps, motivo, codigo_motivo) -> NFSeResponse` - Substitui NFSe existente
+
+**Emissão e Consulta de NFSe com Retorno para Diagnóstico:**
+
+- `submit_dps_raw_response(dps: DPS) -> RawNFSeResponse` - Captura um snapshot limitado do envio para diagnóstico
+- `query_nfse_raw_response(chave_acesso: str) -> RawNFSeResponse` - Captura um snapshot limitado da consulta por chave
+- `query_nfse_by_dps_raw_response(id_dps: str) -> RawNFSeResponse` - Captura um snapshot limitado da consulta por DPS
+- `recover_nfse_by_dps_raw_response(id_dps: str) -> RawNFSeRecoveryResponse` - Captura as respostas das consultas por DPS e por chave
+- `RawNFSeResponse.redacted_preview(max_chars=2048) -> str` - Gera um preview limitado com mascaramento de melhor esforço para logs de diagnóstico
 
 **Consulta por DPS:**
 
@@ -282,7 +286,10 @@ depois do fechamento do cliente mTLS, sem expor `httpx.Response`, o cliente
 HTTP, certificados ou chaves privadas. `RawNFSeRecoveryResponse` reúne a
 resposta de `GET /dps/{id}` e, quando há uma chave válida, a resposta de
 `GET /nfse/{chaveAcesso}`. Os corpos podem conter dados de contribuintes e do
-serviço: mascare, anonimize ou remova dados sensíveis e limite qualquer preview antes de registrar logs; use
+serviço. Para um preview inicial, use `raw.redacted_preview()`; ele mascara
+campos comuns e limita o texto, mas é melhor esforço somente e deve ser revisado antes de
+enviar para um serviço externo de logs. Para inspeção manual, mascare, anonimize
+ou remova dados sensíveis; use
 `content_length` para saber quantos bytes do transporte foram retidos e
 `truncated` para detectar respostas limitadas.
 
@@ -670,6 +677,7 @@ Main client for NFSe Nacional API.
 - `query_nfse_raw_response(chave_acesso: str) -> RawNFSeResponse` - Capture the access-key query response for diagnostics
 - `query_nfse_by_dps_raw_response(id_dps: str) -> RawNFSeResponse` - Capture the DPS query response for diagnostics
 - `recover_nfse_by_dps_raw_response(id_dps: str) -> RawNFSeRecoveryResponse` - Capture both recovery probe responses
+- `RawNFSeResponse.redacted_preview(max_chars=2048) -> str` - Create a bounded best-effort redacted preview for diagnostic logs
 - `download_danfse(chave_acesso: str) -> bytes` - Download DANFSe PDF
 - `cancel_nfse(chave_acesso, reason, codigo_motivo=1, cnpj_prestador="") -> EventResponse` - Cancel NFSe
 - `substitute_nfse(chave_acesso_original, new_dps, motivo, codigo_motivo) -> NFSeResponse` - Substitute existing NFSe

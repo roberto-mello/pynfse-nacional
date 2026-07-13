@@ -1826,6 +1826,69 @@ class TestSubmitDps:
         assert raw.truncated is True
         mock_get_client.return_value.__exit__.assert_called_once()
 
+    def test_raw_response_redacted_preview_masks_json_fields_and_is_bounded(self):
+        body = (
+            b'{"cpf":"123.456.789-09","nome":"Pessoa Sintetica",'
+            b'"email":"synthetic@example.test",'
+            b'"chaveAcesso":"12345678901234567890123456789012345678901234567890",'
+            b'"status":"erro"}'
+        )
+        raw = RawNFSeResponse(
+            status_code=422,
+            headers=httpx.Headers({"content-type": "application/json"}),
+            body=body,
+            method="GET",
+            url="https://example.test/nfse/[REDACTED-ACCESS-KEY]",
+            content_length=len(body),
+        )
+
+        preview = raw.redacted_preview(max_chars=180)
+
+        assert len(preview) <= 180
+        assert "123.456.789-09" not in preview
+        assert "Pessoa Sintetica" not in preview
+        assert "synthetic@example.test" not in preview
+        assert "12345678901234567890123456789012345678901234567890" not in preview
+        assert "erro" in preview
+        assert raw.body == body
+
+    def test_raw_response_redacted_preview_decodes_xml_and_gzip(self):
+        body = (
+            b"<retorno><CPF>12345678909</CPF><xNome>Pessoa Sintetica</xNome>"
+            b"<mensagem>falha de validacao</mensagem></retorno>"
+        )
+        raw = RawNFSeResponse(
+            status_code=400,
+            headers=httpx.Headers(
+                {"content-encoding": "gzip", "content-type": "application/xml"}
+            ),
+            body=gzip.compress(body),
+            method="GET",
+            url="https://example.test/dps/DPS[REDACTED]",
+            content_length=len(body),
+        )
+
+        preview = raw.redacted_preview()
+
+        assert "12345678909" not in preview
+        assert "Pessoa Sintetica" not in preview
+        assert "falha de validacao" in preview
+
+    def test_raw_response_redacted_preview_rejects_invalid_limits(self):
+        raw = RawNFSeResponse(
+            status_code=200,
+            headers=httpx.Headers(),
+            body=b"ok",
+            method="GET",
+            url="https://example.test",
+            content_length=2,
+        )
+
+        with pytest.raises(ValueError):
+            raw.redacted_preview(0)
+        with pytest.raises(ValueError):
+            raw.redacted_preview(True)
+
     def test_raw_response_rejects_invalid_inputs(self, mock_client, sample_dps):
         with pytest.raises(ValueError):
             mock_client.query_nfse_raw_response("invalid")

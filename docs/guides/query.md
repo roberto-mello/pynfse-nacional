@@ -109,12 +109,12 @@ else:
 
 Quando for necessário investigar o snapshot bruto da resposta da SEFIN, use as operações
 diagnósticas públicas. Elas fecham o cliente mTLS antes de retornar e entregam
-um `RawNFSeResponse` imutável com `status_code`, headers seguros, `body`,
+um `RawNFSeResponse` imutável com `status_code`, cabeçalhos seguros, `body`,
 `text`, `content_length`, `truncated`, método e URL com identificadores
 removidos. O corpo de bytes do transporte é limitado a 1 MiB;
 `content_length` preserva o tamanho retido, e `truncated=True` indica que ele
 é apenas um limite inferior porque a leitura foi interrompida. Se a resposta
-tiver `Content-Encoding`, consulte esse header antes de interpretar `body`.
+tiver `Content-Encoding`, consulte esse cabeçalho antes de interpretar `body`.
 
 ```python
 import os
@@ -148,8 +148,10 @@ certificado e validação de identificadores continuam usando os erros normais
 do cliente. Para consultar apenas a resposta de DPS, use
 `query_nfse_by_dps_raw_response()`.
 
-Os corpos podem conter XML, CPF/CNPJ e dados do serviço. Não registre o corpo
-inteiro: mascare, anonimize ou remova campos sensíveis e limite qualquer preview, usando
+Os corpos podem conter XML, CPF/CNPJ e dados do serviço. Para um preview inicial,
+use `raw_nfse.redacted_preview()`; ele mascara campos comuns e limita o texto,
+mas é melhor esforço e deve ser revisado antes de enviar para um serviço externo de
+logs. Não registre o corpo inteiro: mascare, anonimize ou remova campos sensíveis, usando
 `content_length` para saber o tamanho retido; quando `truncated=True`, ele é
-um limite inferior. O header `Content-Length`, quando disponível, informa o
+um limite inferior. O cabeçalho `Content-Length`, quando disponível, informa o
 tamanho declarado pelo transporte.

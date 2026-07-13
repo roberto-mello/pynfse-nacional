@@ -3,7 +3,7 @@ import tempfile
 import zlib
 from contextlib import contextmanager
 from dataclasses import dataclass
-from json import loads
+from json import dumps, loads
 from pathlib import Path
 from types import MappingProxyType
 from typing import Generator, Literal, Mapping, Optional
@@ -40,6 +40,34 @@ from .xml_signer import XMLSignerService
 _CHAVE_RE = CHAVE_ACESSO_RE
 _ID_DPS_RE = re.compile(r"^DPS\d{42}$")
 _RAW_RESPONSE_BODY_LIMIT = 1024 * 1024
+_RAW_RESPONSE_PREVIEW_LIMIT = 2048
+_REDACTED_VALUE = "[REDACTED]"
+_SENSITIVE_DIAGNOSTIC_FIELDS = frozenset(
+    {
+        "bairro",
+        "celular",
+        "cep",
+        "chaveacesso",
+        "chnfse",
+        "cnpj",
+        "complemento",
+        "cpf",
+        "email",
+        "endereco",
+        "fone",
+        "iddps",
+        "inscricaomunicipal",
+        "logradouro",
+        "municipio",
+        "nome",
+        "nomerazaosocial",
+        "numero",
+        "razaosocial",
+        "telefone",
+        "uf",
+        "xnome",
+    }
+)
 _SAFE_RESPONSE_HEADERS = frozenset(
     {
         "content-encoding",
@@ -129,6 +157,36 @@ class RawNFSeResponse:
         except LookupError:
             return self.body.decode("utf-8", errors="replace")
 
+    def redacted_preview(self, max_chars: int = _RAW_RESPONSE_PREVIEW_LIMIT) -> str:
+        """Return a bounded, best-effort redacted text preview.
+
+        This helper masks common NFSe taxpayer/contact fields, access keys,
+        CPF/CNPJ values, and email addresses in JSON, XML, or plain-text
+        responses. It does not change :attr:`body`; callers should still
+        review the preview before sending it to an external log service.
+
+        Args:
+            max_chars: Maximum number of characters in the returned preview.
+
+        Raises:
+            ValueError: If ``max_chars`` is not a positive integer.
+        """
+        if isinstance(max_chars, bool) or not isinstance(max_chars, int):
+            raise ValueError("max_chars deve ser um inteiro positivo.")
+        if max_chars < 1:
+            raise ValueError("max_chars deve ser um inteiro positivo.")
+
+        body = _decode_diagnostic_body(
+            self.body, self.headers.get("content-encoding", "")
+        )
+        if body is None:
+            body = self.body
+        try:
+            text = body.decode(self.encoding or "utf-8", errors="replace")
+        except LookupError:
+            text = body.decode("utf-8", errors="replace")
+        return _bound_diagnostic_preview(_redact_diagnostic_text(text), max_chars)
+
     def __repr__(self) -> str:
         """Show safe metadata without including response data or identifiers."""
         return (
@@ -169,6 +227,111 @@ def _redact_diagnostic_url(url: str) -> str:
     return re.sub(r"DPS\d{42}", "DPS[REDACTED]", url)
 
 
+def _normalize_diagnostic_field(value: str) -> str:
+    return re.sub(r"[^a-z0-9]", "", value.casefold())
+
+
+def _redact_json_value(value, field: str | None = None):
+    if (
+        field is not None
+        and _normalize_diagnostic_field(field) in _SENSITIVE_DIAGNOSTIC_FIELDS
+    ):
+        return _REDACTED_VALUE
+    if isinstance(value, dict):
+        return {key: _redact_json_value(item, str(key)) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_redact_json_value(item) for item in value]
+    return value
+
+
+def _redact_diagnostic_text(text: str) -> str:
+    """Best-effort redaction for structured and common plain-text payloads."""
+    try:
+        parsed = loads(text)
+    except Exception:
+        pass
+    else:
+        try:
+            text = dumps(
+                _redact_json_value(parsed), ensure_ascii=False, separators=(",", ":")
+            )
+        except (TypeError, ValueError):
+            pass
+
+    field_names = "|".join(sorted(_SENSITIVE_DIAGNOSTIC_FIELDS))
+    xml_fields = re.compile(
+        rf"(?P<open><(?P<tag>(?:[\w.-]+:)?(?:{field_names}))\b[^>]*>)"
+        rf"(?P<value>.*?)"
+        rf"(?P<close></(?P=tag)\s*>)",
+        re.IGNORECASE | re.DOTALL,
+    )
+    text = xml_fields.sub(
+        lambda match: f"{match.group('open')}{_REDACTED_VALUE}{match.group('close')}",
+        text,
+    )
+
+    quoted_fields = re.compile(
+        rf"(?P<label>[\"']?\b(?:{field_names})\b[\"']?\s*[:=]\s*)"
+        rf"(?P<quote>[\"'])(?P<value>.*?)(?P=quote)",
+        re.IGNORECASE | re.DOTALL,
+    )
+    text = quoted_fields.sub(
+        lambda match: f"{match.group('label')}{match.group('quote')}"
+        f"{_REDACTED_VALUE}{match.group('quote')}",
+        text,
+    )
+    plain_fields = re.compile(
+        rf"(?P<label>\b(?:{field_names})\b\s*[:=]\s*)"
+        rf"(?P<value>[^\s,;}}\]]+)",
+        re.IGNORECASE,
+    )
+    text = plain_fields.sub(
+        lambda match: f"{match.group('label')}{_REDACTED_VALUE}", text
+    )
+
+    text = re.sub(r"(?<!\d)\d{50}(?!\d)", "[REDACTED-ACCESS-KEY]", text)
+    text = re.sub(
+        r"(?<!\d)(?:\d{2}[. ]?\d{3}[. ]?\d{3}/?\d{4}-?\d{2})(?!\d)",
+        _REDACTED_VALUE,
+        text,
+    )
+    text = re.sub(
+        r"(?<!\d)(?:\d{3}[. ]?\d{3}[. ]?\d{3}-?\d{2})(?!\d)",
+        _REDACTED_VALUE,
+        text,
+    )
+    return re.sub(
+        r"\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b",
+        _REDACTED_VALUE,
+        text,
+        flags=re.IGNORECASE,
+    )
+
+
+def _bound_diagnostic_preview(text: str, max_chars: int) -> str:
+    if len(text) <= max_chars:
+        return text
+    marker = "… [truncated]"
+    if max_chars <= len(marker):
+        return marker[:max_chars]
+    return f"{text[: max_chars - len(marker)]}{marker}"
+
+
+def _decode_diagnostic_body(body: bytes, content_encoding: str) -> Optional[bytes]:
+    encoding = content_encoding.split(",", 1)[0].strip().lower()
+    if encoding not in {"gzip", "deflate"}:
+        return body
+    try:
+        window_bits = 16 + zlib.MAX_WBITS if encoding == "gzip" else zlib.MAX_WBITS
+        decoder = zlib.decompressobj(window_bits)
+        decoded = decoder.decompress(body, _RAW_RESPONSE_BODY_LIMIT)
+        if len(decoded) < _RAW_RESPONSE_BODY_LIMIT:
+            decoded += decoder.flush()[: _RAW_RESPONSE_BODY_LIMIT - len(decoded)]
+        return decoded
+    except zlib.error:
+        return None
+
+
 def _detach_response(
     response: httpx.Response,
     *,
@@ -204,17 +367,11 @@ def _extract_chave_acesso_from_raw_response(
     response: RawNFSeResponse,
 ) -> Optional[str]:
     """Extract a valid access key from a detached DPS response."""
-    body = response.body
-    encoding = response.headers.get("content-encoding", "").lower()
-    if encoding in {"gzip", "deflate"}:
-        try:
-            window_bits = 16 + zlib.MAX_WBITS if encoding == "gzip" else zlib.MAX_WBITS
-            decoder = zlib.decompressobj(window_bits)
-            body = decoder.decompress(body, _RAW_RESPONSE_BODY_LIMIT)
-            if len(body) < _RAW_RESPONSE_BODY_LIMIT:
-                body += decoder.flush()[: _RAW_RESPONSE_BODY_LIMIT - len(body)]
-        except zlib.error:
-            return None
+    body = _decode_diagnostic_body(
+        response.body, response.headers.get("content-encoding", "")
+    )
+    if body is None:
+        return None
 
     try:
         text = body.decode(response.encoding or "utf-8", errors="replace").strip()

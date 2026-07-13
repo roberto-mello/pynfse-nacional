@@ -27,8 +27,9 @@ Security and certificate handling
 - Keep the password in environment variables or a secrets manager.
 - Separate homologation and production certificates.
 - Treat the certificate as an identity secret, not as a regular config file.
-- Raw diagnostic response bodies may contain taxpayer and service data; redact
-  and bound previews before logging.
+- Raw diagnostic response bodies may contain taxpayer and service data. Use
+  `RawNFSeResponse.redacted_preview()` for a bounded best-effort starting point,
+  then review before sending the preview to an external log service.
 
 Best starting pages
 
