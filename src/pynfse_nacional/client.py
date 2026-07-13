@@ -112,6 +112,15 @@ class RawNFSeResponse:
         """Return the detached body length in bytes."""
         return len(self.body)
 
+    def __repr__(self) -> str:
+        """Show safe metadata without including response data or identifiers."""
+        return (
+            "RawNFSeResponse("
+            f"status_code={self.status_code!r}, "
+            f"method={self.method!r}, "
+            f"content_length={self.content_length!r})"
+        )
+
 
 @dataclass(frozen=True)
 class RawNFSeRecoveryResponse:
@@ -124,6 +133,18 @@ class RawNFSeRecoveryResponse:
     dps_response: RawNFSeResponse
     nfse_response: Optional[RawNFSeResponse] = None
     chave_acesso: Optional[str] = None
+
+    def __repr__(self) -> str:
+        """Show safe status metadata without including access keys or bodies."""
+        nfse_status = (
+            self.nfse_response.status_code if self.nfse_response is not None else None
+        )
+        return (
+            "RawNFSeRecoveryResponse("
+            f"dps_status_code={self.dps_response.status_code!r}, "
+            f"nfse_status_code={nfse_status!r}, "
+            f"has_chave_acesso={self.chave_acesso is not None!r})"
+        )
 
 
 def _detach_response(
@@ -140,7 +161,7 @@ def _detach_response(
 
     return RawNFSeResponse(
         status_code=response.status_code,
-        headers=MappingProxyType(dict(header_items)),
+        headers=MappingProxyType(httpx.Headers(dict(header_items))),
         body=body,
         method=method,
         url=url,
@@ -691,8 +712,11 @@ class NFSeClient:
         self, client: httpx.Client, chave_acesso: str
     ) -> httpx.Response:
         """Issue the canonical NFSe-by-access-key request."""
-        url = f"{self.base_url}{ENDPOINTS['query_nfse'].format(chave=chave_acesso)}"
-        return client.get(url)
+        return client.get(self._nfse_url(chave_acesso))
+
+    def _nfse_url(self, chave_acesso: str) -> str:
+        """Build the canonical NFSe-by-access-key URL."""
+        return f"{self.base_url}{ENDPOINTS['query_nfse'].format(chave=chave_acesso)}"
 
     def query_nfse_raw_response(self, chave_acesso: str) -> RawNFSeResponse:
         """Query by access key and return the detached raw SEFIN response.
@@ -702,7 +726,7 @@ class NFSeClient:
         The access key is validated with the same rule as :meth:`query_nfse`.
         """
         _validate_chave_acesso(chave_acesso)
-        url = f"{self.base_url}{ENDPOINTS['query_nfse'].format(chave=chave_acesso)}"
+        url = self._nfse_url(chave_acesso)
 
         try:
             with self._get_client() as client:
@@ -791,8 +815,11 @@ class NFSeClient:
         self, client: httpx.Client, id_dps: str
     ) -> httpx.Response:
         """Issue the canonical DPS lookup request."""
-        url = f"{self.base_url}{ENDPOINTS['query_nfse_by_dps'].format(id=id_dps)}"
-        return client.get(url)
+        return client.get(self._dps_url(id_dps))
+
+    def _dps_url(self, id_dps: str) -> str:
+        """Build the canonical DPS lookup URL."""
+        return f"{self.base_url}{ENDPOINTS['query_nfse_by_dps'].format(id=id_dps)}"
 
     def query_nfse_by_dps_raw_response(self, id_dps: str) -> RawNFSeResponse:
         """Query by DPS identifier and return the detached raw response.
@@ -802,7 +829,7 @@ class NFSeClient:
         the subsequent access-key lookup are needed.
         """
         _validate_id_dps(id_dps)
-        url = f"{self.base_url}{ENDPOINTS['query_nfse_by_dps'].format(id=id_dps)}"
+        url = self._dps_url(id_dps)
 
         try:
             with self._get_client() as client:
@@ -834,9 +861,7 @@ class NFSeClient:
         still use the client's normal :class:`NFSeAPIError` contract.
         """
         _validate_id_dps(id_dps)
-        dps_url = (
-            f"{self.base_url}{ENDPOINTS['query_nfse_by_dps'].format(id=id_dps)}"
-        )
+        dps_url = self._dps_url(id_dps)
 
         try:
             with self._get_client() as client:
@@ -852,9 +877,7 @@ class NFSeClient:
                 if not chave_acesso:
                     return RawNFSeRecoveryResponse(dps_response=detached_dps)
 
-                nfse_url = (
-                    f"{self.base_url}{ENDPOINTS['query_nfse'].format(chave=chave_acesso)}"
-                )
+                nfse_url = self._nfse_url(chave_acesso)
                 nfse_response = self._get_nfse_response(client, chave_acesso)
                 detached_nfse = _detach_response(
                     nfse_response, method="GET", url=nfse_url

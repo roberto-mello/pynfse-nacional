@@ -1708,6 +1708,34 @@ class TestSubmitDps:
         assert raw.content_length == len(b"service unavailable")
         mock_get_client.return_value.__exit__.assert_called_once()
 
+    @pytest.mark.parametrize(
+        "exception",
+        [httpx.ReadTimeout("timed out"), httpx.ConnectError("down")],
+    )
+    def test_submit_dps_raw_response_maps_transport_errors(
+        self, mock_client, sample_dps, exception
+    ):
+        with patch.object(mock_client, "_get_client") as mock_get_client:
+            mock_http = MagicMock()
+            mock_http.post.side_effect = exception
+            mock_get_client.return_value.__enter__ = MagicMock(return_value=mock_http)
+            mock_get_client.return_value.__exit__ = MagicMock(return_value=False)
+
+            with patch.object(
+                mock_client._xml_builder, "build_dps", return_value="<xml/>"
+            ), patch.object(
+                mock_client._xml_signer, "sign", return_value="<signed/>"
+            ), pytest.raises(NFSeAPIError) as exc_info:
+                mock_client.submit_dps_raw_response(sample_dps)
+
+        expected_code = (
+            ErrorCode.COMMUNICATION_TIMEOUT
+            if isinstance(exception, httpx.TimeoutException)
+            else ErrorCode.COMMUNICATION_ERROR
+        )
+        assert exc_info.value.code == expected_code
+        mock_get_client.return_value.__exit__.assert_called_once()
+
     def test_raw_response_is_immutable_and_headers_are_detached(self, mock_client):
         chave = "12345678901234567890123456789012345678901234567890"
         response = httpx.Response(
@@ -1728,6 +1756,9 @@ class TestSubmitDps:
         assert raw.body == b"raw body"
         assert raw.method == "GET"
         assert raw.url.endswith(f"/nfse/{chave}")
+        assert raw.headers["X-SEFIN"] == "ok"
+        assert "raw body" not in repr(raw)
+        assert chave not in repr(raw)
         with pytest.raises(TypeError):
             raw.headers["new"] = "value"
         with pytest.raises((AttributeError, TypeError)):
@@ -1798,6 +1829,91 @@ class TestRawNfseRecoveryResponse:
         assert result.nfse_response is None
         mock_http.get.assert_called_once()
 
+    def test_direct_dps_raw_lookup_returns_detached_response(self, mock_client):
+        response = httpx.Response(
+            200,
+            headers={"x-dps": "ok"},
+            content=b'{"chaveAcesso":"synthetic"}',
+        )
+
+        with patch.object(mock_client, "_get_client") as mock_get_client:
+            mock_http = MagicMock()
+            mock_http.get.return_value = response
+            mock_get_client.return_value.__enter__ = MagicMock(return_value=mock_http)
+            mock_get_client.return_value.__exit__ = MagicMock(return_value=False)
+
+            result = mock_client.query_nfse_by_dps_raw_response(self.DPS_ID)
+
+        assert result.status_code == 200
+        assert result.body == b'{"chaveAcesso":"synthetic"}'
+        assert result.headers["X-DPS"] == "ok"
+        mock_get_client.return_value.__exit__.assert_called_once()
+
+    def test_raw_recovery_repr_does_not_include_sensitive_data(self, mock_client):
+        dps_response = httpx.Response(
+            200,
+            json={"chaveAcesso": self.CHAVE},
+        )
+        nfse_response = httpx.Response(200, content=b"nfse body")
+
+        with patch.object(mock_client, "_get_client") as mock_get_client:
+            mock_http = MagicMock()
+            mock_http.get.side_effect = [dps_response, nfse_response]
+            mock_get_client.return_value.__enter__ = MagicMock(return_value=mock_http)
+            mock_get_client.return_value.__exit__ = MagicMock(return_value=False)
+
+            result = mock_client.recover_nfse_by_dps_raw_response(self.DPS_ID)
+
+        rendered = repr(result)
+        assert "dps body" not in rendered
+        assert "nfse body" not in rendered
+        assert self.CHAVE not in rendered
+
+    @pytest.mark.parametrize(
+        ("method_name", "http_method"),
+        [
+            ("query_nfse_by_dps_raw_response", "get"),
+            ("recover_nfse_by_dps_raw_response", "get"),
+        ],
+    )
+    def test_raw_query_methods_map_timeouts_to_api_errors(
+        self, mock_client, method_name, http_method
+    ):
+        with patch.object(mock_client, "_get_client") as mock_get_client:
+            mock_http = MagicMock()
+            getattr(mock_http, http_method).side_effect = httpx.ReadTimeout("timed out")
+            mock_get_client.return_value.__enter__ = MagicMock(return_value=mock_http)
+            mock_get_client.return_value.__exit__ = MagicMock(return_value=False)
+
+            with pytest.raises(NFSeAPIError) as exc_info:
+                getattr(mock_client, method_name)(self.DPS_ID)
+
+        assert exc_info.value.code == ErrorCode.COMMUNICATION_TIMEOUT
+        mock_get_client.return_value.__exit__.assert_called_once()
+
+    @pytest.mark.parametrize(
+        ("method_name", "argument"),
+        [
+            ("query_nfse_raw_response", CHAVE),
+            ("query_nfse_by_dps_raw_response", DPS_ID),
+            ("recover_nfse_by_dps_raw_response", DPS_ID),
+        ],
+    )
+    def test_raw_query_methods_map_request_errors_to_api_errors(
+        self, mock_client, method_name, argument
+    ):
+        with patch.object(mock_client, "_get_client") as mock_get_client:
+            mock_http = MagicMock()
+            mock_http.get.side_effect = httpx.ConnectError("connection failed")
+            mock_get_client.return_value.__enter__ = MagicMock(return_value=mock_http)
+            mock_get_client.return_value.__exit__ = MagicMock(return_value=False)
+
+            with pytest.raises(NFSeAPIError) as exc_info:
+                getattr(mock_client, method_name)(argument)
+
+        assert exc_info.value.code == ErrorCode.COMMUNICATION_ERROR
+        mock_get_client.return_value.__exit__.assert_called_once()
+
     def test_malformed_dps_success_is_returned_without_second_request(
         self, mock_client
     ):
@@ -1815,6 +1931,19 @@ class TestRawNfseRecoveryResponse:
         assert result.dps_response.text == "not json"
         assert result.nfse_response is None
         mock_http.get.assert_called_once()
+
+    def test_nfse_raw_lookup_maps_timeout_to_api_error(self, mock_client):
+        with patch.object(mock_client, "_get_client") as mock_get_client:
+            mock_http = MagicMock()
+            mock_http.get.side_effect = httpx.ReadTimeout("timed out")
+            mock_get_client.return_value.__enter__ = MagicMock(return_value=mock_http)
+            mock_get_client.return_value.__exit__ = MagicMock(return_value=False)
+
+            with pytest.raises(NFSeAPIError) as exc_info:
+                mock_client.query_nfse_raw_response(self.CHAVE)
+
+        assert exc_info.value.code == ErrorCode.COMMUNICATION_TIMEOUT
+        mock_get_client.return_value.__exit__.assert_called_once()
 
 
 # =============================================================================

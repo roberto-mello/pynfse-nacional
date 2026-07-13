@@ -114,7 +114,7 @@ um `RawNFSeResponse` imutável com `status_code`, `headers`, `body`, `text`,
 
 ```python
 raw_submit = client.submit_dps_raw_response(dps)
-raw_nfse = client.query_nfse_raw_response("[REDACTED-ACCESS-KEY]")
+raw_nfse = client.query_nfse_raw_response("0" * 50)  # chave sintética
 ```
 
 Para reproduzir a recuperação por DPS em uma única chamada, use:
