@@ -57,7 +57,6 @@ def sample_dps(sample_prestador, sample_tomador, sample_servico, sample_ibscbs):
         regime_tributario="simples_nacional",
         op_simp_nac="3",
         reg_ap_trib_sn="1",
-        reg_ap_ibs_cbs_sn="1",
         ibscbs=sample_ibscbs,
         incentivador_cultural=False,
     )
@@ -251,8 +250,8 @@ class TestXMLBuilderPrestador:
 
         assert cnpj.text == "11222333000181"
 
-    def test_build_dps_includes_prestador_im_padded(self, sample_dps):
-        """Prestador section should include IM right-padded to 15 chars."""
+    def test_build_dps_includes_prestador_im_zero_padded(self, sample_dps):
+        """Numeric prestador IM should use the CNC 15-character representation."""
         builder = XMLBuilder()
 
         xml_str = builder.build_dps(sample_dps)
@@ -261,8 +260,17 @@ class TestXMLBuilderPrestador:
         prest = root.find("nfse:infDPS/nfse:prest", NS)
         im = prest.find("nfse:IM", NS)
 
-        assert im.text == "          12345"
-        assert len(im.text) == 15
+        assert im.text == "000000000012345"
+
+    def test_build_dps_strips_prestador_im_whitespace(self, sample_dps):
+        """Submitted IM must not contain leading/trailing lookup whitespace."""
+        sample_dps.prestador.inscricao_municipal = " 12345 "
+
+        xml_str = XMLBuilder().build_dps(sample_dps)
+        root = ET.fromstring(xml_str)
+        im = root.find("nfse:infDPS/nfse:prest/nfse:IM", NS)
+
+        assert im.text == "000000000012345"
 
     def test_build_dps_omits_im_when_missing(self, sample_dps):
         """Prestador section should omit IM when inscricao_municipal is not provided."""
@@ -326,8 +334,13 @@ class TestXMLBuilderPrestador:
 
     def test_build_dps_opsimpnac_for_non_simples(self, sample_dps):
         """opSimpNac should be 1 for non-optante."""
-        sample_dps.op_simp_nac = "1"
-        sample_dps.reg_ap_ibs_cbs_sn = None
+        sample_dps = DPS(
+            **{
+                **sample_dps.model_dump(),
+                "op_simp_nac": "1",
+                "reg_ap_trib_sn": None,
+            }
+        )
         builder = XMLBuilder()
 
         xml_str = builder.build_dps(sample_dps)
@@ -350,39 +363,8 @@ class TestXMLBuilderPrestador:
 
         assert regApTribSN.text == "1"
 
-    def test_build_dps_regapibscbssn_for_me_epp(self, sample_dps):
-        """regApIBSCBSSN should be emitted for Simples Nacional ME/EPP."""
-        sample_dps.reg_ap_ibs_cbs_sn = "2"
-        builder = XMLBuilder()
-
-        xml_str = builder.build_dps(sample_dps)
-        root = ET.fromstring(xml_str)
-
-        regApIBSCBSSN = root.find(
-            "nfse:infDPS/nfse:prest/nfse:regTrib/nfse:regApIBSCBSSN", NS
-        )
-
-        assert regApIBSCBSSN.text == "2"
-
-    def test_build_dps_regaptribsn_absent_for_non_simples(self, sample_dps):
-        """regApTribSN should not be present for non-Simples."""
-        sample_dps.op_simp_nac = "1"
-        sample_dps.reg_ap_ibs_cbs_sn = None
-        builder = XMLBuilder()
-
-        xml_str = builder.build_dps(sample_dps)
-        root = ET.fromstring(xml_str)
-
-        regApTribSN = root.find(
-            "nfse:infDPS/nfse:prest/nfse:regTrib/nfse:regApTribSN", NS
-        )
-
-        assert regApTribSN is None
-
-    def test_build_dps_regapibscbssn_absent_for_non_simples(self, sample_dps):
-        """regApIBSCBSSN should not be present for non-Simples."""
-        sample_dps.op_simp_nac = "1"
-        sample_dps.reg_ap_ibs_cbs_sn = None
+    def test_build_dps_regapibscbssn_never_emitted(self, sample_dps):
+        """regApIBSCBSSN must never appear; official TCRegTrib rejects it."""
         builder = XMLBuilder()
 
         xml_str = builder.build_dps(sample_dps)
@@ -394,9 +376,29 @@ class TestXMLBuilderPrestador:
 
         assert regApIBSCBSSN is None
 
+    def test_build_dps_regaptribsn_absent_for_non_simples(self, sample_dps):
+        """regApTribSN should not be present for non-Simples."""
+        sample_dps = DPS(
+            **{
+                **sample_dps.model_dump(),
+                "op_simp_nac": "1",
+                "reg_ap_trib_sn": None,
+            }
+        )
+        builder = XMLBuilder()
+
+        xml_str = builder.build_dps(sample_dps)
+        root = ET.fromstring(xml_str)
+
+        regApTribSN = root.find(
+            "nfse:infDPS/nfse:prest/nfse:regTrib/nfse:regApTribSN", NS
+        )
+
+        assert regApTribSN is None
+
     def test_build_dps_regesptrib_default(self, sample_dps):
         """regEspTrib should default to 0."""
-        sample_dps.regime_tributario = "unknown"
+        sample_dps = sample_dps.model_copy(update={"regime_tributario": "unknown"})
         builder = XMLBuilder()
 
         xml_str = builder.build_dps(sample_dps)
@@ -647,7 +649,6 @@ class TestXMLBuilderValores:
     def test_build_dps_ptottribsn_for_simples(self, sample_dps):
         """pTotTribSN should be set for Simples Nacional."""
         sample_dps.op_simp_nac = "3"
-        sample_dps.reg_ap_ibs_cbs_sn = "1"
         sample_dps.servico.aliquota_simples = Decimal("15.50")
         builder = XMLBuilder()
 
@@ -662,7 +663,6 @@ class TestXMLBuilderValores:
     def test_build_dps_ptottribsn_default_with_warning(self, sample_dps):
         """pTotTribSN should default to 18.83 with warning when not provided."""
         sample_dps.op_simp_nac = "3"
-        sample_dps.reg_ap_ibs_cbs_sn = "1"
         sample_dps.servico.aliquota_simples = None
         builder = XMLBuilder()
 
@@ -681,8 +681,13 @@ class TestXMLBuilderValores:
 
     def test_build_dps_ptottrib_for_non_simples(self, sample_dps):
         """pTotTrib should be set for non-Simples Nacional."""
-        sample_dps.op_simp_nac = "1"
-        sample_dps.reg_ap_ibs_cbs_sn = None
+        sample_dps = DPS(
+            **{
+                **sample_dps.model_dump(),
+                "op_simp_nac": "1",
+                "reg_ap_trib_sn": None,
+            }
+        )
         builder = XMLBuilder()
 
         xml_str = builder.build_dps(sample_dps)

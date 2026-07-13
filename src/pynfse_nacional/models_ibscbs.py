@@ -1,5 +1,12 @@
 """IBSCBS models for NFSe Nacional."""
 
+# Canonical sources (verify before changing):
+#   Pinned URLs and sha256 hashes live in src/pynfse_nacional/_canonical.py.
+#   XSD: nfse-esquemas_xsd-v1-01-20260209.zip
+#   ANEXO_C: anexo_c-indop_ibscbs-snnfse-v1-01-20260122.xlsx
+#   Manual: manual-contribuintes-emissor-publico-api-sistema-nacional-
+#   nfs-e-v1-2-out2025.pdf
+
 from __future__ import annotations
 
 import re
@@ -24,6 +31,10 @@ _CLASS_TRIB_PATTERN = re.compile(r"^[0-9]{6}$")
 _OP_BEM_IMOVEL = (
     "Operação com bem imóvel, bem imaterial, inclusive direito, "
     "relacionada a bem imóvel"
+)
+_OP_SERVICO_BEM_IMOVEL = "Serviço prestado fisicamente sobre bem imóvel"
+_OP_ADMIN_BEM_IMOVEL = (
+    "Serviço de administração e intermediação de bem imóvel"
 )
 _OP_BEM_IMOVEL_EXEC = (
     "Execução de operações com bem imóvel, bem imaterial, inclusive direito, "
@@ -51,6 +62,7 @@ _OP_FEIRAS_EXEC = (
     "feiras, exposições, congressos, espetáculos, exibições e congêneres"
 )
 _OP_BEM_MOVEL = "Serviço prestado fisicamente sobre bem móvel material"
+_OP_PORTUARIO = "Serviços portuários"
 _OP_BEM_MOVEL_EXEC = (
     "Execução de serviços diversos fisicamente prestados sobre bem móvel "
     "material"
@@ -73,6 +85,20 @@ _OP_PUBLICIDADE_ONEROSA_EXEC = (
 _OP_PUBLICIDADE_NAO_ONEROSA = (
     "Cessão de espaço para prestação de serviços publicitários, em operações "
     "não onerosas (4)"
+)
+_OP_SERVICOS_DEMAIS_ONEROSOS = "Demais serviços, em operações onerosas"
+_OP_SERVICOS_DEMAIS_ONEROSOS_EXEC = (
+    "Execução dos demais serviços em operações não especificadas anteriormente "
+    "ou, nos serviços de que trata o inc. III, estes sejam, ainda que "
+    "parcialmente, prestados à distância (2)"
+)
+_OP_SERVICOS_DEMAIS_NAO_ONEROSOS = (
+    "Demais serviços, em operações não onerosas"
+)
+_OP_SERVICOS_DEMAIS_NAO_ONEROSOS_EXEC = (
+    "Execução dos demais serviços em operações não especificadas anteriormente "
+    "ou, nos serviços de que tratam o inc. III, estes sejam, ainda que "
+    "parcialmente, prestados à distância"
 )
 _OP_BENS_IMATERIAIS_ONEROSOS = (
     "Demais bens móveis imateriais, inclusive direitos, em operações "
@@ -156,7 +182,7 @@ IBSCBS_OPERATION_CATEGORIES = (
     IBSCBSOperationCategory(
         "Art. 11",
         "II",
-        _OP_BEM_IMOVEL,
+        _OP_SERVICO_BEM_IMOVEL,
         "o local onde o imóvel estiver situado",
         _OP_SERVICO_BEM_IMOVEL_EXEC,
         "0202",
@@ -172,7 +198,7 @@ IBSCBS_OPERATION_CATEGORIES = (
     IBSCBSOperationCategory(
         "Art. 11",
         "II",
-        _OP_BEM_IMOVEL,
+        _OP_ADMIN_BEM_IMOVEL,
         "o local onde o imóvel estiver situado",
         _OP_ADMIN_BEM_IMOVEL_EXEC,
         "0203",
@@ -272,7 +298,7 @@ IBSCBS_OPERATION_CATEGORIES = (
     IBSCBSOperationCategory(
         "Art. 11",
         "V",
-        _OP_BEM_MOVEL,
+        _OP_PORTUARIO,
         "o local da prestação do serviço",
         _OP_PORTUARIO_EXEC,
         "0502",
@@ -351,8 +377,8 @@ IBSCBS_OPERATION_CATEGORIES = (
         "X",
         _OP_PUBLICIDADE_ONEROSA,
         (
-            "o local do domicílio principal do adquirente, nas operações "
-            "onerosas"
+            "o local do domicílio principal do: a) adquirente, nas "
+            "operações onerosas; ..."
         ),
         _OP_PUBLICIDADE_ONEROSA_EXEC,
         "1005",
@@ -379,8 +405,8 @@ IBSCBS_OPERATION_CATEGORIES = (
         "X",
         _OP_PUBLICIDADE_NAO_ONEROSA,
         (
-            "o local do domicílio principal do destinatário, nas operações "
-            "não onerosas"
+            "o local do domicílio principal do: ... b) destinatário, nas "
+            "operações não onerosas."
         ),
         _OP_PUBLICIDADE_ONEROSA_EXEC,
         "1006",
@@ -389,19 +415,19 @@ IBSCBS_OPERATION_CATEGORIES = (
                 "01",
                 "100201",
                 "Local do domicílio principal do destinatário (6)",
-                _PATH_DEST_ONLY,
+                _PATH_TOMA_END_OR_DEST,
             ),
         ),
     ),
     IBSCBSOperationCategory(
         "Art. 11",
         "X",
-        _OP_BENS_IMATERIAIS_ONEROSOS,
+        _OP_SERVICOS_DEMAIS_ONEROSOS,
         (
-            "o local do domicílio principal do adquirente, nas operações "
-            "onerosas"
+            "o local do domicílio principal do: a) adquirente, nas "
+            "operações onerosas; ..."
         ),
-        _OP_BENS_IMATERIAIS_ONEROSOS_EXEC,
+        _OP_SERVICOS_DEMAIS_ONEROSOS_EXEC,
         "1001",
         (
             IBSCBSOperationVariant(
@@ -417,26 +443,26 @@ IBSCBS_OPERATION_CATEGORIES = (
                     "Local do domicílio do destinatário, nos casos de "
                     "adquirente residente ou domiciliado no exterior (5)(6)"
                 ),
-                _PATH_TOMA_END_EXT_OR_DEST_END_EXT,
+                _PATH_TOMA_END_OR_DEST,
             ),
         ),
     ),
     IBSCBSOperationCategory(
         "Art. 11",
         "X",
-        _OP_BENS_IMATERIAIS_NAO_ONEROSOS,
+        _OP_SERVICOS_DEMAIS_NAO_ONEROSOS,
         (
-            "o local do domicílio principal do destinatário, nas operações "
-            "não onerosas"
+            "o local do domicílio principal do: ... b) destinatário, nas "
+            "operações não onerosas."
         ),
-        _OP_BENS_IMATERIAIS_NAO_ONEROSOS_EXEC,
+        _OP_SERVICOS_DEMAIS_NAO_ONEROSOS_EXEC,
         "1002",
         (
             IBSCBSOperationVariant(
                 "01",
                 "100401",
                 "Local do domicílio principal do destinatário (6)",
-                _PATH_DEST_ONLY,
+                _PATH_TOMA_END_OR_DEST,
             ),
         ),
     ),
@@ -445,8 +471,8 @@ IBSCBS_OPERATION_CATEGORIES = (
         "X",
         _OP_BENS_IMATERIAIS_ONEROSOS,
         (
-            "o local do domicílio principal do adquirente, nas operações "
-            "onerosas"
+            "o local do domicílio principal do: a) adquirente, nas "
+            "operações onerosas; ..."
         ),
         _OP_BENS_IMATERIAIS_ONEROSOS_EXEC,
         "1003",
@@ -473,8 +499,8 @@ IBSCBS_OPERATION_CATEGORIES = (
         "X",
         _OP_BENS_IMATERIAIS_NAO_ONEROSOS,
         (
-            "o local do domicílio principal do destinatário, nas operações "
-            "não onerosas"
+            "o local do domicílio principal do: ... b) destinatário, nas "
+            "operações não onerosas."
         ),
         _OP_BENS_IMATERIAIS_NAO_ONEROSOS_EXEC,
         "1004",
@@ -483,7 +509,7 @@ IBSCBS_OPERATION_CATEGORIES = (
                 "01",
                 "100601",
                 "Local do domicílio principal do destinatário (6)",
-                _PATH_DEST_ONLY,
+                _PATH_TOMA_END_OR_DEST,
             ),
         ),
     ),
@@ -498,6 +524,11 @@ IBSCBS_OPERATION_CATEGORIES_BY_CODE = {
 }
 IBSCBS_OPERATION_VARIANTS_BY_CODE = {
     variant.c_ind_op: variant for variant in IBSCBS_OPERATION_VARIANTS
+}
+IBSCBS_OPERATION_VARIANT_TO_CATEGORY = {
+    variant.c_ind_op: category
+    for category in IBSCBS_OPERATION_CATEGORIES
+    for variant in category.variantes
 }
 
 # Official ANEXO_C-INDOP_IBSCBS-SNNFSe-v1.01-20260209 workbook.
@@ -538,7 +569,8 @@ IBSCBSOperationCode = Literal[
 
 def get_ibscbs_operation_category(c_ind_op: str) -> Optional[IBSCBSOperationCategory]:
     """Return the grouped operation family for a six-digit `cIndOp`."""
-    return IBSCBS_OPERATION_CATEGORIES_BY_CODE.get(c_ind_op[:4])
+
+    return IBSCBS_OPERATION_VARIANT_TO_CATEGORY.get(c_ind_op)
 
 
 def get_ibscbs_operation_variant(c_ind_op: str) -> Optional[IBSCBSOperationVariant]:
@@ -700,6 +732,22 @@ class ListaDocDFeIBSCBS(BaseModel):
     x_tipo_chave_dfe: Optional[str] = Field(None, max_length=255)
     chave_dfe: str = Field(..., min_length=1, max_length=50)
 
+    @model_validator(mode="after")
+    def validate_x_tipo_chave_dfe(self) -> "ListaDocDFeIBSCBS":
+        # Official XSD (TCRTCListaDocDFeIBSCBS): xTipoChaveDFe minOccurs=0 with
+        # annotation "Deve ser preenchido apenas quando tipoChaveDFe = 9 (Outro)".
+        # Emit-side enforcement: required for 9, forbidden otherwise.
+        if self.tipo_chave_dfe == "9":
+            if not self.x_tipo_chave_dfe:
+                raise ValueError(
+                    "x_tipo_chave_dfe is required when tipo_chave_dfe is '9' (Outro)"
+                )
+        elif self.x_tipo_chave_dfe:
+            raise ValueError(
+                "x_tipo_chave_dfe must be omitted unless tipo_chave_dfe is '9'"
+            )
+        return self
+
 
 class ListaDocFiscalOutroIBSCBS(BaseModel):
     model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
@@ -758,9 +806,7 @@ class ValoresIBSCBS(BaseModel):
 class IBSCBS(BaseModel):
     model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
 
-    fin_nfse: Literal["0", "1", "2"]
-    tp_nfse_credito: Optional[Literal["01", "05"]] = None
-    tp_nfse_debito: Optional[Literal["01", "02", "03", "04", "05", "06"]] = None
+    fin_nfse: Literal["0"]
     ind_final: Optional[Literal["0", "1"]] = None
     c_ind_op: IBSCBSOperationCode
     tp_oper: Optional[Literal["1", "2", "3", "4", "5"]] = None
@@ -794,50 +840,15 @@ class IBSCBS(BaseModel):
 
     @model_validator(mode="after")
     def validate_fin_nfse_rules(self) -> "IBSCBS":
-        if self.fin_nfse == "0":
-            if self.tp_nfse_credito is not None or self.tp_nfse_debito is not None:
-                raise ValueError(
-                    "tpNFSeCredito e tpNFSeDebito são proibidos para finNFSe 0."
-                )
-
-        if self.fin_nfse == "1":
-            if self.tp_nfse_credito is None:
-                raise ValueError("tpNFSeCredito é obrigatório para finNFSe 1.")
-            if self.tp_nfse_debito is not None:
-                raise ValueError("tpNFSeDebito é proibido para finNFSe 1.")
-
-        if self.fin_nfse == "2":
-            if self.tp_nfse_debito is None:
-                raise ValueError("tpNFSeDebito é obrigatório para finNFSe 2.")
-            if self.tp_nfse_credito is not None:
-                raise ValueError("tpNFSeCredito é proibido para finNFSe 2.")
-
+        # a90.1 restricted fin_nfse to Literal["0"] (the sole official
+        # TSRTCFinNFSe value). The crédito/débito fields and their
+        # conditional cross-references against gRefNFSe were removed; the
+        # remaining tpOper / gRefNFSe consistency rules stay.
         if self.tp_oper in {"2", "3"} and self.g_ref_nfse is None:
             raise ValueError("gRefNFSe é obrigatório para tpOper 2/3.")
 
         if self.tp_oper in {"1", "4", "5"} and self.g_ref_nfse is not None:
             raise ValueError("gRefNFSe é proibido para tpOper 1/4/5.")
-
-        if self.fin_nfse == "1":
-            if self.tp_nfse_credito == "01":
-                if self.g_ref_nfse is None:
-                    raise ValueError("gRefNFSe é obrigatório para tpNFSeCredito 01.")
-                if len(self.g_ref_nfse.ref_nfse) != 1:
-                    raise ValueError("tpNFSeCredito 01 permite apenas uma refNFSe.")
-            elif self.tp_nfse_credito == "05" and self.g_ref_nfse is not None:
-                raise ValueError("gRefNFSe é proibido para tpNFSeCredito 05.")
-
-        if self.fin_nfse == "2":
-            if self.tp_nfse_debito in {"03", "04"}:
-                if self.g_ref_nfse is None:
-                    raise ValueError("gRefNFSe é obrigatório para tpNFSeDebito 03/04.")
-                if self.tp_nfse_debito == "04" and len(self.g_ref_nfse.ref_nfse) != 1:
-                    raise ValueError("tpNFSeDebito 04 permite apenas uma refNFSe.")
-            elif (
-                self.tp_nfse_debito in {"01", "02", "05", "06"}
-                and self.g_ref_nfse is not None
-            ):
-                raise ValueError("gRefNFSe é proibido para tpNFSeDebito 01/02/05/06.")
 
         return self
 

@@ -1,3 +1,11 @@
+"""XML builder for NFSe DPS and events."""
+
+# Canonical sources (verify before changing):
+#   Pinned URLs and sha256 hashes live in src/pynfse_nacional/_canonical.py.
+#   XSD: nfse-esquemas_xsd-v1-01-20260209.zip
+#   Manual: manual-contribuintes-emissor-publico-api-sistema-nacional-
+#   nfs-e-v1-2-out2025.pdf
+
 import warnings
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
@@ -51,8 +59,7 @@ class XMLBuilder:
         dps_id = dps.id_dps if dps.id_dps else self._build_dps_id(dps)
         inf_dps = ET.SubElement(root, "infDPS", Id=dps_id)
 
-        # NOTE: Based on real NFSe XML, tpAmb in DPS is always "1" for
-        # production data, even when submitting to homologacao.
+        # DPS tpAmb follows submission environment.
         tp_amb = "1" if self.ambiente == Ambiente.PRODUCAO else "2"
         ET.SubElement(inf_dps, "tpAmb").text = tp_amb
         ET.SubElement(inf_dps, "dhEmi").text = dps.data_emissao.strftime(
@@ -143,10 +150,13 @@ class XMLBuilder:
         prest = ET.SubElement(parent, "prest")
         ET.SubElement(prest, "CNPJ").text = dps.prestador.cnpj
 
-        # IM padded with spaces to 15 chars as seen in real NFSe
+        # CNC stores numeric IM values as 15-character identifiers. Remove
+        # display whitespace, then preserve alphanumeric municipal formats.
         if dps.prestador.inscricao_municipal:
-            im_padded = dps.prestador.inscricao_municipal.rjust(15)
-            ET.SubElement(prest, "IM").text = im_padded
+            inscricao_municipal = dps.prestador.inscricao_municipal.strip()
+            if inscricao_municipal.isdigit():
+                inscricao_municipal = inscricao_municipal.zfill(15)
+            ET.SubElement(prest, "IM").text = inscricao_municipal
 
         if dps.prestador.telefone:
             ET.SubElement(prest, "fone").text = dps.prestador.telefone
@@ -156,13 +166,12 @@ class XMLBuilder:
 
         reg_trib = ET.SubElement(prest, "regTrib")
 
-        # opSimpNac: 1=Não Optante, 2=MEI, 3=ME/EPP, 4=Pendente
+        # opSimpNac: 1=Não Optante, 2=MEI, 3=ME/EPP (official TSOpSimpNac)
         ET.SubElement(reg_trib, "opSimpNac").text = dps.op_simp_nac
 
-        # regApTribSN: only valid for opSimpNac 3/4
-        if dps.op_simp_nac in {"3", "4"}:
+        # regApTribSN: only valid for opSimpNac 3 (official TCRegTrib)
+        if dps.op_simp_nac == "3":
             ET.SubElement(reg_trib, "regApTribSN").text = dps.reg_ap_trib_sn
-            ET.SubElement(reg_trib, "regApIBSCBSSN").text = dps.reg_ap_ibs_cbs_sn
 
         ET.SubElement(reg_trib, "regEspTrib").text = self._map_regime_especial(
             dps.regime_tributario
@@ -225,8 +234,8 @@ class XMLBuilder:
 
         tot_trib = ET.SubElement(trib, "totTrib")
 
-        # For Simples Nacional, use pTotTribSN with estimated tax percentage
-        if dps.op_simp_nac in {"3", "4"}:
+        # For Simples Nacional ME/EPP, use pTotTribSN with estimated tax percentage
+        if dps.op_simp_nac == "3":
             # Use aliquota_simples from servico or default to 18.83%
             if dps.servico.aliquota_simples:
                 aliquota_sn = dps.servico.aliquota_simples
@@ -272,10 +281,6 @@ class XMLBuilder:
         inf_ibscbs = ET.SubElement(parent, "IBSCBS")
 
         ET.SubElement(inf_ibscbs, "finNFSe").text = ibscbs.fin_nfse
-        if ibscbs.tp_nfse_credito is not None:
-            ET.SubElement(inf_ibscbs, "tpNFSeCredito").text = ibscbs.tp_nfse_credito
-        if ibscbs.tp_nfse_debito is not None:
-            ET.SubElement(inf_ibscbs, "tpNFSeDebito").text = ibscbs.tp_nfse_debito
         if ibscbs.ind_final is not None:
             ET.SubElement(inf_ibscbs, "indFinal").text = ibscbs.ind_final
 
@@ -335,27 +340,27 @@ class XMLBuilder:
 
                 if item.d_fe_nacional is not None:
                     d_fe_nacional = ET.SubElement(documentos, "dFeNacional")
-                    ET.SubElement(d_fe_nacional, "tipoChaveDFe").text = (
-                        item.d_fe_nacional.tipo_chave_dfe
-                    )
+                    ET.SubElement(
+                        d_fe_nacional, "tipoChaveDFe"
+                    ).text = item.d_fe_nacional.tipo_chave_dfe
                     if item.d_fe_nacional.x_tipo_chave_dfe is not None:
-                        ET.SubElement(d_fe_nacional, "xTipoChaveDFe").text = (
-                            item.d_fe_nacional.x_tipo_chave_dfe
-                        )
-                    ET.SubElement(d_fe_nacional, "chaveDFe").text = (
-                        item.d_fe_nacional.chave_dfe
-                    )
+                        ET.SubElement(
+                            d_fe_nacional, "xTipoChaveDFe"
+                        ).text = item.d_fe_nacional.x_tipo_chave_dfe
+                    ET.SubElement(
+                        d_fe_nacional, "chaveDFe"
+                    ).text = item.d_fe_nacional.chave_dfe
                 elif item.doc_fiscal_outro is not None:
                     doc_fiscal_outro = ET.SubElement(documentos, "docFiscalOutro")
-                    ET.SubElement(doc_fiscal_outro, "cMunDocFiscal").text = (
-                        item.doc_fiscal_outro.c_mun_doc_fiscal
-                    )
-                    ET.SubElement(doc_fiscal_outro, "nDocFiscal").text = (
-                        item.doc_fiscal_outro.n_doc_fiscal
-                    )
-                    ET.SubElement(doc_fiscal_outro, "xDocFiscal").text = (
-                        item.doc_fiscal_outro.x_doc_fiscal
-                    )
+                    ET.SubElement(
+                        doc_fiscal_outro, "cMunDocFiscal"
+                    ).text = item.doc_fiscal_outro.c_mun_doc_fiscal
+                    ET.SubElement(
+                        doc_fiscal_outro, "nDocFiscal"
+                    ).text = item.doc_fiscal_outro.n_doc_fiscal
+                    ET.SubElement(
+                        doc_fiscal_outro, "xDocFiscal"
+                    ).text = item.doc_fiscal_outro.x_doc_fiscal
                 elif item.doc_outro is not None:
                     doc_outro = ET.SubElement(documentos, "docOutro")
                     ET.SubElement(doc_outro, "nDoc").text = item.doc_outro.n_doc
@@ -374,14 +379,14 @@ class XMLBuilder:
                     ET.SubElement(fornec, "xNome").text = item.fornec.x_nome
 
                 ET.SubElement(documentos, "dtEmiDoc").text = item.dt_emi_doc.isoformat()
-                ET.SubElement(documentos, "dtCompDoc").text = (
-                    item.dt_comp_doc.isoformat()
-                )
+                ET.SubElement(
+                    documentos, "dtCompDoc"
+                ).text = item.dt_comp_doc.isoformat()
                 ET.SubElement(documentos, "tpReeRepRes").text = item.tp_ree_rep_res
                 if item.x_tp_ree_rep_res is not None:
-                    ET.SubElement(documentos, "xTpReeRepRes").text = (
-                        item.x_tp_ree_rep_res
-                    )
+                    ET.SubElement(
+                        documentos, "xTpReeRepRes"
+                    ).text = item.x_tp_ree_rep_res
                 ET.SubElement(documentos, "vlrReeRepRes").text = self._format_decimal(
                     item.vlr_ree_rep_res
                 )

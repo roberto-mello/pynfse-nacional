@@ -1,0 +1,56 @@
+name: tests
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 6 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        # actions/checkout@v4.2.2
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Set up uv
+        # astral-sh/setup-uv@v3.2.4
+        uses: astral-sh/setup-uv@caf0cab7a618c569241d31dcd442f54681755d39
+        with:
+          enable-cache: true
+
+      - name: Install dev dependencies
+        run: uv sync --extra dev --frozen
+
+      - name: Lint
+        run: uv run ruff check src tests
+
+      - name: Run tests with coverage
+        run: uv run pytest --cov=src/pynfse_nacional --cov-report=term-missing
+
+  schema-fidelity:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        # actions/checkout@v4.2.2
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Set up uv
+        # astral-sh/setup-uv@v3.2.4
+        uses: astral-sh/setup-uv@caf0cab7a618c569241d31dcd442f54681755d39
+        with:
+          enable-cache: true
+
+      - name: Install dev dependencies
+        run: uv sync --extra dev --frozen
+
+      - name: Run schema-fidelity tests
+        run: uv run pytest tests/schema_fidelity

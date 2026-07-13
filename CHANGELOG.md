@@ -5,6 +5,55 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.9.4 - 2026-07-10
+
+### Added
+- Official NFSe v1.01 XSD fixtures, annex fixtures, and schema-fidelity tests
+  that detect upstream schema drift and bound downloaded archive sizes.
+- Integration safeguards that fail homologacao tests on E1xxx schema
+  rejections instead of treating them as acceptable business errors.
+- Validation requiring `x_tipo_chave_dfe` when `tipo_chave_dfe="9"`.
+
+### Changed
+- `DPS.op_simp_nac` now accepts only official `TSOpSimpNac` values `"1"`,
+  `"2"`, and `"3"`; Simples Nacional fields now follow the official
+  `TCRegTrib` structure.
+- Numeric `Prestador.inscricao_municipal` values are normalized to 15 digits
+  in submitted DPS XML, matching CNC identifiers and preventing applicable
+  `E0116` rejections.
+- `verAplic` continues to derive from the installed package version, now
+  reporting `pynfse-0.9.4`.
+
+### Fixed
+- DPS XML no longer emits invented `regApIBSCBSSN` under `regTrib` (SEFIN
+  E1235 schema rejection).
+- DPS submission parsing now handles SEFIN `erro`/`erros` arrays, top-level JSON
+  lists, and capitalized response keys while preserving provider error details.
+- NFSe and DANFSe parsing now share the 50-digit access-key validation rule.
+- XML response and PDF parsing now use `defusedxml`.
+- IBSCBS document references now emit the official element names and enforce
+  the required `tipo_chave_dfe` companion field.
+- Simples Nacional labels in DANFSe output now match the official enum:
+  `1`=Não Optante, `2`=MEI, `3`=ME/EPP.
+
+### Security
+- Added `defusedxml` protections against entity-expansion attacks.
+- Schema-fidelity downloads are size-bounded before archive extraction.
+- GitHub Actions references are pinned to immutable commit SHAs.
+
+### Removed
+- `DPS.reg_ap_ibs_cbs_sn` and
+  `REGIME_TO_SIMPLES_NACIONAL["regApIbsCbsSn"]`, which were not present in the
+  official schema.
+
+### Migration
+- Drop `reg_ap_ibs_cbs_sn=...`; it is now rejected as an extra field.
+- Replace `op_simp_nac="4"` with `"1"`, `"2"`, or `"3"`.
+- For ME/EPP (`op_simp_nac="3"`), provide `reg_ap_trib_sn` only.
+- Use the manual homologacao issuance gate in `RELEASE_CHECKLIST.md`; live
+  SEFIN issuance is run as part of our pre-release process. It's intentionally
+  not part of automated CI/CD to avoid having to need certificates in GH.
+
 ## 0.9.3 - 2026-07-07
 
 ### Fixed

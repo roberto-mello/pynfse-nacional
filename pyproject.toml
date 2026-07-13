@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pynfse-nacional"
-version = "0.9.3"
+version = "0.9.4"
 description = "Python library for Brazilian NFSe Nacional (Padrao Nacional) API integration"
 readme = "README.md"
 license = "AGPL-3.0-only"
@@ -30,6 +30,7 @@ dependencies = [
     "signxml>=4.0.0",
     "cryptography>=42.0.0",
     "pydantic>=2.0.0",
+    "defusedxml>=0.7.1",
 ]
 
 [project.optional-dependencies]
@@ -70,10 +71,14 @@ testpaths = ["tests"]
 asyncio_mode = "auto"
 markers = [
     "integration: tests that exercise real external or environment-backed integrations",
+    "homologacao: tests that exercise the homologacao environment",
 ]
 
 [dependency-groups]
 dev = [
+    "keyring>=25.7.0",
+    "openpyxl>=3.1.5",
+    "python-dotenv>=1.2.2",
     "ruff>=0.14.13",
 ]
 docs = [

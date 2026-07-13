@@ -1,4 +1,4 @@
-"""Helpers for loading vendored NFSe XSD fixtures."""
+"""Helpers for loading the official vendored NFSe XSD fixtures."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from pathlib import Path
 from lxml import etree
 
 FIXTURES_ROOT = Path(__file__).resolve().parents[1] / "fixtures"
-XSD_ROOT = FIXTURES_ROOT / "xsd" / "nfse_v1.01" / "Schemas" / "1.01"
+XSD_ROOT = FIXTURES_ROOT / "xsd_official" / "Schemas" / "1.01"
 SAMPLES_ROOT = FIXTURES_ROOT / "samples"
 
 

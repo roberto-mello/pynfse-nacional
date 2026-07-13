@@ -15,12 +15,14 @@ from typing import Optional
 from xml.etree import ElementTree as ET
 from xml.sax.saxutils import escape
 
+from defusedxml.ElementTree import fromstring as _safe_fromstring
+
 from .error_codes import ErrorCode
 from .exceptions import NFSeXMLError
 from .models_ibscbs import IBSCBS
 from .response_parsers import _find as _find_nfse
 from .response_parsers import parse_ibscbs
-from .utils import decode_decompress, format_cnpj, format_cpf
+from .utils import decode_decompress, format_cnpj, format_cpf, is_valid_chave_acesso
 
 try:
     from reportlab.lib import colors
@@ -274,7 +276,7 @@ def _format_percent(value: Decimal | None) -> str:
 
     try:
         return f"{value.quantize(Decimal('0.01')):.2f}%"
-    except (InvalidOperation, ValueError, ArithmeticError):
+    except (ValueError, ArithmeticError):
         return "-"
 
 
@@ -308,13 +310,9 @@ def _get_simples_nacional_desc(op_simp_nac: str) -> str:
     """Get Simples Nacional description."""
 
     descs = {
-        "1": "Optante - Microempreendedor Individual (MEI)",
-        "2": (
-            "Optante - Microempresa ou Empresa de Pequeno Porte "
-            "(ME/EPP) - Excesso de Sublimite"
-        ),
+        "1": "Não Optante",
+        "2": "Optante - Microempreendedor Individual (MEI)",
         "3": "Optante - Microempresa ou Empresa de Pequeno Porte (ME/EPP)",
-        "4": "Nao Optante",
     }
     return descs.get(op_simp_nac, "-")
 
@@ -445,7 +443,7 @@ def _build_ibscbs_totals_rows(
 def parse_nfse_xml(xml_content: str) -> NFSeData:
     """Parse NFSe XML and extract data for PDF generation."""
 
-    root = ET.fromstring(xml_content.encode("utf-8"))
+    root = _safe_fromstring(xml_content.encode("utf-8"))
     data = NFSeData()
 
     # Find infNFSe element
@@ -463,13 +461,10 @@ def parse_nfse_xml(xml_content: str) -> NFSeData:
     data.ibscbs = parse_ibscbs(root=inf_nfse)
     data.ibscbs_totals = _parse_ibscbs_totals(inf_nfse)
 
-    # Extract chave from Id attribute
+    # Extract chave from Id attribute; enforce shared 50-digit invariant.
     nfse_id = inf_nfse.get("Id", "")
-
-    if nfse_id.startswith("NFS"):
-        data.chave_acesso = nfse_id[3:]
-    else:
-        data.chave_acesso = nfse_id
+    candidate = nfse_id[3:] if nfse_id.startswith("NFS") else nfse_id
+    data.chave_acesso = candidate if is_valid_chave_acesso(candidate) else ""
 
     # NFS-e data
     data.numero_nfse = _get_text(inf_nfse, ".//nfse:nNFSe")

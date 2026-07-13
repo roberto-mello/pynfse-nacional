@@ -66,6 +66,14 @@ else:
     print(response.error_code, response.error_message)
 ```
 
+### Inscrição municipal
+
+`Prestador.inscricao_municipal` aceita o valor da inscrição municipal sem
+preenchimento visual. Valores numéricos são normalizados para 15 dígitos no XML
+enviado, de acordo com a chave do CNC usada pela SEFIN. Isso é necessário para
+alguns cadastros municipais e evita `E0116` quando o valor no CNC possui zeros à
+esquerda.
+
 ## Por baixo dos panos
 
 - A DPS vira XML.
@@ -76,12 +84,11 @@ else:
 ## Se houver IBSCBS
 
 Se o prestador for optante pelo Simples Nacional e o caso pedir IBSCBS,
-preencha `dps.ibscbs` e use `op_simp_nac="3"` ou `"4"`, com os campos de
-apuração corretos.
+preencha `dps.ibscbs` e use `op_simp_nac="3"` com `reg_ap_trib_sn`.
 
-- `op_simp_nac="1"` e `"2"` não aceitam `reg_ap_trib_sn` nem
-  `reg_ap_ibs_cbs_sn`.
-- `op_simp_nac="3"` e `"4"` exigem os dois campos.
+- `op_simp_nac` aceita apenas `"1"`, `"2"` e `"3"` (TSOpSimpNac oficial).
+- `op_simp_nac="1"` e `"2"` não aceitam `reg_ap_trib_sn`.
+- `op_simp_nac="3"` exige `reg_ap_trib_sn`.
 
 ## Quando você precisa do mapeamento
 

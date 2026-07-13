@@ -3,7 +3,37 @@ from decimal import Decimal
 
 import pytest
 
+import tests._cert_credentials as cert_credentials
 from pynfse_nacional.models import Endereco, Prestador, Servico, Tomador
+
+
+def pytest_addoption(parser: pytest.Parser) -> None:
+    parser.addoption(
+        "--run-homologacao",
+        action="store_true",
+        default=False,
+        help="run live homologacao tests that call the external SEFIN service",
+    )
+
+
+def pytest_collection_modifyitems(
+    config: pytest.Config, items: list[pytest.Item]
+) -> None:
+    if config.getoption("--run-homologacao"):
+        return
+
+    skip_live = pytest.mark.skip(
+        reason="live homologacao test; pass --run-homologacao explicitly"
+    )
+    for item in items:
+        if "homologacao" in item.keywords:
+            item.add_marker(skip_live)
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    """Load repository .env values before test collection."""
+
+    cert_credentials.load_test_env()
 
 
 @pytest.fixture
@@ -67,3 +97,13 @@ def shared_sample_servico() -> Servico:
 @pytest.fixture
 def sample_servico(shared_sample_servico: Servico) -> Servico:
     return deepcopy(shared_sample_servico)
+
+
+@pytest.fixture(scope="session")
+def cert_path() -> str:
+    return cert_credentials.cert_path()
+
+
+@pytest.fixture(scope="session")
+def cert_password() -> str:
+    return cert_credentials.cert_password()

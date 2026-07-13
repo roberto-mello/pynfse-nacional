@@ -170,6 +170,35 @@ class TestIBSCBSOptionalModels:
         assert valores.g_ree_rep_res[0].d_fe_nacional.tipo_chave_dfe == "2"
 
 
+class TestListaDocDFeIBSCBSChaveDfe:
+    def test_tipo_9_requires_x_tipo_chave_dfe(self):
+        with pytest.raises(ValidationError, match="x_tipo_chave_dfe is required"):
+            ListaDocDFeIBSCBS(
+                tipo_chave_dfe="9",
+                chave_dfe="OUTRO123",
+            )
+
+    def test_tipo_9_accepts_x_tipo_chave_dfe(self):
+        doc = ListaDocDFeIBSCBS(
+            tipo_chave_dfe="9",
+            x_tipo_chave_dfe="Documento fiscal próprio",
+            chave_dfe="OUTRO123",
+        )
+        assert doc.x_tipo_chave_dfe == "Documento fiscal próprio"
+
+    def test_tipo_non_9_forbids_x_tipo_chave_dfe(self):
+        with pytest.raises(ValidationError, match="must be omitted"):
+            ListaDocDFeIBSCBS(
+                tipo_chave_dfe="2",
+                x_tipo_chave_dfe="should not be set",
+                chave_dfe="NFE123",
+            )
+
+    def test_tipo_non_9_ok_without_x(self):
+        doc = ListaDocDFeIBSCBS(tipo_chave_dfe="2", chave_dfe="NFE123")
+        assert doc.x_tipo_chave_dfe is None
+
+
 class TestIBSCBSChoices:
     def test_dest_requires_exactly_one_identifier(self):
         with pytest.raises(ValidationError):
@@ -359,78 +388,6 @@ class TestIBSCBSOperationMetadata:
 
 
 class TestIBSCBSRules:
-    def test_accepts_fin_nfse_one_with_credit_and_reference(self):
-        ibscbs = IBSCBS(
-            fin_nfse="1",
-            tp_nfse_credito="01",
-            c_ind_op="020101",
-            ind_dest="0",
-            g_ref_nfse=RefNFSe(
-                ref_nfse=[
-                    "12345678901234567890123456789012345678901234567890",
-                ]
-            ),
-            valores=ValoresIBSCBS(
-                trib=TribIBSCBS(g_ibscbs=GIBSCBS(cst="001", c_class_trib="123456"))
-            ),
-        )
-
-        assert ibscbs.fin_nfse == "1"
-        assert ibscbs.tp_nfse_credito == "01"
-
-    def test_accepts_fin_nfse_two_with_debit_and_reference(self):
-        ibscbs = IBSCBS(
-            fin_nfse="2",
-            tp_nfse_debito="04",
-            c_ind_op="020101",
-            ind_dest="0",
-            g_ref_nfse=RefNFSe(
-                ref_nfse=[
-                    "12345678901234567890123456789012345678901234567890",
-                ]
-            ),
-            valores=ValoresIBSCBS(
-                trib=TribIBSCBS(g_ibscbs=GIBSCBS(cst="001", c_class_trib="123456"))
-            ),
-        )
-
-        assert ibscbs.fin_nfse == "2"
-        assert ibscbs.tp_nfse_debito == "04"
-
-    def test_rejects_fin_nfse_zero_with_credit(self):
-        with pytest.raises(ValidationError):
-            IBSCBS(
-                fin_nfse="0",
-                tp_nfse_credito="01",
-                c_ind_op="020101",
-                ind_dest="0",
-                valores=ValoresIBSCBS(
-                    trib=TribIBSCBS(g_ibscbs=GIBSCBS(cst="001", c_class_trib="123456"))
-                ),
-            )
-
-    def test_rejects_fin_nfse_one_without_credit(self):
-        with pytest.raises(ValidationError):
-            IBSCBS(
-                fin_nfse="1",
-                c_ind_op="020101",
-                ind_dest="0",
-                valores=ValoresIBSCBS(
-                    trib=TribIBSCBS(g_ibscbs=GIBSCBS(cst="001", c_class_trib="123456"))
-                ),
-            )
-
-    def test_rejects_fin_nfse_two_without_debit(self):
-        with pytest.raises(ValidationError):
-            IBSCBS(
-                fin_nfse="2",
-                c_ind_op="020101",
-                ind_dest="0",
-                valores=ValoresIBSCBS(
-                    trib=TribIBSCBS(g_ibscbs=GIBSCBS(cst="001", c_class_trib="123456"))
-                ),
-            )
-
     def test_rejects_tp_oper_without_reference(self):
         with pytest.raises(ValidationError):
             IBSCBS(

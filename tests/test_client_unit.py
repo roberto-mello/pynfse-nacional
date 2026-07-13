@@ -10,7 +10,6 @@ from datetime import datetime
 from decimal import Decimal
 from json import JSONDecodeError
 from unittest.mock import MagicMock, patch
-from xml.etree import ElementTree as ET
 from xml.etree.ElementTree import ParseError as XMLParseError
 
 import httpx
@@ -120,9 +119,11 @@ class TestParseDpsResponseNfseNumberExtraction:
 
     def test_extract_uses_hardened_xml_parser(self):
         """The XML extraction helper should disable external entity expansion."""
+        from pynfse_nacional.response_parsers import _safe_fromstring
+
         with patch(
-            "pynfse_nacional.response_parsers.ET.fromstring",
-            wraps=ET.fromstring,
+            "pynfse_nacional.response_parsers._safe_fromstring",
+            wraps=_safe_fromstring,
         ) as mock_fromstring:
             assert _extract_nfse_number_from_xml(_make_nfse_xml("42")) == "42"
 
@@ -326,6 +327,30 @@ class TestParseDpsResponseError:
             result.error_message
             == "JSON não é um objeto: Corpo enviado para /nfse"
         )
+
+    def test_parses_sefin_erro_array_with_capitalized_keys(self, mock_client):
+        """Should parse SEFIN's capitalized error fields on DPS submit errors."""
+        mock_response = MockResponse(
+            status_code=500,
+            json_data={
+                "tipoAmbiente": 2,
+                "versaoAplicativo": "SefinNacional_1.6.0",
+                "dataHoraProcessamento": "2026-07-09T19:43:00.8543541-03:00",
+                "idDPS": "DPS350950221122233300018100900000001783636979",
+                "erros": [
+                    {
+                        "Codigo": "E999",
+                        "Descricao": "Erro não catalogado",
+                    }
+                ],
+            },
+        )
+
+        result = mock_client._parse_dps_response(mock_response)
+
+        assert result.success is False
+        assert result.error_code == "E999"
+        assert result.error_message == "Erro não catalogado"
 
     def test_parses_top_level_error_list(self, mock_client):
         """Should accept a top-level error list without crashing."""
@@ -655,9 +680,11 @@ class TestQueryNfse:
             },
         )
 
+        from pynfse_nacional.response_parsers import _safe_fromstring
+
         with patch.object(mock_client, "_get_client") as mock_get_client, patch(
-            "pynfse_nacional.response_parsers.ET.fromstring",
-            wraps=ET.fromstring,
+            "pynfse_nacional.response_parsers._safe_fromstring",
+            wraps=_safe_fromstring,
         ) as mock_fromstring:
             mock_http = MagicMock()
             mock_http.get.return_value = mock_response

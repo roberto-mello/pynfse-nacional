@@ -8,7 +8,6 @@ import base64
 import gzip
 from decimal import Decimal
 from unittest.mock import patch
-from xml.etree import ElementTree as ET
 
 import pytest
 
@@ -389,31 +388,31 @@ class TestFormatCep:
 
 
 class TestGetSimplesNacionalDesc:
-    """Tests for _get_simples_nacional_desc function."""
+    """Tests for _get_simples_nacional_desc (official TSOpSimpNac)."""
+
+    def test_nao_optante(self):
+        """opSimpNac=1 is Não Optante."""
+        result = _get_simples_nacional_desc("1")
+
+        assert "Não Optante" in result
 
     def test_mei(self):
-        """Should return MEI description."""
-        result = _get_simples_nacional_desc("1")
+        """opSimpNac=2 is MEI."""
+        result = _get_simples_nacional_desc("2")
 
         assert "MEI" in result
 
-    def test_me_epp_excesso(self):
-        """Should return ME/EPP excesso description."""
-        result = _get_simples_nacional_desc("2")
-
-        assert "Excesso" in result
-
     def test_me_epp(self):
-        """Should return ME/EPP description."""
+        """opSimpNac=3 is ME/EPP."""
         result = _get_simples_nacional_desc("3")
 
         assert "ME/EPP" in result
 
-    def test_nao_optante(self):
-        """Should return non-optante description."""
+    def test_unsupported_code(self):
+        """opSimpNac=4 is not official; falls back to dash."""
         result = _get_simples_nacional_desc("4")
 
-        assert "Nao Optante" in result
+        assert result == "-"
 
     def test_unknown(self):
         """Should return dash for unknown code."""
@@ -513,14 +512,17 @@ class TestParseNfseXml:
             </infDPS>""",
         )
 
+        from pynfse_nacional.pdf_generator import _safe_fromstring
+
         with patch(
-            "pynfse_nacional.response_parsers.ET.fromstring",
-            wraps=ET.fromstring,
+            "pynfse_nacional.pdf_generator._safe_fromstring",
+            wraps=_safe_fromstring,
         ) as mock_fromstring:
             data = parse_nfse_xml(xml_content)
 
         assert data.ibscbs is not None
         assert data.ibscbs.c_ind_op == "020101"
+        # Single parse: parse_nfse_xml + parse_ibscbs(root=...) shares the tree.
         assert mock_fromstring.call_count == 1
 
     def test_parses_chave_acesso(self):
@@ -528,6 +530,16 @@ class TestParseNfseXml:
         data = parse_nfse_xml(SAMPLE_NFSE_XML)
 
         assert data.chave_acesso == "12345678901234567890123456789012345678901234567890"
+
+    def test_malformed_chave_acesso_falls_back_to_empty(self):
+        """Malformed Id must not leak garbage into chave_acesso / QR URL."""
+        bad_xml = SAMPLE_NFSE_XML.replace(
+            'Id="NFS12345678901234567890123456789012345678901234567890"',
+            'Id="NFSnot50digits"',
+        )
+        data = parse_nfse_xml(bad_xml)
+
+        assert data.chave_acesso == ""
 
     def test_parses_numero_nfse(self):
         """Should extract numero_nfse."""

@@ -1,3 +1,11 @@
+"""Core NFSe models."""
+
+# Canonical sources (verify before changing):
+#   Pinned URLs and sha256 hashes live in src/pynfse_nacional/_canonical.py.
+#   Manual: manual-contribuintes-emissor-publico-api-sistema-nacional-
+#   nfs-e-v1-2-out2025.pdf
+#   ANNEXES: anexo_a/anexo_b/anexo_c from gov.br.
+
 import re
 from datetime import datetime
 from decimal import Decimal
@@ -127,7 +135,15 @@ class Prestador(BaseModel):
     model_config = ConfigDict(hide_input_in_errors=True)
 
     cnpj: str = Field(..., description="CNPJ com 14 digitos, sem formatacao")
-    inscricao_municipal: Optional[str] = Field(None, min_length=1, max_length=15)
+    inscricao_municipal: Optional[str] = Field(
+        None,
+        min_length=1,
+        max_length=15,
+        description=(
+            "Inscricao municipal; valores numericos sao normalizados para 15 "
+            "digitos no XML da DPS"
+        ),
+    )
     razao_social: str = Field(..., min_length=1, max_length=300)
     nome_fantasia: Optional[str] = Field(None, max_length=150)
     endereco: Endereco
@@ -263,8 +279,7 @@ class Servico(BaseModel):
     codigo_lc116: str = Field(
         ...,
         description=(
-            "Item da lista de servicos LC 116 com subitem "
-            "(ex: '04.03.01', '01.01.01')"
+            "Item da lista de servicos LC 116 com subitem (ex: '04.03.01', '01.01.01')"
         ),
     )
     codigo_tributacao_municipal: Optional[str] = Field(
@@ -307,8 +322,7 @@ class Servico(BaseModel):
                 return v
 
             raise ValueError(
-                "codigo_lc116 deve estar no formato XX.XX.XX "
-                "(ex: '04.03.01')."
+                "codigo_lc116 deve estar no formato XX.XX.XX (ex: '04.03.01')."
             )
 
         return v
@@ -377,11 +391,18 @@ class SubstituicaoNFSe(BaseModel):
 class DPS(BaseModel):
     """Declaracao de Prestacao de Servicos.
 
-    The regApTribSN/regApIBSCBSSN rules follow the IBSCBS regulations:
+    The regApTribSN rules follow the IBSCBS regulations:
     E0162, R294, R295, E0710, E0712, and E0713.
+
+    Official TSOpSimpNac allows only 1/2/3. regApIBSCBSSN is not part of
+    official TCRegTrib and must never be emitted (E1235).
     """
 
-    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
+    model_config = ConfigDict(
+        extra="forbid",
+        hide_input_in_errors=True,
+        validate_assignment=True,
+    )
 
     id_dps: Optional[str] = Field(
         None, description="DPS ID (gerado automaticamente se não informado)"
@@ -398,9 +419,8 @@ class DPS(BaseModel):
     regime_tributario: str = Field(
         ..., description="simples_nacional|simples_excesso|normal|mei"
     )
-    op_simp_nac: Literal["1", "2", "3", "4"] = "1"
+    op_simp_nac: Literal["1", "2", "3"] = "1"
     reg_ap_trib_sn: Optional[Literal["1", "2", "3"]] = None
-    reg_ap_ibs_cbs_sn: Optional[Literal["1", "2", "3"]] = None
     incentivador_cultural: bool = False
     ibscbs: Optional[IBSCBS] = Field(
         None,
@@ -487,14 +507,8 @@ class DPS(BaseModel):
         if self.op_simp_nac in {"1", "2"} and self.reg_ap_trib_sn is not None:
             raise ValueError("regApTribSN é proibido para opSimpNac 1/2.")
 
-        if self.op_simp_nac in {"1", "2"} and self.reg_ap_ibs_cbs_sn is not None:
-            raise ValueError("regApIBSCBSSN é proibido para opSimpNac 1/2.")
-
-        if self.op_simp_nac in {"3", "4"} and self.reg_ap_trib_sn is None:
-            raise ValueError("regApTribSN é obrigatório para opSimpNac 3/4.")
-
-        if self.op_simp_nac in {"3", "4"} and self.reg_ap_ibs_cbs_sn is None:
-            raise ValueError("regApIBSCBSSN é obrigatório para opSimpNac 3/4.")
+        if self.op_simp_nac == "3" and self.reg_ap_trib_sn is None:
+            raise ValueError("regApTribSN é obrigatório para opSimpNac 3.")
 
         return self
 

@@ -32,9 +32,9 @@ dps.ibscbs = IBSCBS(
 ## Regras principais
 
 - `c_ind_op` precisa existir na tabela oficial do anexo IBSCBS.
-- `op_simp_nac="3"` e `"4"` exigem `reg_ap_trib_sn` e
-  `reg_ap_ibs_cbs_sn`.
-- `op_simp_nac="1"` e `"2"` não aceitam esses campos.
+- `op_simp_nac` aceita apenas `"1"`, `"2"` e `"3"` (TSOpSimpNac oficial).
+- `op_simp_nac="3"` exige `reg_ap_trib_sn`.
+- `op_simp_nac="1"` e `"2"` não aceitam `reg_ap_trib_sn`.
 - Se o XML retornar IBSCBS na resposta, a biblioteca também consegue parsear
   esses dados.
 
