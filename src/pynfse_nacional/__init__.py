@@ -5,7 +5,12 @@ This library provides tools for integrating with the NFSe Nacional (Padrao Nacio
 API for electronic service invoice issuance in Brazil.
 """
 
-from .client import NFSeClient, RecoveryOutcome
+from .client import (
+    NFSeClient,
+    RawNFSeRecoveryResponse,
+    RawNFSeResponse,
+    RecoveryOutcome,
+)
 from .constants import (
     AMBIENTE_HOMOLOGACAO,
     AMBIENTE_PRODUCAO,
@@ -82,6 +87,8 @@ __all__ = [
     # Client
     "NFSeClient",
     "RecoveryOutcome",
+    "RawNFSeResponse",
+    "RawNFSeRecoveryResponse",
     # Models
     "DPS",
     "NFSe",

@@ -15,7 +15,14 @@ from xml.etree.ElementTree import ParseError as XMLParseError
 import httpx
 import pytest
 
-from pynfse_nacional import ErrorCode, NFSeAPIError, NFSeCertificateError, NFSeClient
+from pynfse_nacional import (
+    ErrorCode,
+    NFSeAPIError,
+    NFSeCertificateError,
+    NFSeClient,
+    RawNFSeRecoveryResponse,
+    RawNFSeResponse,
+)
 from pynfse_nacional.client import RecoveryOutcome, _extract_nfse_number_from_xml
 from pynfse_nacional.models import (
     DPS,
@@ -33,12 +40,19 @@ class MockResponse:
     """Mock httpx.Response for testing."""
 
     def __init__(
-        self, status_code: int, json_data=None, text: str = "", content: bytes = b""
+        self,
+        status_code: int,
+        json_data=None,
+        text: str = "",
+        content: bytes = b"",
+        headers: dict[str, str] | None = None,
     ):
         self.status_code = status_code
         self._json_data = json_data
         self.text = text
         self.content = content
+        self.headers = httpx.Headers(headers or {})
+        self.encoding = "utf-8"
 
     def json(self):
         if self._json_data is None:
@@ -1635,6 +1649,172 @@ class TestSubmitDps:
         assert exc_info.value.code == ErrorCode.COMMUNICATION_ERROR
         assert exc_info.value.message == "Erro de comunicação com a SEFIN."
         assert "Server disconnected" in str(exc_info.value.__cause__)
+
+    def test_submit_dps_raw_response_reuses_submit_payload(
+        self, mock_client, sample_dps
+    ):
+        """Normal and diagnostic submissions must send identical request payloads."""
+        first_response = MockResponse(status_code=200, json_data={"chaveAcesso": "1"})
+        second_response = httpx.Response(
+            422,
+            headers={"content-type": "application/json"},
+            content=b'{"erro":"DPS invalida"}',
+        )
+
+        with patch.object(mock_client, "_get_client") as mock_get_client:
+            mock_http = MagicMock()
+            mock_http.post.side_effect = [first_response, second_response]
+            mock_get_client.return_value.__enter__ = MagicMock(return_value=mock_http)
+            mock_get_client.return_value.__exit__ = MagicMock(return_value=False)
+
+            with patch.object(
+                mock_client._xml_builder, "build_dps", return_value="<xml/>"
+            ), patch.object(
+                mock_client._xml_signer, "sign", return_value="<signed/>"
+            ):
+                mock_client.submit_dps(sample_dps)
+                raw = mock_client.submit_dps_raw_response(sample_dps)
+
+        assert isinstance(raw, RawNFSeResponse)
+        assert raw.status_code == 422
+        assert raw.body == b'{"erro":"DPS invalida"}'
+        assert raw.text == '{"erro":"DPS invalida"}'
+        assert mock_http.post.call_args_list[0] == mock_http.post.call_args_list[1]
+
+    def test_submit_dps_raw_response_keeps_error_response_after_client_exit(
+        self, mock_client, sample_dps
+    ):
+        response = httpx.Response(
+            500,
+            headers={"x-sefin": "failure"},
+            content=b"service unavailable",
+        )
+
+        with patch.object(mock_client, "_get_client") as mock_get_client:
+            mock_http = MagicMock()
+            mock_http.post.return_value = response
+            mock_get_client.return_value.__enter__ = MagicMock(return_value=mock_http)
+            mock_get_client.return_value.__exit__ = MagicMock(return_value=False)
+
+            with patch.object(
+                mock_client._xml_builder, "build_dps", return_value="<xml/>"
+            ), patch.object(
+                mock_client._xml_signer, "sign", return_value="<signed/>"
+            ):
+                raw = mock_client.submit_dps_raw_response(sample_dps)
+
+        assert raw.status_code == 500
+        assert raw.headers["x-sefin"] == "failure"
+        assert raw.content_length == len(b"service unavailable")
+        mock_get_client.return_value.__exit__.assert_called_once()
+
+    def test_raw_response_is_immutable_and_headers_are_detached(self, mock_client):
+        chave = "12345678901234567890123456789012345678901234567890"
+        response = httpx.Response(
+            200,
+            headers={"x-sefin": "ok"},
+            content=b"raw body",
+        )
+
+        with patch.object(mock_client, "_get_client") as mock_get_client:
+            mock_http = MagicMock()
+            mock_http.get.return_value = response
+            mock_get_client.return_value.__enter__ = MagicMock(return_value=mock_http)
+            mock_get_client.return_value.__exit__ = MagicMock(return_value=False)
+
+            raw = mock_client.query_nfse_raw_response(chave)
+
+        assert isinstance(raw, RawNFSeResponse)
+        assert raw.body == b"raw body"
+        assert raw.method == "GET"
+        assert raw.url.endswith(f"/nfse/{chave}")
+        with pytest.raises(TypeError):
+            raw.headers["new"] = "value"
+        with pytest.raises((AttributeError, TypeError)):
+            raw.status_code = 201
+
+    def test_raw_response_rejects_invalid_inputs(self, mock_client, sample_dps):
+        with pytest.raises(ValueError):
+            mock_client.query_nfse_raw_response("invalid")
+        with pytest.raises(ValueError):
+            mock_client.query_nfse_by_dps_raw_response("DPS123")
+        with pytest.raises(TypeError):
+            mock_client.submit_dps_raw_response(None)
+
+
+class TestRawNfseRecoveryResponse:
+    DPS_ID = "DPS" + "1" * 42
+    CHAVE = "12345678901234567890123456789012345678901234567890"
+
+    def test_captures_dps_and_nfse_responses_with_expected_urls(self, mock_client):
+        dps_response = httpx.Response(
+            200,
+            headers={"x-dps": "ok"},
+            json={"chaveAcesso": self.CHAVE},
+        )
+        nfse_response = httpx.Response(
+            404,
+            headers={"x-nfse": "missing"},
+            content=b"not found",
+        )
+
+        with patch.object(mock_client, "_get_client") as mock_get_client:
+            mock_http = MagicMock()
+            mock_http.get.side_effect = [dps_response, nfse_response]
+            mock_get_client.return_value.__enter__ = MagicMock(return_value=mock_http)
+            mock_get_client.return_value.__exit__ = MagicMock(return_value=False)
+
+            result = mock_client.recover_nfse_by_dps_raw_response(self.DPS_ID)
+
+        assert isinstance(result, RawNFSeRecoveryResponse)
+        assert result.chave_acesso == self.CHAVE
+        assert result.dps_response.status_code == 200
+        assert result.dps_response.headers["x-dps"] == "ok"
+        assert result.nfse_response is not None
+        assert result.nfse_response.status_code == 404
+        assert result.nfse_response.body == b"not found"
+        assert mock_http.get.call_args_list[0].args[0].endswith(
+            f"/dps/{self.DPS_ID}"
+        )
+        assert mock_http.get.call_args_list[1].args[0].endswith(
+            f"/nfse/{self.CHAVE}"
+        )
+
+    def test_non_success_dps_response_is_returned_without_second_request(
+        self, mock_client
+    ):
+        response = httpx.Response(404, content=b"missing DPS")
+
+        with patch.object(mock_client, "_get_client") as mock_get_client:
+            mock_http = MagicMock()
+            mock_http.get.return_value = response
+            mock_get_client.return_value.__enter__ = MagicMock(return_value=mock_http)
+            mock_get_client.return_value.__exit__ = MagicMock(return_value=False)
+
+            result = mock_client.recover_nfse_by_dps_raw_response(self.DPS_ID)
+
+        assert result.dps_response.status_code == 404
+        assert result.dps_response.body == b"missing DPS"
+        assert result.nfse_response is None
+        mock_http.get.assert_called_once()
+
+    def test_malformed_dps_success_is_returned_without_second_request(
+        self, mock_client
+    ):
+        response = httpx.Response(200, content=b"not json")
+
+        with patch.object(mock_client, "_get_client") as mock_get_client:
+            mock_http = MagicMock()
+            mock_http.get.return_value = response
+            mock_get_client.return_value.__enter__ = MagicMock(return_value=mock_http)
+            mock_get_client.return_value.__exit__ = MagicMock(return_value=False)
+
+            result = mock_client.recover_nfse_by_dps_raw_response(self.DPS_ID)
+
+        assert result.dps_response.status_code == 200
+        assert result.dps_response.text == "not json"
+        assert result.nfse_response is None
+        mock_http.get.assert_called_once()
 
 
 # =============================================================================

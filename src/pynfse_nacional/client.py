@@ -3,7 +3,8 @@ import tempfile
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Generator, Literal, Optional
+from types import MappingProxyType
+from typing import Generator, Literal, Mapping, Optional
 from xml.etree.ElementTree import ParseError as XMLParseError
 
 import httpx
@@ -82,6 +83,69 @@ class RecoveryOutcome:
     def recovered(self) -> bool:
         """True when recovery succeeded and ``result`` is populated."""
         return self.status == "success"
+
+
+@dataclass(frozen=True)
+class RawNFSeResponse:
+    """Detached HTTP response captured by an explicit diagnostic operation.
+
+    The response body is retained as bytes so callers can inspect the exact
+    SEFIN payload after the mTLS client has been closed. NFSe responses may
+    contain taxpayer and service data; callers should redact or bound
+    ``body``/``text`` before logging it.
+    """
+
+    status_code: int
+    headers: Mapping[str, str]
+    body: bytes
+    method: str
+    url: str
+    encoding: Optional[str] = None
+
+    @property
+    def text(self) -> str:
+        """Decode the detached body for diagnostics using the response encoding."""
+        return self.body.decode(self.encoding or "utf-8", errors="replace")
+
+    @property
+    def content_length(self) -> int:
+        """Return the detached body length in bytes."""
+        return len(self.body)
+
+
+@dataclass(frozen=True)
+class RawNFSeRecoveryResponse:
+    """Detached responses captured by the DPS recovery diagnostic probe.
+
+    ``nfse_response`` is ``None`` when the DPS lookup did not return a valid
+    access key, including non-success and malformed successful responses.
+    """
+
+    dps_response: RawNFSeResponse
+    nfse_response: Optional[RawNFSeResponse] = None
+    chave_acesso: Optional[str] = None
+
+
+def _detach_response(
+    response: httpx.Response,
+    *,
+    method: str,
+    url: str,
+) -> RawNFSeResponse:
+    """Copy response data before the underlying mTLS client is closed."""
+
+    headers = getattr(response, "headers", {})
+    header_items = headers.items() if hasattr(headers, "items") else ()
+    body = bytes(response.content)
+
+    return RawNFSeResponse(
+        status_code=response.status_code,
+        headers=MappingProxyType(dict(header_items)),
+        body=body,
+        method=method,
+        url=url,
+        encoding=getattr(response, "encoding", None),
+    )
 
 
 def _validate_chave_acesso(chave: str) -> None:
@@ -428,20 +492,64 @@ class NFSeClient:
 
     def submit_dps(self, dps: DPS) -> NFSeResponse:
         """Submit DPS and receive NFSe."""
+        url, payload = self._build_submit_request(dps)
+
+        try:
+            with self._get_client() as client:
+                response = self._post_submit_dps(client, url, payload)
+                return self._parse_dps_response(response)
+
+        except httpx.TimeoutException:
+            raise NFSeAPIError(
+                "Tempo esgotado ao comunicar com a SEFIN.",
+                code=ErrorCode.COMMUNICATION_TIMEOUT,
+            )
+
+        except httpx.RequestError as e:
+            raise NFSeAPIError(
+                "Erro de comunicação com a SEFIN.",
+                code=ErrorCode.COMMUNICATION_ERROR,
+            ) from e
+
+    def _build_submit_request(self, dps: DPS) -> tuple[str, dict[str, str]]:
+        """Build the canonical URL and payload used by submit operations."""
+        if not isinstance(dps, DPS):
+            raise TypeError("dps deve ser uma instância de DPS.")
+
         xml = self._xml_builder.build_dps(dps)
         signed_xml = self._xml_signer.sign(xml)
         encoded_content = compress_encode(signed_xml)
 
-        payload = {
-            "dpsXmlGZipB64": encoded_content,
-        }
+        return (
+            f"{self.base_url}{ENDPOINTS['submit_dps']}",
+            {"dpsXmlGZipB64": encoded_content},
+        )
 
-        url = f"{self.base_url}{ENDPOINTS['submit_dps']}"
+    @staticmethod
+    def _post_submit_dps(
+        client: httpx.Client,
+        url: str,
+        payload: dict[str, str],
+    ) -> httpx.Response:
+        """Send the canonical DPS submission request."""
+        return client.post(url, json=payload)
+
+    def submit_dps_raw_response(self, dps: DPS) -> RawNFSeResponse:
+        """Submit a DPS and return the detached raw SEFIN response.
+
+        This is an explicit diagnostic operation for inspecting the exact
+        response returned by the submit endpoint. It follows the same build,
+        sign, compression, payload, mTLS, and timeout path as
+        :meth:`submit_dps`, but does not parse or normalize the response.
+        Response bodies can contain taxpayer and service data; redact or bound
+        them before logging.
+        """
+        url, payload = self._build_submit_request(dps)
 
         try:
             with self._get_client() as client:
-                response = client.post(url, json=payload)
-                return self._parse_dps_response(response)
+                response = self._post_submit_dps(client, url, payload)
+                return _detach_response(response, method="POST", url=url)
 
         except httpx.TimeoutException:
             raise NFSeAPIError(
@@ -514,8 +622,7 @@ class NFSeClient:
     ) -> NFSeQueryResult:
         """Query NFSe by access key using an existing HTTP client."""
 
-        url = f"{self.base_url}{ENDPOINTS['query_nfse'].format(chave=chave_acesso)}"
-        response = client.get(url)
+        response = self._get_nfse_response(client, chave_acesso)
 
         if response.status_code != 200:
             error_data = _error_payload(response)
@@ -580,6 +687,40 @@ class NFSeClient:
             ),
         )
 
+    def _get_nfse_response(
+        self, client: httpx.Client, chave_acesso: str
+    ) -> httpx.Response:
+        """Issue the canonical NFSe-by-access-key request."""
+        url = f"{self.base_url}{ENDPOINTS['query_nfse'].format(chave=chave_acesso)}"
+        return client.get(url)
+
+    def query_nfse_raw_response(self, chave_acesso: str) -> RawNFSeResponse:
+        """Query by access key and return the detached raw SEFIN response.
+
+        This explicit diagnostic operation preserves the response status,
+        headers, and body without applying the normal NFSe parsing contract.
+        The access key is validated with the same rule as :meth:`query_nfse`.
+        """
+        _validate_chave_acesso(chave_acesso)
+        url = f"{self.base_url}{ENDPOINTS['query_nfse'].format(chave=chave_acesso)}"
+
+        try:
+            with self._get_client() as client:
+                response = self._get_nfse_response(client, chave_acesso)
+                return _detach_response(response, method="GET", url=url)
+
+        except httpx.TimeoutException:
+            raise NFSeAPIError(
+                "Tempo esgotado ao consultar NFSe.",
+                code=ErrorCode.COMMUNICATION_TIMEOUT,
+            )
+
+        except httpx.RequestError as e:
+            raise NFSeAPIError(
+                "Erro de comunicação com a SEFIN.",
+                code=ErrorCode.COMMUNICATION_ERROR,
+            ) from e
+
     def query_nfse(self, chave_acesso: str) -> NFSeQueryResult:
         """Query NFSe by access key."""
         _validate_chave_acesso(chave_acesso)
@@ -607,11 +748,10 @@ class NFSeClient:
         """Recover an NFSe by DPS identifier, then fetch the full invoice."""
 
         _validate_id_dps(id_dps)
-        url = f"{self.base_url}{ENDPOINTS['query_nfse_by_dps'].format(id=id_dps)}"
 
         try:
             with self._get_client() as client:
-                response = client.get(url)
+                response = self._get_dps_response(client, id_dps)
 
                 if response.status_code != 200:
                     error_data = _error_payload(response)
@@ -634,6 +774,96 @@ class NFSeClient:
 
         except NFSeAPIError:
             raise
+
+        except httpx.TimeoutException:
+            raise NFSeAPIError(
+                "Tempo esgotado ao consultar DPS.",
+                code=ErrorCode.COMMUNICATION_TIMEOUT,
+            )
+
+        except httpx.RequestError as e:
+            raise NFSeAPIError(
+                "Erro de comunicação com a SEFIN.",
+                code=ErrorCode.COMMUNICATION_ERROR,
+            ) from e
+
+    def _get_dps_response(
+        self, client: httpx.Client, id_dps: str
+    ) -> httpx.Response:
+        """Issue the canonical DPS lookup request."""
+        url = f"{self.base_url}{ENDPOINTS['query_nfse_by_dps'].format(id=id_dps)}"
+        return client.get(url)
+
+    def query_nfse_by_dps_raw_response(self, id_dps: str) -> RawNFSeResponse:
+        """Query by DPS identifier and return the detached raw response.
+
+        This captures only the DPS lookup request. Use
+        :meth:`recover_nfse_by_dps_raw_response` when both the DPS lookup and
+        the subsequent access-key lookup are needed.
+        """
+        _validate_id_dps(id_dps)
+        url = f"{self.base_url}{ENDPOINTS['query_nfse_by_dps'].format(id=id_dps)}"
+
+        try:
+            with self._get_client() as client:
+                response = self._get_dps_response(client, id_dps)
+                return _detach_response(response, method="GET", url=url)
+
+        except httpx.TimeoutException:
+            raise NFSeAPIError(
+                "Tempo esgotado ao consultar DPS.",
+                code=ErrorCode.COMMUNICATION_TIMEOUT,
+            )
+
+        except httpx.RequestError as e:
+            raise NFSeAPIError(
+                "Erro de comunicação com a SEFIN.",
+                code=ErrorCode.COMMUNICATION_ERROR,
+            ) from e
+
+    def recover_nfse_by_dps_raw_response(
+        self, id_dps: str
+    ) -> RawNFSeRecoveryResponse:
+        """Capture the raw DPS and access-key recovery responses.
+
+        The operation performs ``GET /dps/{id}`` and, when that response
+        contains a valid ``chaveAcesso``, follows it with the same
+        ``GET /nfse/{chaveAcesso}`` request used by :meth:`query_nfse_by_dps`.
+        Non-success or malformed DPS responses are returned unchanged and do
+        not raise a domain parsing error. Transport and certificate failures
+        still use the client's normal :class:`NFSeAPIError` contract.
+        """
+        _validate_id_dps(id_dps)
+        dps_url = (
+            f"{self.base_url}{ENDPOINTS['query_nfse_by_dps'].format(id=id_dps)}"
+        )
+
+        try:
+            with self._get_client() as client:
+                dps_response = self._get_dps_response(client, id_dps)
+                detached_dps = _detach_response(
+                    dps_response, method="GET", url=dps_url
+                )
+
+                if dps_response.status_code != 200:
+                    return RawNFSeRecoveryResponse(dps_response=detached_dps)
+
+                chave_acesso = _extract_chave_acesso_from_dps_response(dps_response)
+                if not chave_acesso:
+                    return RawNFSeRecoveryResponse(dps_response=detached_dps)
+
+                nfse_url = (
+                    f"{self.base_url}{ENDPOINTS['query_nfse'].format(chave=chave_acesso)}"
+                )
+                nfse_response = self._get_nfse_response(client, chave_acesso)
+                detached_nfse = _detach_response(
+                    nfse_response, method="GET", url=nfse_url
+                )
+                return RawNFSeRecoveryResponse(
+                    dps_response=detached_dps,
+                    nfse_response=detached_nfse,
+                    chave_acesso=chave_acesso,
+                )
 
         except httpx.TimeoutException:
             raise NFSeAPIError(
