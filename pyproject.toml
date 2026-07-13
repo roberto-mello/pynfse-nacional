@@ -10,7 +10,7 @@ readme = "README.md"
 license = "AGPL-3.0-only"
 requires-python = ">=3.10"
 authors = [
-    { name = "Project Maintainer", email = "maintainer@example.invalid" }
+    { name = "Project Maintainer", email = "roberto.mello@gmail.com" }
 ]
 keywords = ["nfse", "nota-fiscal", "brazil", "fiscal", "api"]
 classifiers = [
