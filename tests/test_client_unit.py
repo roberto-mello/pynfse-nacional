@@ -23,7 +23,11 @@ from pynfse_nacional import (
     RawNFSeRecoveryResponse,
     RawNFSeResponse,
 )
-from pynfse_nacional.client import RecoveryOutcome, _extract_nfse_number_from_xml
+from pynfse_nacional.client import (
+    _RAW_RESPONSE_BODY_LIMIT,
+    RecoveryOutcome,
+    _extract_nfse_number_from_xml,
+)
 from pynfse_nacional.models import (
     DPS,
     Endereco,
@@ -1757,12 +1761,43 @@ class TestSubmitDps:
         assert raw.method == "GET"
         assert raw.url.endswith("/nfse/[REDACTED-ACCESS-KEY]")
         assert raw.headers["X-SEFIN"] == "ok"
+        assert raw.content_length == len(b"raw body")
+        assert raw.truncated is False
         assert "raw body" not in repr(raw)
         assert chave not in repr(raw)
         with pytest.raises(TypeError):
             raw.headers["new"] = "value"
         with pytest.raises((AttributeError, TypeError)):
             raw.status_code = 201
+
+    def test_raw_response_omits_sensitive_headers_and_bounds_body(self, mock_client):
+        body = b"x" * (_RAW_RESPONSE_BODY_LIMIT + 1)
+        response = httpx.Response(
+            500,
+            headers={
+                "Set-Cookie": "session=secret",
+                "Location": "/nfse/12345678901234567890123456789012345678901234567890",
+                "X-Sefin": "failure",
+            },
+            content=body,
+        )
+
+        with patch.object(mock_client, "_get_client") as mock_get_client:
+            mock_http = MagicMock()
+            mock_http.get.return_value = response
+            mock_get_client.return_value.__enter__ = MagicMock(return_value=mock_http)
+            mock_get_client.return_value.__exit__ = MagicMock(return_value=False)
+
+            raw = mock_client.query_nfse_raw_response(
+                "12345678901234567890123456789012345678901234567890"
+            )
+
+        assert raw.headers["x-sefin"] == "failure"
+        assert "set-cookie" not in raw.headers
+        assert "location" not in raw.headers
+        assert len(raw.body) == _RAW_RESPONSE_BODY_LIMIT
+        assert raw.content_length == len(body)
+        assert raw.truncated is True
 
     def test_raw_response_rejects_invalid_inputs(self, mock_client, sample_dps):
         with pytest.raises(ValueError):

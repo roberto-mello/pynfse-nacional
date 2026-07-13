@@ -37,6 +37,19 @@ from .xml_signer import XMLSignerService
 
 _CHAVE_RE = CHAVE_ACESSO_RE
 _ID_DPS_RE = re.compile(r"^DPS\d{42}$")
+_RAW_RESPONSE_BODY_LIMIT = 1024 * 1024
+_SENSITIVE_RESPONSE_HEADERS = frozenset(
+    {
+        "authorization",
+        "cookie",
+        "location",
+        "proxy-authorization",
+        "referer",
+        "set-cookie",
+        "set-cookie2",
+        "www-authenticate",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -100,17 +113,14 @@ class RawNFSeResponse:
     body: bytes
     method: str
     url: str
+    content_length: int
     encoding: Optional[str] = None
+    truncated: bool = False
 
     @property
     def text(self) -> str:
         """Decode the detached body for diagnostics using the response encoding."""
         return self.body.decode(self.encoding or "utf-8", errors="replace")
-
-    @property
-    def content_length(self) -> int:
-        """Return the detached body length in bytes."""
-        return len(self.body)
 
     def __repr__(self) -> str:
         """Show safe metadata without including response data or identifiers."""
@@ -118,7 +128,8 @@ class RawNFSeResponse:
             "RawNFSeResponse("
             f"status_code={self.status_code!r}, "
             f"method={self.method!r}, "
-            f"content_length={self.content_length!r})"
+            f"content_length={self.content_length!r}, "
+            f"truncated={self.truncated!r})"
         )
 
 
@@ -161,15 +172,24 @@ def _detach_response(
 
     headers = getattr(response, "headers", {})
     header_items = headers.items() if hasattr(headers, "items") else ()
+    safe_headers = {
+        str(key): str(value)
+        for key, value in header_items
+        if str(key).lower() not in _SENSITIVE_RESPONSE_HEADERS
+    }
     body = bytes(response.content)
+    content_length = len(body)
+    truncated = content_length > _RAW_RESPONSE_BODY_LIMIT
 
     return RawNFSeResponse(
         status_code=response.status_code,
-        headers=MappingProxyType(httpx.Headers(dict(header_items))),
-        body=body,
+        headers=MappingProxyType(httpx.Headers(safe_headers)),
+        body=body[:_RAW_RESPONSE_BODY_LIMIT],
         method=method,
         url=_redact_diagnostic_url(url),
+        content_length=content_length,
         encoding=getattr(response, "encoding", None),
+        truncated=truncated,
     )
 
 

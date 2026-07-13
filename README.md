@@ -665,6 +665,10 @@ Main client for NFSe Nacional API.
 - `query_nfse_by_dps(id_dps: str) -> NFSeQueryResult` - Recover NFSe by DPS identifier
 - `has_nfse_by_dps(id_dps: str) -> bool` - Check whether a DPS already generated an NFSe
 - `recover_nfse_by_dps(id_dps: str) -> RecoveryOutcome` - High-level recovery combining `has_nfse_by_dps` + `query_nfse_by_dps` for the duplicate / lost-`chave_acesso` path; returns a frozen `RecoveryOutcome` with `status="success" | "processing" | "error"` (see Portuguese section for a full example)
+- `submit_dps_raw_response(dps: DPS) -> RawNFSeResponse` - Capture the exact submit response for diagnostics
+- `query_nfse_raw_response(chave_acesso: str) -> RawNFSeResponse` - Capture the access-key query response for diagnostics
+- `query_nfse_by_dps_raw_response(id_dps: str) -> RawNFSeResponse` - Capture the DPS query response for diagnostics
+- `recover_nfse_by_dps_raw_response(id_dps: str) -> RawNFSeRecoveryResponse` - Capture both recovery probe responses
 - `download_danfse(chave_acesso: str) -> bytes` - Download DANFSe PDF
 - `cancel_nfse(chave_acesso, reason, codigo_motivo=1, cnpj_prestador="") -> EventResponse` - Cancel NFSe
 - `substitute_nfse(chave_acesso_original, new_dps, motivo, codigo_motivo) -> NFSeResponse` - Substitute existing NFSe

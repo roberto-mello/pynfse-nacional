@@ -109,8 +109,10 @@ else:
 
 Quando for necessário investigar a resposta exata da SEFIN, use as operações
 diagnósticas públicas. Elas fecham o cliente mTLS antes de retornar e entregam
-um `RawNFSeResponse` imutável com `status_code`, `headers`, `body`, `text`,
-`content_length`, método e URL:
+um `RawNFSeResponse` imutável com `status_code`, headers seguros, `body`,
+`text`, `content_length`, `truncated`, método e URL com identificadores
+removidos. O corpo retido é limitado a 1 MiB; `content_length` preserva o
+tamanho original.
 
 ```python
 raw_submit = client.submit_dps_raw_response(dps)
