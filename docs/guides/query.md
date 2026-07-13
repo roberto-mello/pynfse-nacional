@@ -115,13 +115,14 @@ removidos. O corpo retido é limitado a 1 MiB; `content_length` preserva o
 tamanho original.
 
 ```python
-raw_submit = client.submit_dps_raw_response(dps)
+# Use o método submit_dps_raw_response() com a DPS montada no fluxo de emissão.
 raw_nfse = client.query_nfse_raw_response("0" * 50)  # chave sintética
 ```
 
 Para reproduzir a recuperação por DPS em uma única chamada, use:
 
 ```python
+dps_id = "DPS" + "1" * 42  # identificador sintético para o exemplo
 probe = client.recover_nfse_by_dps_raw_response(dps_id)
 
 print(probe.dps_response.status_code)

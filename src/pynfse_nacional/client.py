@@ -2,6 +2,7 @@ import re
 import tempfile
 from contextlib import contextmanager
 from dataclasses import dataclass
+from json import loads
 from pathlib import Path
 from types import MappingProxyType
 from typing import Generator, Literal, Mapping, Optional
@@ -38,16 +39,18 @@ from .xml_signer import XMLSignerService
 _CHAVE_RE = CHAVE_ACESSO_RE
 _ID_DPS_RE = re.compile(r"^DPS\d{42}$")
 _RAW_RESPONSE_BODY_LIMIT = 1024 * 1024
-_SENSITIVE_RESPONSE_HEADERS = frozenset(
+_SAFE_RESPONSE_HEADERS = frozenset(
     {
-        "authorization",
-        "cookie",
-        "location",
-        "proxy-authorization",
-        "referer",
-        "set-cookie",
-        "set-cookie2",
-        "www-authenticate",
+        "content-encoding",
+        "content-language",
+        "content-length",
+        "content-type",
+        "date",
+        "etag",
+        "last-modified",
+        "retry-after",
+        "server",
+        "x-sefin",
     }
 )
 
@@ -167,19 +170,19 @@ def _detach_response(
     *,
     method: str,
     url: str,
+    body: bytes,
+    content_length: int,
+    truncated: bool,
 ) -> RawNFSeResponse:
-    """Copy response data before the underlying mTLS client is closed."""
+    """Detach bounded response data before the mTLS client is closed."""
 
     headers = getattr(response, "headers", {})
     header_items = headers.items() if hasattr(headers, "items") else ()
     safe_headers = {
-        str(key): str(value)
+        str(key): str(value)[:1024]
         for key, value in header_items
-        if str(key).lower() not in _SENSITIVE_RESPONSE_HEADERS
+        if str(key).lower() in _SAFE_RESPONSE_HEADERS
     }
-    body = bytes(response.content)
-    content_length = len(body)
-    truncated = content_length > _RAW_RESPONSE_BODY_LIMIT
 
     return RawNFSeResponse(
         status_code=response.status_code,
@@ -191,6 +194,27 @@ def _detach_response(
         encoding=getattr(response, "encoding", None),
         truncated=truncated,
     )
+
+
+def _extract_chave_acesso_from_raw_response(
+    response: RawNFSeResponse,
+) -> Optional[str]:
+    """Extract a valid access key from a detached DPS response."""
+    try:
+        data = loads(response.text)
+    except Exception:
+        return None
+
+    if isinstance(data, dict):
+        for key in ("chaveAcesso", "chave_acesso", "chNFSe", "chave"):
+            value = data.get(key)
+            if isinstance(value, str) and _CHAVE_RE.fullmatch(value):
+                return value
+
+    if isinstance(data, str) and _CHAVE_RE.fullmatch(data.strip()):
+        return data.strip()
+
+    return None
 
 
 def _validate_chave_acesso(chave: str) -> None:
@@ -600,6 +624,33 @@ class NFSeClient:
                 code=ErrorCode.COMMUNICATION_ERROR,
             ) from e
 
+    @staticmethod
+    def _stream_raw_response(
+        client: httpx.Client,
+        method: str,
+        url: str,
+        **kwargs: object,
+    ) -> RawNFSeResponse:
+        """Stream a diagnostic response while retaining only a bounded body."""
+        with client.stream(method, url, **kwargs) as response:
+            retained = bytearray()
+            content_length = 0
+
+            for chunk in response.iter_bytes():
+                content_length += len(chunk)
+                remaining = _RAW_RESPONSE_BODY_LIMIT - len(retained)
+                if remaining > 0:
+                    retained.extend(chunk[:remaining])
+
+            return _detach_response(
+                response,
+                method=method,
+                url=url,
+                body=bytes(retained),
+                content_length=content_length,
+                truncated=content_length > _RAW_RESPONSE_BODY_LIMIT,
+            )
+
     def submit_dps_raw_response(self, dps: DPS) -> RawNFSeResponse:
         """Submit a DPS and return the detached raw SEFIN response.
 
@@ -615,8 +666,7 @@ class NFSeClient:
         with self._raw_request_client(
             "Tempo esgotado ao comunicar com a SEFIN."
         ) as client:
-            response = self._post_submit_dps(client, url, payload)
-            return _detach_response(response, method="POST", url=url)
+            return self._stream_raw_response(client, "POST", url, json=payload)
 
     def _parse_dps_response(self, response: httpx.Response) -> NFSeResponse:
         """Parse API response for DPS submission."""
@@ -763,8 +813,7 @@ class NFSeClient:
         url = self._nfse_url(chave_acesso)
 
         with self._raw_request_client("Tempo esgotado ao consultar NFSe.") as client:
-            response = self._get_nfse_response(client, chave_acesso)
-            return _detach_response(response, method="GET", url=url)
+            return self._stream_raw_response(client, "GET", url)
 
     def query_nfse(self, chave_acesso: str) -> NFSeQueryResult:
         """Query NFSe by access key."""
@@ -853,8 +902,7 @@ class NFSeClient:
         url = self._dps_url(id_dps)
 
         with self._raw_request_client("Tempo esgotado ao consultar DPS.") as client:
-            response = self._get_dps_response(client, id_dps)
-            return _detach_response(response, method="GET", url=url)
+            return self._stream_raw_response(client, "GET", url)
 
     def recover_nfse_by_dps_raw_response(
         self, id_dps: str
@@ -872,23 +920,17 @@ class NFSeClient:
         dps_url = self._dps_url(id_dps)
 
         with self._raw_request_client("Tempo esgotado ao consultar DPS.") as client:
-            dps_response = self._get_dps_response(client, id_dps)
-            detached_dps = _detach_response(
-                dps_response, method="GET", url=dps_url
-            )
+            detached_dps = self._stream_raw_response(client, "GET", dps_url)
 
-            if dps_response.status_code != 200:
+            if detached_dps.status_code != 200:
                 return RawNFSeRecoveryResponse(dps_response=detached_dps)
 
-            chave_acesso = _extract_chave_acesso_from_dps_response(dps_response)
+            chave_acesso = _extract_chave_acesso_from_raw_response(detached_dps)
             if not chave_acesso:
                 return RawNFSeRecoveryResponse(dps_response=detached_dps)
 
             nfse_url = self._nfse_url(chave_acesso)
-            nfse_response = self._get_nfse_response(client, chave_acesso)
-            detached_nfse = _detach_response(
-                nfse_response, method="GET", url=nfse_url
-            )
+            detached_nfse = self._stream_raw_response(client, "GET", nfse_url)
             return RawNFSeRecoveryResponse(
                 dps_response=detached_dps,
                 nfse_response=detached_nfse,

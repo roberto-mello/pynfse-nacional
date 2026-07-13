@@ -65,6 +65,14 @@ class MockResponse:
         return self._json_data
 
 
+def _stream_context(response):
+    """Return a context manager suitable for mocking httpx.Client.stream."""
+    context = MagicMock()
+    context.__enter__.return_value = response
+    context.__exit__.return_value = False
+    return context
+
+
 class _FakePrivateKey:
     def private_bytes(self, encoding, format, encryption_algorithm):
         return b"-----BEGIN PRIVATE KEY-----\nfake\n-----END PRIVATE KEY-----\n"
@@ -1667,7 +1675,8 @@ class TestSubmitDps:
 
         with patch.object(mock_client, "_get_client") as mock_get_client:
             mock_http = MagicMock()
-            mock_http.post.side_effect = [first_response, second_response]
+            mock_http.post.return_value = first_response
+            mock_http.stream.return_value = _stream_context(second_response)
             mock_get_client.return_value.__enter__ = MagicMock(return_value=mock_http)
             mock_get_client.return_value.__exit__ = MagicMock(return_value=False)
 
@@ -1683,7 +1692,10 @@ class TestSubmitDps:
         assert raw.status_code == 422
         assert raw.body == b'{"erro":"DPS invalida"}'
         assert raw.text == '{"erro":"DPS invalida"}'
-        assert mock_http.post.call_args_list[0] == mock_http.post.call_args_list[1]
+        assert mock_http.stream.call_args.args[1] == mock_http.post.call_args.args[0]
+        assert mock_http.stream.call_args.kwargs["json"] == (
+            mock_http.post.call_args.kwargs["json"]
+        )
 
     def test_submit_dps_raw_response_keeps_error_response_after_client_exit(
         self, mock_client, sample_dps
@@ -1696,7 +1708,7 @@ class TestSubmitDps:
 
         with patch.object(mock_client, "_get_client") as mock_get_client:
             mock_http = MagicMock()
-            mock_http.post.return_value = response
+            mock_http.stream.return_value = _stream_context(response)
             mock_get_client.return_value.__enter__ = MagicMock(return_value=mock_http)
             mock_get_client.return_value.__exit__ = MagicMock(return_value=False)
 
@@ -1721,7 +1733,7 @@ class TestSubmitDps:
     ):
         with patch.object(mock_client, "_get_client") as mock_get_client:
             mock_http = MagicMock()
-            mock_http.post.side_effect = exception
+            mock_http.stream.side_effect = exception
             mock_get_client.return_value.__enter__ = MagicMock(return_value=mock_http)
             mock_get_client.return_value.__exit__ = MagicMock(return_value=False)
 
@@ -1750,7 +1762,7 @@ class TestSubmitDps:
 
         with patch.object(mock_client, "_get_client") as mock_get_client:
             mock_http = MagicMock()
-            mock_http.get.return_value = response
+            mock_http.stream.return_value = _stream_context(response)
             mock_get_client.return_value.__enter__ = MagicMock(return_value=mock_http)
             mock_get_client.return_value.__exit__ = MagicMock(return_value=False)
 
@@ -1784,7 +1796,7 @@ class TestSubmitDps:
 
         with patch.object(mock_client, "_get_client") as mock_get_client:
             mock_http = MagicMock()
-            mock_http.get.return_value = response
+            mock_http.stream.return_value = _stream_context(response)
             mock_get_client.return_value.__enter__ = MagicMock(return_value=mock_http)
             mock_get_client.return_value.__exit__ = MagicMock(return_value=False)
 
@@ -1815,7 +1827,7 @@ class TestRawNfseRecoveryResponse:
     def test_captures_dps_and_nfse_responses_with_expected_urls(self, mock_client):
         dps_response = httpx.Response(
             200,
-            headers={"x-dps": "ok"},
+            headers={"content-type": "application/json"},
             json={"chaveAcesso": self.CHAVE},
         )
         nfse_response = httpx.Response(
@@ -1826,7 +1838,10 @@ class TestRawNfseRecoveryResponse:
 
         with patch.object(mock_client, "_get_client") as mock_get_client:
             mock_http = MagicMock()
-            mock_http.get.side_effect = [dps_response, nfse_response]
+            mock_http.stream.side_effect = [
+                _stream_context(dps_response),
+                _stream_context(nfse_response),
+            ]
             mock_get_client.return_value.__enter__ = MagicMock(return_value=mock_http)
             mock_get_client.return_value.__exit__ = MagicMock(return_value=False)
 
@@ -1834,14 +1849,14 @@ class TestRawNfseRecoveryResponse:
 
         assert isinstance(result, RawNFSeRecoveryResponse)
         assert result.dps_response.status_code == 200
-        assert result.dps_response.headers["x-dps"] == "ok"
+        assert result.dps_response.headers["content-type"] == "application/json"
         assert result.nfse_response is not None
         assert result.nfse_response.status_code == 404
         assert result.nfse_response.body == b"not found"
-        assert mock_http.get.call_args_list[0].args[0].endswith(
+        assert mock_http.stream.call_args_list[0].args[1].endswith(
             f"/dps/{self.DPS_ID}"
         )
-        assert mock_http.get.call_args_list[1].args[0].endswith(
+        assert mock_http.stream.call_args_list[1].args[1].endswith(
             f"/nfse/{self.CHAVE}"
         )
 
@@ -1852,7 +1867,7 @@ class TestRawNfseRecoveryResponse:
 
         with patch.object(mock_client, "_get_client") as mock_get_client:
             mock_http = MagicMock()
-            mock_http.get.return_value = response
+            mock_http.stream.return_value = _stream_context(response)
             mock_get_client.return_value.__enter__ = MagicMock(return_value=mock_http)
             mock_get_client.return_value.__exit__ = MagicMock(return_value=False)
 
@@ -1861,18 +1876,18 @@ class TestRawNfseRecoveryResponse:
         assert result.dps_response.status_code == 404
         assert result.dps_response.body == b"missing DPS"
         assert result.nfse_response is None
-        mock_http.get.assert_called_once()
+        mock_http.stream.assert_called_once()
 
     def test_direct_dps_raw_lookup_returns_detached_response(self, mock_client):
         response = httpx.Response(
             200,
-            headers={"x-dps": "ok"},
+            headers={"content-type": "application/json"},
             content=b'{"chaveAcesso":"synthetic"}',
         )
 
         with patch.object(mock_client, "_get_client") as mock_get_client:
             mock_http = MagicMock()
-            mock_http.get.return_value = response
+            mock_http.stream.return_value = _stream_context(response)
             mock_get_client.return_value.__enter__ = MagicMock(return_value=mock_http)
             mock_get_client.return_value.__exit__ = MagicMock(return_value=False)
 
@@ -1880,7 +1895,7 @@ class TestRawNfseRecoveryResponse:
 
         assert result.status_code == 200
         assert result.body == b'{"chaveAcesso":"synthetic"}'
-        assert result.headers["X-DPS"] == "ok"
+        assert result.headers["content-type"] == "application/json"
         mock_get_client.return_value.__exit__.assert_called_once()
 
     def test_raw_recovery_repr_does_not_include_sensitive_data(self, mock_client):
@@ -1892,7 +1907,10 @@ class TestRawNfseRecoveryResponse:
 
         with patch.object(mock_client, "_get_client") as mock_get_client:
             mock_http = MagicMock()
-            mock_http.get.side_effect = [dps_response, nfse_response]
+            mock_http.stream.side_effect = [
+                _stream_context(dps_response),
+                _stream_context(nfse_response),
+            ]
             mock_get_client.return_value.__enter__ = MagicMock(return_value=mock_http)
             mock_get_client.return_value.__exit__ = MagicMock(return_value=False)
 
@@ -1914,7 +1932,7 @@ class TestRawNfseRecoveryResponse:
     ):
         with patch.object(mock_client, "_get_client") as mock_get_client:
             mock_http = MagicMock()
-            getattr(mock_http, http_method).side_effect = httpx.ReadTimeout("timed out")
+            mock_http.stream.side_effect = httpx.ReadTimeout("timed out")
             mock_get_client.return_value.__enter__ = MagicMock(return_value=mock_http)
             mock_get_client.return_value.__exit__ = MagicMock(return_value=False)
 
@@ -1937,7 +1955,7 @@ class TestRawNfseRecoveryResponse:
     ):
         with patch.object(mock_client, "_get_client") as mock_get_client:
             mock_http = MagicMock()
-            mock_http.get.side_effect = httpx.ConnectError("connection failed")
+            mock_http.stream.side_effect = httpx.ConnectError("connection failed")
             mock_get_client.return_value.__enter__ = MagicMock(return_value=mock_http)
             mock_get_client.return_value.__exit__ = MagicMock(return_value=False)
 
@@ -1954,7 +1972,7 @@ class TestRawNfseRecoveryResponse:
 
         with patch.object(mock_client, "_get_client") as mock_get_client:
             mock_http = MagicMock()
-            mock_http.get.return_value = response
+            mock_http.stream.return_value = _stream_context(response)
             mock_get_client.return_value.__enter__ = MagicMock(return_value=mock_http)
             mock_get_client.return_value.__exit__ = MagicMock(return_value=False)
 
@@ -1963,12 +1981,12 @@ class TestRawNfseRecoveryResponse:
         assert result.dps_response.status_code == 200
         assert result.dps_response.text == "not json"
         assert result.nfse_response is None
-        mock_http.get.assert_called_once()
+        mock_http.stream.assert_called_once()
 
     def test_nfse_raw_lookup_maps_timeout_to_api_error(self, mock_client):
         with patch.object(mock_client, "_get_client") as mock_get_client:
             mock_http = MagicMock()
-            mock_http.get.side_effect = httpx.ReadTimeout("timed out")
+            mock_http.stream.side_effect = httpx.ReadTimeout("timed out")
             mock_get_client.return_value.__enter__ = MagicMock(return_value=mock_http)
             mock_get_client.return_value.__exit__ = MagicMock(return_value=False)
 
