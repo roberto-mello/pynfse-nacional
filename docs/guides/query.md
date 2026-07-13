@@ -135,5 +135,5 @@ do cliente. Para consultar apenas a resposta de DPS, use
 `query_nfse_by_dps_raw_response()`.
 
 Os corpos podem conter XML, CPF/CNPJ e dados do serviço. Não registre o corpo
-inteiro: redija campos sensíveis e limite qualquer preview, usando
+inteiro: mascare, anonimize ou remova campos sensíveis e limite qualquer preview, usando
 `content_length` para preservar o tamanho original.

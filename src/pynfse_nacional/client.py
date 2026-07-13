@@ -132,19 +132,23 @@ class RawNFSeRecoveryResponse:
 
     dps_response: RawNFSeResponse
     nfse_response: Optional[RawNFSeResponse] = None
-    chave_acesso: Optional[str] = None
 
     def __repr__(self) -> str:
-        """Show safe status metadata without including access keys or bodies."""
+        """Show safe status metadata without including identifiers or bodies."""
         nfse_status = (
             self.nfse_response.status_code if self.nfse_response is not None else None
         )
         return (
             "RawNFSeRecoveryResponse("
             f"dps_status_code={self.dps_response.status_code!r}, "
-            f"nfse_status_code={nfse_status!r}, "
-            f"has_chave_acesso={self.chave_acesso is not None!r})"
+            f"nfse_status_code={nfse_status!r})"
         )
+
+
+def _redact_diagnostic_url(url: str) -> str:
+    """Remove invoice and DPS identifiers from diagnostic URL metadata."""
+    url = re.sub(r"\d{50}", "[REDACTED-ACCESS-KEY]", url)
+    return re.sub(r"DPS\d{42}", "DPS[REDACTED]", url)
 
 
 def _detach_response(
@@ -164,7 +168,7 @@ def _detach_response(
         headers=MappingProxyType(httpx.Headers(dict(header_items))),
         body=body,
         method=method,
-        url=url,
+        url=_redact_diagnostic_url(url),
         encoding=getattr(response, "encoding", None),
     )
 
@@ -555,6 +559,27 @@ class NFSeClient:
         """Send the canonical DPS submission request."""
         return client.post(url, json=payload)
 
+    @contextmanager
+    def _raw_request_client(
+        self, timeout_message: str
+    ) -> Generator[httpx.Client, None, None]:
+        """Open a diagnostic client and normalize transport failures."""
+        try:
+            with self._get_client() as client:
+                yield client
+
+        except httpx.TimeoutException:
+            raise NFSeAPIError(
+                timeout_message,
+                code=ErrorCode.COMMUNICATION_TIMEOUT,
+            )
+
+        except httpx.RequestError as e:
+            raise NFSeAPIError(
+                "Erro de comunicação com a SEFIN.",
+                code=ErrorCode.COMMUNICATION_ERROR,
+            ) from e
+
     def submit_dps_raw_response(self, dps: DPS) -> RawNFSeResponse:
         """Submit a DPS and return the detached raw SEFIN response.
 
@@ -567,22 +592,11 @@ class NFSeClient:
         """
         url, payload = self._build_submit_request(dps)
 
-        try:
-            with self._get_client() as client:
-                response = self._post_submit_dps(client, url, payload)
-                return _detach_response(response, method="POST", url=url)
-
-        except httpx.TimeoutException:
-            raise NFSeAPIError(
-                "Tempo esgotado ao comunicar com a SEFIN.",
-                code=ErrorCode.COMMUNICATION_TIMEOUT,
-            )
-
-        except httpx.RequestError as e:
-            raise NFSeAPIError(
-                "Erro de comunicação com a SEFIN.",
-                code=ErrorCode.COMMUNICATION_ERROR,
-            ) from e
+        with self._raw_request_client(
+            "Tempo esgotado ao comunicar com a SEFIN."
+        ) as client:
+            response = self._post_submit_dps(client, url, payload)
+            return _detach_response(response, method="POST", url=url)
 
     def _parse_dps_response(self, response: httpx.Response) -> NFSeResponse:
         """Parse API response for DPS submission."""
@@ -728,22 +742,9 @@ class NFSeClient:
         _validate_chave_acesso(chave_acesso)
         url = self._nfse_url(chave_acesso)
 
-        try:
-            with self._get_client() as client:
-                response = self._get_nfse_response(client, chave_acesso)
-                return _detach_response(response, method="GET", url=url)
-
-        except httpx.TimeoutException:
-            raise NFSeAPIError(
-                "Tempo esgotado ao consultar NFSe.",
-                code=ErrorCode.COMMUNICATION_TIMEOUT,
-            )
-
-        except httpx.RequestError as e:
-            raise NFSeAPIError(
-                "Erro de comunicação com a SEFIN.",
-                code=ErrorCode.COMMUNICATION_ERROR,
-            ) from e
+        with self._raw_request_client("Tempo esgotado ao consultar NFSe.") as client:
+            response = self._get_nfse_response(client, chave_acesso)
+            return _detach_response(response, method="GET", url=url)
 
     def query_nfse(self, chave_acesso: str) -> NFSeQueryResult:
         """Query NFSe by access key."""
@@ -831,22 +832,9 @@ class NFSeClient:
         _validate_id_dps(id_dps)
         url = self._dps_url(id_dps)
 
-        try:
-            with self._get_client() as client:
-                response = self._get_dps_response(client, id_dps)
-                return _detach_response(response, method="GET", url=url)
-
-        except httpx.TimeoutException:
-            raise NFSeAPIError(
-                "Tempo esgotado ao consultar DPS.",
-                code=ErrorCode.COMMUNICATION_TIMEOUT,
-            )
-
-        except httpx.RequestError as e:
-            raise NFSeAPIError(
-                "Erro de comunicação com a SEFIN.",
-                code=ErrorCode.COMMUNICATION_ERROR,
-            ) from e
+        with self._raw_request_client("Tempo esgotado ao consultar DPS.") as client:
+            response = self._get_dps_response(client, id_dps)
+            return _detach_response(response, method="GET", url=url)
 
     def recover_nfse_by_dps_raw_response(
         self, id_dps: str
@@ -863,42 +851,28 @@ class NFSeClient:
         _validate_id_dps(id_dps)
         dps_url = self._dps_url(id_dps)
 
-        try:
-            with self._get_client() as client:
-                dps_response = self._get_dps_response(client, id_dps)
-                detached_dps = _detach_response(
-                    dps_response, method="GET", url=dps_url
-                )
-
-                if dps_response.status_code != 200:
-                    return RawNFSeRecoveryResponse(dps_response=detached_dps)
-
-                chave_acesso = _extract_chave_acesso_from_dps_response(dps_response)
-                if not chave_acesso:
-                    return RawNFSeRecoveryResponse(dps_response=detached_dps)
-
-                nfse_url = self._nfse_url(chave_acesso)
-                nfse_response = self._get_nfse_response(client, chave_acesso)
-                detached_nfse = _detach_response(
-                    nfse_response, method="GET", url=nfse_url
-                )
-                return RawNFSeRecoveryResponse(
-                    dps_response=detached_dps,
-                    nfse_response=detached_nfse,
-                    chave_acesso=chave_acesso,
-                )
-
-        except httpx.TimeoutException:
-            raise NFSeAPIError(
-                "Tempo esgotado ao consultar DPS.",
-                code=ErrorCode.COMMUNICATION_TIMEOUT,
+        with self._raw_request_client("Tempo esgotado ao consultar DPS.") as client:
+            dps_response = self._get_dps_response(client, id_dps)
+            detached_dps = _detach_response(
+                dps_response, method="GET", url=dps_url
             )
 
-        except httpx.RequestError as e:
-            raise NFSeAPIError(
-                "Erro de comunicação com a SEFIN.",
-                code=ErrorCode.COMMUNICATION_ERROR,
-            ) from e
+            if dps_response.status_code != 200:
+                return RawNFSeRecoveryResponse(dps_response=detached_dps)
+
+            chave_acesso = _extract_chave_acesso_from_dps_response(dps_response)
+            if not chave_acesso:
+                return RawNFSeRecoveryResponse(dps_response=detached_dps)
+
+            nfse_url = self._nfse_url(chave_acesso)
+            nfse_response = self._get_nfse_response(client, chave_acesso)
+            detached_nfse = _detach_response(
+                nfse_response, method="GET", url=nfse_url
+            )
+            return RawNFSeRecoveryResponse(
+                dps_response=detached_dps,
+                nfse_response=detached_nfse,
+            )
 
     def has_nfse_by_dps(self, id_dps: str) -> bool:
         """Check whether an NFSe exists for a DPS identifier."""

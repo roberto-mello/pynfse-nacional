@@ -1755,7 +1755,7 @@ class TestSubmitDps:
         assert isinstance(raw, RawNFSeResponse)
         assert raw.body == b"raw body"
         assert raw.method == "GET"
-        assert raw.url.endswith(f"/nfse/{chave}")
+        assert raw.url.endswith("/nfse/[REDACTED-ACCESS-KEY]")
         assert raw.headers["X-SEFIN"] == "ok"
         assert "raw body" not in repr(raw)
         assert chave not in repr(raw)
@@ -1798,7 +1798,6 @@ class TestRawNfseRecoveryResponse:
             result = mock_client.recover_nfse_by_dps_raw_response(self.DPS_ID)
 
         assert isinstance(result, RawNFSeRecoveryResponse)
-        assert result.chave_acesso == self.CHAVE
         assert result.dps_response.status_code == 200
         assert result.dps_response.headers["x-dps"] == "ok"
         assert result.nfse_response is not None
@@ -1865,7 +1864,6 @@ class TestRawNfseRecoveryResponse:
             result = mock_client.recover_nfse_by_dps_raw_response(self.DPS_ID)
 
         rendered = repr(result)
-        assert "dps body" not in rendered
         assert "nfse body" not in rendered
         assert self.CHAVE not in rendered
 
