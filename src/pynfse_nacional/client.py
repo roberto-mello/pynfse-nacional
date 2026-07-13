@@ -200,10 +200,11 @@ def _extract_chave_acesso_from_raw_response(
     response: RawNFSeResponse,
 ) -> Optional[str]:
     """Extract a valid access key from a detached DPS response."""
+    text = response.text.strip()
     try:
-        data = loads(response.text)
+        data = loads(text)
     except Exception:
-        return None
+        return text if _CHAVE_RE.fullmatch(text) else None
 
     if isinstance(data, dict):
         for key in ("chaveAcesso", "chave_acesso", "chNFSe", "chave"):
@@ -213,6 +214,9 @@ def _extract_chave_acesso_from_raw_response(
 
     if isinstance(data, str) and _CHAVE_RE.fullmatch(data.strip()):
         return data.strip()
+
+    if _CHAVE_RE.fullmatch(text):
+        return text
 
     return None
 
@@ -634,13 +638,24 @@ class NFSeClient:
         """Stream a diagnostic response while retaining only a bounded body."""
         with client.stream(method, url, **kwargs) as response:
             retained = bytearray()
-            content_length = 0
+            declared_length = None
+            try:
+                declared_length = int(response.headers.get("content-length", ""))
+            except (TypeError, ValueError):
+                pass
 
             for chunk in response.iter_bytes():
-                content_length += len(chunk)
                 remaining = _RAW_RESPONSE_BODY_LIMIT - len(retained)
                 if remaining > 0:
                     retained.extend(chunk[:remaining])
+                if len(retained) >= _RAW_RESPONSE_BODY_LIMIT:
+                    break
+
+            content_length = declared_length or len(retained)
+            truncated = content_length > _RAW_RESPONSE_BODY_LIMIT or (
+                declared_length is None
+                and len(retained) >= _RAW_RESPONSE_BODY_LIMIT
+            )
 
             return _detach_response(
                 response,
@@ -648,7 +663,7 @@ class NFSeClient:
                 url=url,
                 body=bytes(retained),
                 content_length=content_length,
-                truncated=content_length > _RAW_RESPONSE_BODY_LIMIT,
+                truncated=truncated,
             )
 
     def submit_dps_raw_response(self, dps: DPS) -> RawNFSeResponse:

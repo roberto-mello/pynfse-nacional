@@ -1810,6 +1810,7 @@ class TestSubmitDps:
         assert len(raw.body) == _RAW_RESPONSE_BODY_LIMIT
         assert raw.content_length == len(body)
         assert raw.truncated is True
+        mock_get_client.return_value.__exit__.assert_called_once()
 
     def test_raw_response_rejects_invalid_inputs(self, mock_client, sample_dps):
         with pytest.raises(ValueError):
@@ -1919,6 +1920,47 @@ class TestRawNfseRecoveryResponse:
         rendered = repr(result)
         assert "nfse body" not in rendered
         assert self.CHAVE not in rendered
+
+    def test_raw_recovery_follows_plaintext_access_key(self, mock_client):
+        dps_response = httpx.Response(200, content=self.CHAVE.encode())
+        nfse_response = httpx.Response(404, content=b"not found")
+
+        with patch.object(mock_client, "_get_client") as mock_get_client:
+            mock_http = MagicMock()
+            mock_http.stream.side_effect = [
+                _stream_context(dps_response),
+                _stream_context(nfse_response),
+            ]
+            mock_get_client.return_value.__enter__ = MagicMock(return_value=mock_http)
+            mock_get_client.return_value.__exit__ = MagicMock(return_value=False)
+
+            result = mock_client.recover_nfse_by_dps_raw_response(self.DPS_ID)
+
+        assert result.nfse_response is not None
+        assert mock_http.stream.call_count == 2
+
+    def test_raw_stream_read_error_maps_to_api_error(self, mock_client):
+        class _ReadErrorResponse:
+            status_code = 502
+            headers = httpx.Headers()
+            encoding = "utf-8"
+
+            @staticmethod
+            def iter_bytes():
+                yield b"partial"
+                raise httpx.ReadError("stream failed")
+
+        with patch.object(mock_client, "_get_client") as mock_get_client:
+            mock_http = MagicMock()
+            mock_http.stream.return_value = _stream_context(_ReadErrorResponse())
+            mock_get_client.return_value.__enter__ = MagicMock(return_value=mock_http)
+            mock_get_client.return_value.__exit__ = MagicMock(return_value=False)
+
+            with pytest.raises(NFSeAPIError) as exc_info:
+                mock_client.query_nfse_raw_response(self.CHAVE)
+
+        assert exc_info.value.code == ErrorCode.COMMUNICATION_ERROR
+        mock_get_client.return_value.__exit__.assert_called_once()
 
     @pytest.mark.parametrize(
         ("method_name", "http_method"),

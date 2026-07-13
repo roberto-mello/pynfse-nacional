@@ -115,7 +115,16 @@ removidos. O corpo retido é limitado a 1 MiB; `content_length` preserva o
 tamanho original.
 
 ```python
-# Use o método submit_dps_raw_response() com a DPS montada no fluxo de emissão.
+import os
+
+from pynfse_nacional import NFSeClient
+
+client = NFSeClient(
+    cert_path="/path/to/certificate",
+    cert_password=os.environ["NFSE_CERT_PASSWORD"],
+    ambiente="homologacao",
+)
+
 raw_nfse = client.query_nfse_raw_response("0" * 50)  # chave sintética
 ```
 
