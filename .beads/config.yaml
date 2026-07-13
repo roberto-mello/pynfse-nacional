@@ -16,6 +16,8 @@ issue-prefix: "pynfse"
 no-daemon: true
 validation:
     on-create: warn
+sync:
+    remote: "git+ssh://git@github.com/roberto-mello/pynfse-nacional.git"
 
 # Disable auto-flush of database to JSONL after mutations
 # no-auto-flush: false
