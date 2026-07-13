@@ -202,6 +202,10 @@ Cliente principal para a API do NFSe Nacional.
 - `query_nfse_by_dps(id_dps: str) -> NFSeQueryResult` - Recupera a NFSe pelo identificador da DPS
 - `has_nfse_by_dps(id_dps: str) -> bool` - Verifica se a DPS já gerou uma NFSe
 - `recover_nfse_by_dps(id_dps: str) -> RecoveryOutcome` - Recuperação simplificada combinando `has_nfse_by_dps` e `query_nfse_by_dps` (ver abaixo)
+- `submit_dps_raw_response(dps: DPS) -> RawNFSeResponse` - Captura a resposta HTTP exata do envio para diagnóstico
+- `query_nfse_raw_response(chave_acesso: str) -> RawNFSeResponse` - Captura a resposta HTTP exata da consulta por chave
+- `query_nfse_by_dps_raw_response(id_dps: str) -> RawNFSeResponse` - Captura a resposta HTTP exata da consulta por DPS
+- `recover_nfse_by_dps_raw_response(id_dps: str) -> RawNFSeRecoveryResponse` - Captura as respostas das consultas por DPS e por chave
 - `download_danfse(chave_acesso: str) -> bytes` - Baixa o DANFSe em PDF
 - `cancel_nfse(chave_acesso, reason, codigo_motivo=1, cnpj_prestador="") -> EventResponse` - Cancela NFSe
 - `substitute_nfse(chave_acesso_original, new_dps, motivo, codigo_motivo) -> NFSeResponse` - Substitui NFSe existente
@@ -271,6 +275,15 @@ o status, sem corpo) via `has_nfse_by_dps()`. Só quando o HEAD confirma que a
 NFSe existe é que ele parte para o `GET` completo e decodifica o XML. Assim,
 quando a DPS ainda não gerou NFSe, isso evita tentar baixar e processar um XML
 que não existe.
+
+**Diagnóstico de respostas brutas:** use os métodos `*_raw_response()` apenas
+para investigar respostas da SEFIN. Eles retornam dados destacados e imutáveis
+depois do fechamento do cliente mTLS, sem expor `httpx.Response`, o cliente
+HTTP, certificados ou chaves privadas. `RawNFSeRecoveryResponse` reúne a
+resposta de `GET /dps/{id}` e, quando há uma chave válida, a resposta de
+`GET /nfse/{chaveAcesso}`. Os corpos podem conter dados de contribuintes e do
+serviço: redija e limite qualquer preview antes de registrar logs; use
+`content_length` para preservar apenas o tamanho quando isso for suficiente.
 
 **Consulta de Convênio Municipal:**
 

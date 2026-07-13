@@ -14,6 +14,8 @@ A referência completa sai dos docstrings, mas esta página serve como mapa ráp
 - `NFSeQueryResult`: retorno de consulta.
 - `EventResponse`: retorno de cancelamento e outros eventos.
 - `RecoveryOutcome`: retorno do fluxo de recuperação por DPS.
+- `RawNFSeResponse`: resposta HTTP destacada para diagnósticos explícitos.
+- `RawNFSeRecoveryResponse`: respostas destacadas das duas etapas de recuperação por DPS.
 
 ## Regras práticas
 
@@ -21,6 +23,8 @@ A referência completa sai dos docstrings, mas esta página serve como mapa ráp
 - Monte os dados com os modelos, em vez de passar dicionários soltos.
 - Separe homologação e produção.
 - Guarde o certificado fora do repositório.
+- Use os métodos `*_raw_response()` somente para diagnóstico; os corpos podem conter
+  dados fiscais e de contribuintes.
 
 ## Onde ver os detalhes
 

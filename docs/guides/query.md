@@ -104,3 +104,36 @@ else:
 - documento do tomador
 - XML da NFSe quando a API devolver o corpo
 - IBSCBS extraído do XML, quando existir
+
+## Diagnóstico de respostas SEFIN
+
+Quando for necessário investigar a resposta exata da SEFIN, use as operações
+diagnósticas públicas. Elas fecham o cliente mTLS antes de retornar e entregam
+um `RawNFSeResponse` imutável com `status_code`, `headers`, `body`, `text`,
+`content_length`, método e URL:
+
+```python
+raw_submit = client.submit_dps_raw_response(dps)
+raw_nfse = client.query_nfse_raw_response("[REDACTED-ACCESS-KEY]")
+```
+
+Para reproduzir a recuperação por DPS em uma única chamada, use:
+
+```python
+probe = client.recover_nfse_by_dps_raw_response(dps_id)
+
+print(probe.dps_response.status_code)
+if probe.nfse_response is not None:
+    print(probe.nfse_response.status_code)
+```
+
+O probe faz `GET /dps/{id}` e, quando encontra uma `chaveAcesso` válida,
+também faz `GET /nfse/{chaveAcesso}`. Respostas HTTP de erro e corpos que não
+sejam JSON continuam disponíveis para inspeção; falhas de transporte,
+certificado e validação de identificadores continuam usando os erros normais
+do cliente. Para consultar apenas a resposta de DPS, use
+`query_nfse_by_dps_raw_response()`.
+
+Os corpos podem conter XML, CPF/CNPJ e dados do serviço. Não registre o corpo
+inteiro: redija campos sensíveis e limite qualquer preview, usando
+`content_length` para preservar o tamanho original.

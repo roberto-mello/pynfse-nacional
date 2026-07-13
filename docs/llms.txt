@@ -17,6 +17,8 @@ Most used models
 - `NFSeQueryResult`
 - `EventResponse`
 - `RecoveryOutcome`
+- `RawNFSeResponse`
+- `RawNFSeRecoveryResponse`
 
 Security and certificate handling
 
@@ -25,6 +27,8 @@ Security and certificate handling
 - Keep the password in environment variables or a secrets manager.
 - Separate homologation and production certificates.
 - Treat the certificate as an identity secret, not as a regular config file.
+- Raw diagnostic response bodies may contain taxpayer and service data; redact
+  and bound previews before logging.
 
 Best starting pages
 

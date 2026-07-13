@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Added
+
+- Public diagnostic operations on `NFSeClient` return detached, immutable
+  `RawNFSeResponse` data for submit, NFSe-by-key, DPS lookup, and two-step DPS
+  recovery probes without exposing the live mTLS client or transport response.
+  Raw bodies must be redacted and bounded before logging.
+
 ## 0.9.4 - 2026-07-12
 
 ### Added
