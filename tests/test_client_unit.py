@@ -67,6 +67,20 @@ class MockResponse:
 
 def _stream_context(response):
     """Return a context manager suitable for mocking httpx.Client.stream."""
+    if getattr(response, "is_stream_consumed", False):
+        buffered_body = response.content
+
+        class _ReplayResponse:
+            status_code = response.status_code
+            headers = response.headers
+            encoding = response.encoding
+
+            @staticmethod
+            def iter_raw(chunk_size=None):
+                yield buffered_body
+
+        response = _ReplayResponse()
+
     context = MagicMock()
     context.__enter__.return_value = response
     context.__exit__.return_value = False
@@ -1939,6 +1953,32 @@ class TestRawNfseRecoveryResponse:
         assert result.nfse_response is not None
         assert mock_http.stream.call_count == 2
 
+    def test_raw_recovery_decodes_gzip_access_key_payload(self, mock_client):
+        payload = b'{"chaveAcesso":"' + self.CHAVE.encode() + b'"}'
+        dps_response = httpx.Response(
+            200,
+            headers={
+                "content-encoding": "gzip",
+                "content-type": "application/json",
+            },
+            stream=httpx.ByteStream(gzip.compress(payload)),
+        )
+        nfse_response = httpx.Response(404, content=b"not found")
+
+        with patch.object(mock_client, "_get_client") as mock_get_client:
+            mock_http = MagicMock()
+            mock_http.stream.side_effect = [
+                _stream_context(dps_response),
+                _stream_context(nfse_response),
+            ]
+            mock_get_client.return_value.__enter__ = MagicMock(return_value=mock_http)
+            mock_get_client.return_value.__exit__ = MagicMock(return_value=False)
+
+            result = mock_client.recover_nfse_by_dps_raw_response(self.DPS_ID)
+
+        assert result.nfse_response is not None
+        assert mock_http.stream.call_count == 2
+
     def test_raw_stream_read_error_maps_to_api_error(self, mock_client):
         class _ReadErrorResponse:
             status_code = 502
@@ -1946,7 +1986,7 @@ class TestRawNfseRecoveryResponse:
             encoding = "utf-8"
 
             @staticmethod
-            def iter_raw():
+            def iter_raw(chunk_size=None):
                 yield b"partial"
                 raise httpx.ReadError("stream failed")
 

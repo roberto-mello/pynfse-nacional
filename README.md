@@ -202,9 +202,9 @@ Cliente principal para a API do NFSe Nacional.
 - `query_nfse_by_dps(id_dps: str) -> NFSeQueryResult` - Recupera a NFSe pelo identificador da DPS
 - `has_nfse_by_dps(id_dps: str) -> bool` - Verifica se a DPS já gerou uma NFSe
 - `recover_nfse_by_dps(id_dps: str) -> RecoveryOutcome` - Recuperação simplificada combinando `has_nfse_by_dps` e `query_nfse_by_dps` (ver abaixo)
-- `submit_dps_raw_response(dps: DPS) -> RawNFSeResponse` - Captura a resposta HTTP exata do envio para diagnóstico
-- `query_nfse_raw_response(chave_acesso: str) -> RawNFSeResponse` - Captura a resposta HTTP exata da consulta por chave
-- `query_nfse_by_dps_raw_response(id_dps: str) -> RawNFSeResponse` - Captura a resposta HTTP exata da consulta por DPS
+- `submit_dps_raw_response(dps: DPS) -> RawNFSeResponse` - Captura um snapshot bruto limitado do envio para diagnóstico
+- `query_nfse_raw_response(chave_acesso: str) -> RawNFSeResponse` - Captura um snapshot bruto limitado da consulta por chave
+- `query_nfse_by_dps_raw_response(id_dps: str) -> RawNFSeResponse` - Captura um snapshot bruto limitado da consulta por DPS
 - `recover_nfse_by_dps_raw_response(id_dps: str) -> RawNFSeRecoveryResponse` - Captura as respostas das consultas por DPS e por chave
 - `download_danfse(chave_acesso: str) -> bytes` - Baixa o DANFSe em PDF
 - `cancel_nfse(chave_acesso, reason, codigo_motivo=1, cnpj_prestador="") -> EventResponse` - Cancela NFSe
@@ -666,7 +666,7 @@ Main client for NFSe Nacional API.
 - `query_nfse_by_dps(id_dps: str) -> NFSeQueryResult` - Recover NFSe by DPS identifier
 - `has_nfse_by_dps(id_dps: str) -> bool` - Check whether a DPS already generated an NFSe
 - `recover_nfse_by_dps(id_dps: str) -> RecoveryOutcome` - High-level recovery combining `has_nfse_by_dps` + `query_nfse_by_dps` for the duplicate / lost-`chave_acesso` path; returns a frozen `RecoveryOutcome` with `status="success" | "processing" | "error"` (see Portuguese section for a full example)
-- `submit_dps_raw_response(dps: DPS) -> RawNFSeResponse` - Capture the exact submit response for diagnostics
+- `submit_dps_raw_response(dps: DPS) -> RawNFSeResponse` - Capture a bounded raw transport snapshot for diagnostics
 - `query_nfse_raw_response(chave_acesso: str) -> RawNFSeResponse` - Capture the access-key query response for diagnostics
 - `query_nfse_by_dps_raw_response(id_dps: str) -> RawNFSeResponse` - Capture the DPS query response for diagnostics
 - `recover_nfse_by_dps_raw_response(id_dps: str) -> RawNFSeRecoveryResponse` - Capture both recovery probe responses

@@ -107,7 +107,7 @@ else:
 
 ## Diagnóstico de respostas SEFIN
 
-Quando for necessário investigar a resposta exata da SEFIN, use as operações
+Quando for necessário investigar o snapshot bruto da resposta da SEFIN, use as operações
 diagnósticas públicas. Elas fecham o cliente mTLS antes de retornar e entregam
 um `RawNFSeResponse` imutável com `status_code`, headers seguros, `body`,
 `text`, `content_length`, `truncated`, método e URL com identificadores

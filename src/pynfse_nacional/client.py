@@ -1,5 +1,6 @@
 import re
 import tempfile
+import zlib
 from contextlib import contextmanager
 from dataclasses import dataclass
 from json import loads
@@ -200,7 +201,19 @@ def _extract_chave_acesso_from_raw_response(
     response: RawNFSeResponse,
 ) -> Optional[str]:
     """Extract a valid access key from a detached DPS response."""
-    text = response.text.strip()
+    body = response.body
+    encoding = response.headers.get("content-encoding", "").lower()
+    if encoding in {"gzip", "deflate"}:
+        try:
+            window_bits = 16 + zlib.MAX_WBITS if encoding == "gzip" else zlib.MAX_WBITS
+            decoder = zlib.decompressobj(window_bits)
+            body = decoder.decompress(body, _RAW_RESPONSE_BODY_LIMIT)
+            if len(body) < _RAW_RESPONSE_BODY_LIMIT:
+                body += decoder.flush()[: _RAW_RESPONSE_BODY_LIMIT - len(body)]
+        except zlib.error:
+            return None
+
+    text = body.decode(response.encoding or "utf-8", errors="replace").strip()
     try:
         data = loads(text)
     except Exception:
@@ -637,26 +650,24 @@ class NFSeClient:
     ) -> RawNFSeResponse:
         """Stream a diagnostic response while retaining only a bounded body."""
         with client.stream(method, url, **kwargs) as response:
-            if getattr(response, "is_stream_consumed", False):
-                body = bytes(response.content)
-                return _detach_response(
-                    response,
-                    method=method,
-                    url=url,
-                    body=body[:_RAW_RESPONSE_BODY_LIMIT],
-                    content_length=min(len(body), _RAW_RESPONSE_BODY_LIMIT),
-                    truncated=len(body) > _RAW_RESPONSE_BODY_LIMIT,
-                )
-
             retained = bytearray()
             truncated = False
 
-            for chunk in response.iter_raw():
+            raw_chunks = iter(response.iter_raw(chunk_size=8192))
+            for chunk in raw_chunks:
                 remaining = _RAW_RESPONSE_BODY_LIMIT - len(retained)
-                if remaining > 0:
+                if len(chunk) > remaining:
                     retained.extend(chunk[:remaining])
-                if len(retained) >= _RAW_RESPONSE_BODY_LIMIT:
                     truncated = True
+                    break
+                retained.extend(chunk)
+                if len(retained) == _RAW_RESPONSE_BODY_LIMIT:
+                    try:
+                        next(raw_chunks)
+                    except StopIteration:
+                        pass
+                    else:
+                        truncated = True
                     break
 
             content_length = len(retained)
