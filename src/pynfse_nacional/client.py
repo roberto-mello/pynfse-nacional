@@ -124,7 +124,10 @@ class RawNFSeResponse:
     @property
     def text(self) -> str:
         """Decode the detached body for diagnostics using the response encoding."""
-        return self.body.decode(self.encoding or "utf-8", errors="replace")
+        try:
+            return self.body.decode(self.encoding or "utf-8", errors="replace")
+        except LookupError:
+            return self.body.decode("utf-8", errors="replace")
 
     def __repr__(self) -> str:
         """Show safe metadata without including response data or identifiers."""
@@ -213,7 +216,10 @@ def _extract_chave_acesso_from_raw_response(
         except zlib.error:
             return None
 
-    text = body.decode(response.encoding or "utf-8", errors="replace").strip()
+    try:
+        text = body.decode(response.encoding or "utf-8", errors="replace").strip()
+    except LookupError:
+        text = body.decode("utf-8", errors="replace").strip()
     try:
         data = loads(text)
     except Exception:
@@ -629,17 +635,21 @@ class NFSeClient:
             with self._get_client() as client:
                 yield client
 
-        except httpx.TimeoutException:
+        except httpx.TimeoutException as exc:
             raise NFSeAPIError(
                 timeout_message,
                 code=ErrorCode.COMMUNICATION_TIMEOUT,
+            ) from RuntimeError(
+                f"SEFIN diagnostic transport failure ({type(exc).__name__})"
             )
 
-        except httpx.RequestError:
+        except httpx.RequestError as exc:
             raise NFSeAPIError(
                 "Erro de comunicação com a SEFIN.",
                 code=ErrorCode.COMMUNICATION_ERROR,
-            ) from None
+            ) from RuntimeError(
+                f"SEFIN diagnostic transport failure ({type(exc).__name__})"
+            )
 
     @staticmethod
     def _stream_raw_response(
@@ -662,12 +672,7 @@ class NFSeClient:
                     break
                 retained.extend(chunk)
                 if len(retained) == _RAW_RESPONSE_BODY_LIMIT:
-                    try:
-                        next(raw_chunks)
-                    except StopIteration:
-                        pass
-                    else:
-                        truncated = True
+                    truncated = True
                     break
 
             content_length = len(retained)

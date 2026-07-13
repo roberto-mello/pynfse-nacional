@@ -150,4 +150,6 @@ do cliente. Para consultar apenas a resposta de DPS, use
 
 Os corpos podem conter XML, CPF/CNPJ e dados do serviço. Não registre o corpo
 inteiro: mascare, anonimize ou remova campos sensíveis e limite qualquer preview, usando
-`content_length` para preservar o tamanho original.
+`content_length` para saber o tamanho retido; quando `truncated=True`, ele é
+um limite inferior. O header `Content-Length`, quando disponível, informa o
+tamanho declarado pelo transporte.
