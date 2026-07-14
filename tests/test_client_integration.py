@@ -5,7 +5,7 @@ These tests require:
 - `NFSE_TEST_CERT_PATH` in `.env`
 - `NFSE_TEST_CERT_PASSWORD` in macOS Keychain or the environment
 
-Run with: uv run pytest --run-homologacao -m homologacao -v -s
+Run with: uv run homologacao
 
 Note: producaorestrita environment may return mock/simulated responses.
 """
@@ -133,10 +133,31 @@ def assert_dps_xml_validates(client: NFSeClient, dps: DPS) -> None:
     signed_xml = client._xml_signer.sign(xml)
     schema.assertValid(etree.fromstring(signed_xml.encode("utf-8")))
 
+
 CERT_PATH = cert_credentials.cert_path()
 CERT_PASSWORD = cert_credentials.cert_password()
 TEST_PRESTADOR_CNPJ = os.environ.get("NFSE_TEST_PRESTADOR_CNPJ", "11222333000181")
 TEST_PRESTADOR_IM = os.environ.get("NFSE_TEST_PRESTADOR_IM", "12345")
+TEST_TOMADOR_CNPJ = os.environ.get("NFSE_TEST_TOMADOR_CNPJ", "").strip()
+TEST_TOMADOR_CPF = os.environ.get("NFSE_TEST_TOMADOR_CPF", "").strip()
+TEST_CODIGO_MUNICIPIO = int(
+    os.environ.get("NFSE_TEST_CODIGO_MUNICIPIO", "1302603") or "1302603"
+)
+TEST_CODIGO_LC116 = (
+    os.environ.get("NFSE_TEST_CODIGO_LC116", "04.01.01") or "04.01.01"
+).strip()
+TEST_CODIGO_TRIBUTACAO_MUNICIPAL = (
+    os.environ.get("NFSE_TEST_CODIGO_TRIBUTACAO_MUNICIPAL", "100") or "100"
+).strip()
+TEST_NUMERO_DPS = int(
+    os.environ.get("NFSE_TEST_NUMERO_DPS", "")
+    or datetime.now().strftime("%y%m%d%H%M%S")
+)
+
+if TEST_TOMADOR_CNPJ and TEST_TOMADOR_CPF:
+    raise pytest.UsageError(
+        "Set only one of NFSE_TEST_TOMADOR_CNPJ or NFSE_TEST_TOMADOR_CPF."
+    )
 
 pytestmark = [
     pytest.mark.homologacao,
@@ -145,6 +166,13 @@ pytestmark = [
         reason=(
             "Test certificate not configured. Set NFSE_TEST_CERT_PATH in .env and "
             "NFSE_TEST_CERT_PASSWORD in macOS Keychain or env."
+        ),
+    ),
+    pytest.mark.skipif(
+        not TEST_TOMADOR_CNPJ and not TEST_TOMADOR_CPF,
+        reason=(
+            "Set NFSE_TEST_TOMADOR_CNPJ or NFSE_TEST_TOMADOR_CPF in .env "
+            "to a registered recipient document."
         ),
     ),
 ]
@@ -171,9 +199,9 @@ def sample_dps():
         logradouro="Rua Teste",
         numero="100",
         bairro="Centro",
-        codigo_municipio=3509502,
-        uf="SP",
-        cep="13000000",
+        codigo_municipio=TEST_CODIGO_MUNICIPIO,
+        uf="AM",
+        cep="69000000",
     )
 
     prestador = Prestador(
@@ -185,13 +213,14 @@ def sample_dps():
     )
 
     tomador = Tomador(
-        cnpj="33444555000181",
+        cpf=TEST_TOMADOR_CPF or None,
+        cnpj=TEST_TOMADOR_CNPJ or None,
         razao_social="Tomador de homologacao",
     )
 
     servico = Servico(
-        codigo_lc116="04.01.01",
-        codigo_tributacao_municipal="100",
+        codigo_lc116=TEST_CODIGO_LC116,
+        codigo_tributacao_municipal=TEST_CODIGO_TRIBUTACAO_MUNICIPAL,
         codigo_nbs="123012200",
         discriminacao="Consulta medica para homologacao.",
         valor_servicos=Decimal("100.00"),
@@ -201,7 +230,7 @@ def sample_dps():
 
     return DPS(
         serie="900",
-        numero=616,
+        numero=TEST_NUMERO_DPS,
         competencia="2026-06",
         data_emissao=datetime.fromisoformat("2026-06-09T15:05:14-03:00"),
         prestador=prestador,

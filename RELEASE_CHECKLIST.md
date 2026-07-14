@@ -21,17 +21,22 @@ package metadata in the repository.
   calls the external SEFIN service:
 
   ```bash
-  uv run pytest \\
-    --run-homologacao \\
-    tests/test_client_integration.py::TestNFSeClientSubmitDPS::test_submit_dps_homologacao \\
-    -v -s
+  uv run homologacao \
+    tests/test_client_integration.py::TestNFSeClientSubmitDPS::test_submit_dps_homologacao
   ```
 
   Set `NFSE_TEST_CERT_PATH` in the git-ignored repository `.env` file before
   running the command.
   Set `NFSE_TEST_PRESTADOR_CNPJ` and `NFSE_TEST_PRESTADOR_IM` there as well when
-  using a registered homologacao identity; the checked-in defaults are
+  using a registered homologacao identity; set exactly one of
+  `NFSE_TEST_TOMADOR_CNPJ` or `NFSE_TEST_TOMADOR_CPF` to a real recipient
+  document registered in the Cadastro CPF/CNPJ. The checked-in defaults are
   synthetic and may receive a business-rule rejection.
+  Set `NFSE_TEST_CODIGO_MUNICIPIO` to the prestador's municipality,
+  `NFSE_TEST_CODIGO_LC116` to the national service code, and
+  `NFSE_TEST_CODIGO_TRIBUTACAO_MUNICIPAL` to the municipality's registered
+  service code when one is required. Leave `NFSE_TEST_NUMERO_DPS` empty to
+  generate a unique DPS number, or set it to an unused number explicitly.
   Resolve `NFSE_TEST_CERT_PASSWORD` through the configured secret manager or
   Keychain; never commit or inline the password. Release gate passes only when
   the test reports `NFSe issued successfully`, with an access key and NFSe

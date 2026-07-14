@@ -5,8 +5,11 @@
 Run the live homologacao suite with:
 
 ```bash
-uv run pytest --run-homologacao -m homologacao -v -s
+uv run homologacao
 ```
+
+The shortcut expands to `pytest --run-homologacao -m homologacao -v -s` and
+accepts additional pytest arguments.
 
 Requirements:
 
@@ -14,6 +17,14 @@ Requirements:
 - `NFSE_TEST_CERT_PASSWORD` in macOS Keychain
 - A valid ICP-Brasil A1 test certificate (`.pfx`)
 - Optional `NFSE_TEST_PRESTADOR_CNPJ` and `NFSE_TEST_PRESTADOR_IM` in `.env`
+- Exactly one of `NFSE_TEST_TOMADOR_CNPJ` or `NFSE_TEST_TOMADOR_CPF` in `.env`,
+  containing a real document registered in the recipient's Cadastro CPF/CNPJ;
+  synthetic documents are not accepted by SEFIN.
+- `NFSE_TEST_CODIGO_MUNICIPIO` must match the prestador's municipality. Set
+  `NFSE_TEST_CODIGO_LC116` for the national service code and, when applicable,
+  `NFSE_TEST_CODIGO_TRIBUTACAO_MUNICIPAL` for that municipality's service code.
+- `NFSE_TEST_NUMERO_DPS` is optional; when omitted, the test generates a unique
+  number to avoid reusing a previously issued DPS.
 
 Store the password in macOS Keychain or another secret manager. Do not pass it
 inline on the shell.
@@ -42,3 +53,5 @@ Known issue:
 
 - The suite targets `ambiente="homologacao"`.
 - If credentials are missing, the tests skip.
+- If neither recipient document is configured, the tests skip because SEFIN
+  validates the recipient against the Cadastro CPF/CNPJ.

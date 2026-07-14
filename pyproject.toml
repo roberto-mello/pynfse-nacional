@@ -58,6 +58,7 @@ copyright_year = 2026
 
 [project.scripts]
 release = "pynfse_nacional.release:main"
+homologacao = "pynfse_nacional.homologacao:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/pynfse_nacional"]
