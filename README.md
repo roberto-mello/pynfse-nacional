@@ -292,6 +292,8 @@ enviar para um serviço externo de logs. Para inspeção manual, mascare, anonim
 ou remova dados sensíveis; use
 `content_length` para saber quantos bytes do transporte foram retidos e
 `truncated` para detectar respostas limitadas.
+`content_length` mede somente os bytes retidos; o `Content-Length` declarado
+pela SEFIN, quando disponível, fica separado em `raw.headers`.
 
 **Consulta de Convênio Municipal:**
 

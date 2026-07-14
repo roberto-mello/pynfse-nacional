@@ -112,9 +112,12 @@ diagnósticas públicas. Elas fecham o cliente mTLS antes de retornar e entregam
 um `RawNFSeResponse` imutável com `status_code`, cabeçalhos seguros, `body`,
 `text`, `content_length`, `truncated`, método e URL com identificadores
 removidos. O corpo de bytes do transporte é limitado a 1 MiB;
-`content_length` preserva o tamanho retido, e `truncated=True` indica que ele
-é apenas um limite inferior porque a leitura foi interrompida. Se a resposta
-tiver `Content-Encoding`, consulte esse cabeçalho antes de interpretar `body`.
+`content_length` preserva o tamanho retido, separado do `Content-Length`
+declarado pelo servidor em `headers`. `truncated=True` indica que o limite de
+retenção foi atingido; como a leitura para nesse limite, ele também pode
+corresponder ao tamanho exato da resposta. Trate-o como um limite inferior.
+Se a resposta tiver `Content-Encoding`, consulte esse cabeçalho antes de
+interpretar `body`.
 
 ```python
 import os
@@ -153,5 +156,6 @@ use `raw_nfse.redacted_preview()`; ele mascara campos comuns e limita o texto,
 mas é melhor esforço e deve ser revisado antes de enviar para um serviço externo de
 logs. Não registre o corpo inteiro: mascare, anonimize ou remova campos sensíveis, usando
 `content_length` para saber o tamanho retido; quando `truncated=True`, ele é
-um limite inferior. O cabeçalho `Content-Length`, quando disponível, informa o
-tamanho declarado pelo transporte.
+um limite inferior e pode coincidir com o tamanho exato quando a resposta
+atinge exatamente 1 MiB. O cabeçalho `Content-Length`, quando disponível,
+informa o tamanho declarado pelo transporte.

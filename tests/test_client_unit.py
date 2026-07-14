@@ -6,6 +6,7 @@ making real API calls.
 
 import base64
 import gzip
+import zlib
 from datetime import datetime
 from decimal import Decimal
 from json import JSONDecodeError
@@ -26,7 +27,10 @@ from pynfse_nacional import (
 from pynfse_nacional.client import (
     _RAW_RESPONSE_BODY_LIMIT,
     RecoveryOutcome,
+    _extract_chave_acesso_from_dps_response,
+    _extract_chave_acesso_from_raw_response,
     _extract_nfse_number_from_xml,
+    _redact_diagnostic_url,
 )
 from pynfse_nacional.models import (
     DPS,
@@ -1536,7 +1540,8 @@ class TestCancelNfse:
 
         assert exc_info.value.code == ErrorCode.COMMUNICATION_ERROR
         assert exc_info.value.message == "Erro de comunicação ao cancelar NFSe."
-        assert "Server disconnected" in str(exc_info.value.__cause__)
+        assert isinstance(exc_info.value.__cause__, RuntimeError)
+        assert "Server disconnected" not in str(exc_info.value.__cause__)
 
 
 # =============================================================================
@@ -1674,7 +1679,8 @@ class TestSubmitDps:
 
         assert exc_info.value.code == ErrorCode.COMMUNICATION_ERROR
         assert exc_info.value.message == "Erro de comunicação com a SEFIN."
-        assert "Server disconnected" in str(exc_info.value.__cause__)
+        assert isinstance(exc_info.value.__cause__, RuntimeError)
+        assert "Server disconnected" not in str(exc_info.value.__cause__)
 
     def test_submit_dps_raw_response_reuses_submit_payload(
         self, mock_client, sample_dps
@@ -1826,6 +1832,26 @@ class TestSubmitDps:
         assert raw.truncated is True
         mock_get_client.return_value.__exit__.assert_called_once()
 
+    def test_raw_response_exact_limit_is_reported_as_cap_reached(self, mock_client):
+        response = httpx.Response(
+            200,
+            content=b"x" * _RAW_RESPONSE_BODY_LIMIT,
+        )
+
+        with patch.object(mock_client, "_get_client") as mock_get_client:
+            mock_http = MagicMock()
+            mock_http.stream.return_value = _stream_context(response)
+            mock_get_client.return_value.__enter__ = MagicMock(return_value=mock_http)
+            mock_get_client.return_value.__exit__ = MagicMock(return_value=False)
+
+            raw = mock_client.query_nfse_raw_response(
+                "12345678901234567890123456789012345678901234567890"
+            )
+
+        assert len(raw.body) == _RAW_RESPONSE_BODY_LIMIT
+        assert raw.content_length == _RAW_RESPONSE_BODY_LIMIT
+        assert raw.truncated is True
+
     def test_raw_response_redacted_preview_masks_json_fields_and_is_bounded(self):
         body = (
             b'{"cpf":"123.456.789-09","nome":"Pessoa Sintetica",'
@@ -1857,15 +1883,16 @@ class TestSubmitDps:
             b"<retorno><CPF>12345678909</CPF><xNome>Pessoa Sintetica</xNome>"
             b"<mensagem>falha de validacao</mensagem></retorno>"
         )
+        compressed_body = gzip.compress(body)
         raw = RawNFSeResponse(
             status_code=400,
             headers=httpx.Headers(
                 {"content-encoding": "gzip", "content-type": "application/xml"}
             ),
-            body=gzip.compress(body),
+            body=compressed_body,
             method="GET",
             url="https://example.test/dps/DPS[REDACTED]",
-            content_length=len(body),
+            content_length=len(compressed_body),
         )
 
         preview = raw.redacted_preview()
@@ -1873,6 +1900,202 @@ class TestSubmitDps:
         assert "12345678909" not in preview
         assert "Pessoa Sintetica" not in preview
         assert "falha de validacao" in preview
+
+    def test_raw_response_redacted_preview_masks_free_form_documents(self):
+        raw = RawNFSeResponse(
+            status_code=422,
+            headers=httpx.Headers({"content-type": "application/json"}),
+            body=b'{"message":"CPF 123.456.789-09 CNPJ 12.345.678/0001-99"}',
+            method="GET",
+            url="https://example.test/nfse/redacted",
+            content_length=1,
+        )
+
+        preview = raw.redacted_preview()
+
+        assert "123.456.789-09" not in preview
+        assert "12.345.678/0001-99" not in preview
+
+    def test_raw_response_redacted_preview_decodes_raw_deflate(self):
+        payload = b"<retorno><xNome>Pessoa Sintetica</xNome></retorno>"
+        compressor = zlib.compressobj(wbits=-zlib.MAX_WBITS)
+        compressed_body = compressor.compress(payload) + compressor.flush()
+        raw = RawNFSeResponse(
+            status_code=400,
+            headers=httpx.Headers({"content-encoding": "deflate"}),
+            body=compressed_body,
+            method="GET",
+            url="https://example.test/nfse/redacted",
+            content_length=len(compressed_body),
+        )
+
+        preview = raw.redacted_preview()
+
+        assert "Pessoa Sintetica" not in preview
+
+    def test_raw_response_redacted_preview_falls_back_for_invalid_gzip(self):
+        raw = RawNFSeResponse(
+            status_code=400,
+            headers=httpx.Headers({"content-encoding": "gzip"}),
+            body=b"\xffnot gzip",
+            method="GET",
+            url="https://example.test/nfse/redacted",
+            content_length=9,
+        )
+
+        assert "�not gzip" in raw.redacted_preview()
+
+    def test_redaction_skips_regex_passes_for_json(self):
+        raw = RawNFSeResponse(
+            status_code=422,
+            headers=httpx.Headers({"content-type": "application/json"}),
+            body=b'{"nome":"Pessoa Sintetica","status":"erro"}',
+            method="GET",
+            url="https://example.test/nfse/redacted",
+            content_length=1,
+        )
+
+        assert raw.redacted_preview() == '{"nome":"[REDACTED]","status":"erro"}'
+
+    def test_redaction_masks_multiword_plain_text_fields(self):
+        raw = RawNFSeResponse(
+            status_code=422,
+            headers=httpx.Headers(),
+            body=b"nome=Pessoa Sintetica\nstatus=erro",
+            method="GET",
+            url="https://example.test/nfse/redacted",
+            content_length=1,
+        )
+
+        preview = raw.redacted_preview()
+
+        assert "Pessoa Sintetica" not in preview
+        assert "nome=[REDACTED]" in preview
+
+    @pytest.mark.parametrize(
+        "body", [b'"nome=Pessoa Sintetica"', b'["nome=Pessoa Sintetica"]']
+    )
+    def test_redaction_keeps_regex_fallback_for_json_scalars_and_lists(self, body):
+        raw = RawNFSeResponse(
+            status_code=422,
+            headers=httpx.Headers({"content-type": "application/json"}),
+            body=body,
+            method="GET",
+            url="https://example.test/nfse/redacted",
+            content_length=len(body),
+        )
+
+        assert "Pessoa Sintetica" not in raw.redacted_preview()
+
+    def test_redaction_anchors_access_keys_and_covers_nf_e_keys(self):
+        access_key = "1" * 50
+        nf_e_key = "2" * 44
+        raw = RawNFSeResponse(
+            status_code=422,
+            headers=httpx.Headers(),
+            body=f"documento={nf_e_key}".encode(),
+            method="GET",
+            url=f"https://example.test/nfse/{'3' * 60}",
+            content_length=1,
+        )
+
+        preview = raw.redacted_preview()
+
+        assert nf_e_key not in preview
+        assert _redact_diagnostic_url(f"/nfse/{access_key}").endswith(
+            "/nfse/[REDACTED-ACCESS-KEY]"
+        )
+        assert _redact_diagnostic_url(f"/nfse/{'4' * 60}").endswith(
+            f"/nfse/{'4' * 60}"
+        )
+
+    def test_raw_response_redacted_preview_covers_nfse_fields(self):
+        body = (
+            b'{"CNPJPrest":"12345678000199","CPFToma":"12345678909",'
+            b'"CNPJToma":"98765432000188","nNFSe":"12345",'
+            b'"codigoVerificacao":"VERIFICACAO-SINTETICA",'
+            b'"nfse":"BASE64-GZIP-NFSE",'
+            b'"nfseXmlGZipB64":"BASE64-GZIP-XML",'
+            b'"endereco":{"xLgr":"Rua Sensivel","nro":"123",'
+            b'"xBairro":"Bairro Sensivel","xCpl":"Sala 2",'
+            b'"cMun":"3550308","xMun":"Municipio Sensivel"}}'
+        )
+        raw = RawNFSeResponse(
+            status_code=200,
+            headers=httpx.Headers({"content-type": "application/json"}),
+            body=body,
+            method="GET",
+            url="https://example.test/nfse/redacted",
+            content_length=len(body),
+        )
+
+        preview = raw.redacted_preview()
+
+        for value in (
+            "12345678000199",
+            "12345678909",
+            "98765432000188",
+            "12345",
+            "VERIFICACAO-SINTETICA",
+            "BASE64-GZIP-NFSE",
+            "BASE64-GZIP-XML",
+            "Rua Sensivel",
+            "123",
+            "Bairro Sensivel",
+            "Sala 2",
+            "3550308",
+            "Municipio Sensivel",
+        ):
+            assert value not in preview
+
+        xml_raw = RawNFSeResponse(
+            status_code=200,
+            headers=httpx.Headers({"content-type": "application/xml"}),
+            body=(
+                b"<nfse:Endereco xmlns:nfse='urn:test'>"
+                b"<nfse:xLgr>Rua XML</nfse:xLgr><nfse:nro>99</nfse:nro>"
+                b"<nfse:xBairro>Bairro XML</nfse:xBairro>"
+                b"<nfse:xCpl>Fundos</nfse:xCpl><nfse:cMun>123</nfse:cMun>"
+                b"<nfse:xMun>Municipio XML</nfse:xMun></nfse:Endereco>"
+            ),
+            method="GET",
+            url="https://example.test/nfse/redacted",
+            content_length=1,
+        )
+
+        xml_preview = xml_raw.redacted_preview()
+        for value in (
+            "Rua XML",
+            "99",
+            "Bairro XML",
+            "Fundos",
+            "123",
+            "Municipio XML",
+        ):
+            assert value not in xml_preview
+
+    def test_production_dps_key_extraction_accepts_numeric_json_literal(self):
+        chave = "12345678901234567890123456789012345678901234567890"
+        response = httpx.Response(
+            200,
+            headers={"content-type": "application/json"},
+            content=chave.encode(),
+        )
+
+        assert _extract_chave_acesso_from_dps_response(response) == chave
+
+    def test_raw_dps_key_extraction_accepts_numeric_json_literal(self):
+        chave = "12345678901234567890123456789012345678901234567890"
+        response = RawNFSeResponse(
+            status_code=200,
+            headers=httpx.Headers({"content-type": "application/json"}),
+            body=chave.encode(),
+            method="GET",
+            url="https://example.test/dps/redacted",
+            content_length=len(chave),
+        )
+
+        assert _extract_chave_acesso_from_raw_response(response) == chave
 
     def test_raw_response_redacted_preview_rejects_invalid_limits(self):
         raw = RawNFSeResponse(
@@ -1888,6 +2111,21 @@ class TestSubmitDps:
             raw.redacted_preview(0)
         with pytest.raises(ValueError):
             raw.redacted_preview(True)
+
+    def test_raw_response_redacted_preview_falls_back_for_deep_json(self):
+        body = (b"[" * 2000) + b"0" + (b"]" * 2000)
+        raw = RawNFSeResponse(
+            status_code=422,
+            headers=httpx.Headers({"content-type": "application/json"}),
+            body=body,
+            method="GET",
+            url="https://example.test/nfse/redacted",
+            content_length=len(body),
+        )
+
+        preview = raw.redacted_preview()
+        assert len(preview) <= 2048
+        assert preview.endswith("… [truncated]")
 
     def test_raw_response_rejects_invalid_inputs(self, mock_client, sample_dps):
         with pytest.raises(ValueError):

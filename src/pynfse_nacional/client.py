@@ -40,6 +40,7 @@ from .xml_signer import XMLSignerService
 _CHAVE_RE = CHAVE_ACESSO_RE
 _ID_DPS_RE = re.compile(r"^DPS\d{42}$")
 _RAW_RESPONSE_BODY_LIMIT = 1024 * 1024
+_RAW_RESPONSE_HEADER_LIMIT = 1024
 _RAW_RESPONSE_PREVIEW_LIMIT = 2048
 _REDACTED_VALUE = "[REDACTED]"
 _SENSITIVE_DIAGNOSTIC_FIELDS = frozenset(
@@ -49,9 +50,14 @@ _SENSITIVE_DIAGNOSTIC_FIELDS = frozenset(
         "cep",
         "chaveacesso",
         "chnfse",
+        "cmun",
         "cnpj",
+        "cnpjprest",
         "complemento",
         "cpf",
+        "cpftoma",
+        "cnpjtoma",
+        "codigoverificacao",
         "email",
         "endereco",
         "fone",
@@ -61,11 +67,19 @@ _SENSITIVE_DIAGNOSTIC_FIELDS = frozenset(
         "municipio",
         "nome",
         "nomerazaosocial",
+        "nfse",
+        "nfsexmlgzipb64",
         "numero",
+        "nnfse",
         "razaosocial",
         "telefone",
         "uf",
         "xnome",
+        "xlgr",
+        "xmun",
+        "xbairro",
+        "xcpl",
+        "nro",
     }
 )
 _SAFE_RESPONSE_HEADERS = frozenset(
@@ -137,7 +151,9 @@ class RawNFSeResponse:
     The response body is retained as bytes so callers can inspect the exact
     SEFIN payload after the mTLS client has been closed. NFSe responses may
     contain taxpayer and service data; callers should redact or bound
-    ``body``/``text`` before logging it.
+    ``body``/``text`` before logging it. ``content_length`` is the number of
+    retained body bytes; the server-declared HTTP ``Content-Length`` remains
+    available separately in ``headers`` when present.
     """
 
     status_code: int
@@ -152,10 +168,7 @@ class RawNFSeResponse:
     @property
     def text(self) -> str:
         """Decode the detached body for diagnostics using the response encoding."""
-        try:
-            return self.body.decode(self.encoding or "utf-8", errors="replace")
-        except LookupError:
-            return self.body.decode("utf-8", errors="replace")
+        return _decode_diagnostic_bytes(self.body, self.encoding)
 
     def redacted_preview(self, max_chars: int = _RAW_RESPONSE_PREVIEW_LIMIT) -> str:
         """Return a bounded, best-effort redacted text preview.
@@ -181,10 +194,7 @@ class RawNFSeResponse:
         )
         if body is None:
             body = self.body
-        try:
-            text = body.decode(self.encoding or "utf-8", errors="replace")
-        except LookupError:
-            text = body.decode("utf-8", errors="replace")
+        text = _decode_diagnostic_bytes(body, self.encoding)
         return _bound_diagnostic_preview(_redact_diagnostic_text(text), max_chars)
 
     def __repr__(self) -> str:
@@ -223,15 +233,17 @@ class RawNFSeRecoveryResponse:
 
 def _redact_diagnostic_url(url: str) -> str:
     """Remove invoice and DPS identifiers from diagnostic URL metadata."""
-    url = re.sub(r"\d{50}", "[REDACTED-ACCESS-KEY]", url)
+    url = re.sub(r"(?<!\d)\d{50}(?!\d)", "[REDACTED-ACCESS-KEY]", url)
     return re.sub(r"DPS\d{42}", "DPS[REDACTED]", url)
 
 
 def _normalize_diagnostic_field(value: str) -> str:
+    """Normalize field names for case and punctuation-insensitive matching."""
     return re.sub(r"[^a-z0-9]", "", value.casefold())
 
 
-def _redact_json_value(value, field: str | None = None):
+def _redact_json_value(value: object, field: str | None = None) -> object:
+    """Recursively replace sensitive values in a JSON-shaped object."""
     if (
         field is not None
         and _normalize_diagnostic_field(field) in _SENSITIVE_DIAGNOSTIC_FIELDS
@@ -244,17 +256,48 @@ def _redact_json_value(value, field: str | None = None):
     return value
 
 
+def _contains_unstructured_sensitive_text(value: object) -> bool:
+    """Detect free-form strings that still need regex-based redaction."""
+    if isinstance(value, str):
+        field_names = "|".join(sorted(_SENSITIVE_DIAGNOSTIC_FIELDS))
+        return bool(
+            re.search(rf"\b(?:{field_names})\b\s*[:=]", value, re.IGNORECASE)
+            or re.search(r"(?<!\d)\d{44,50}(?!\d)", value)
+            or re.search(
+                r"(?<!\d)(?:\d{2}[. ]?\d{3}[. ]?\d{3}/?\d{4}-?\d{2})(?!\d)",
+                value,
+            )
+            or re.search(
+                r"(?<!\d)(?:\d{3}[. ]?\d{3}[. ]?\d{3}-?\d{2})(?!\d)",
+                value,
+            )
+            or re.search(r"\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b", value, re.I)
+        )
+    if isinstance(value, dict):
+        return any(
+            _contains_unstructured_sensitive_text(item) for item in value.values()
+        )
+    if isinstance(value, list):
+        return any(_contains_unstructured_sensitive_text(item) for item in value)
+    return False
+
+
 def _redact_diagnostic_text(text: str) -> str:
     """Best-effort redaction for structured and common plain-text payloads."""
     try:
         parsed = loads(text)
-    except Exception:
+    except (ValueError, RecursionError):
         pass
     else:
         try:
-            text = dumps(
+            redacted_json = dumps(
                 _redact_json_value(parsed), ensure_ascii=False, separators=(",", ":")
             )
+            if isinstance(parsed, dict) and not _contains_unstructured_sensitive_text(
+                parsed
+            ):
+                return redacted_json
+            text = redacted_json
         except (TypeError, ValueError):
             pass
 
@@ -282,7 +325,7 @@ def _redact_diagnostic_text(text: str) -> str:
     )
     plain_fields = re.compile(
         rf"(?P<label>\b(?:{field_names})\b\s*[:=]\s*)"
-        rf"(?P<value>[^\s,;}}\]]+)",
+        rf"(?P<value>[^\n,;}}\]]+)",
         re.IGNORECASE,
     )
     text = plain_fields.sub(
@@ -290,6 +333,7 @@ def _redact_diagnostic_text(text: str) -> str:
     )
 
     text = re.sub(r"(?<!\d)\d{50}(?!\d)", "[REDACTED-ACCESS-KEY]", text)
+    text = re.sub(r"(?<!\d)\d{44}(?!\d)", "[REDACTED-ACCESS-KEY]", text)
     text = re.sub(
         r"(?<!\d)(?:\d{2}[. ]?\d{3}[. ]?\d{3}/?\d{4}-?\d{2})(?!\d)",
         _REDACTED_VALUE,
@@ -309,6 +353,7 @@ def _redact_diagnostic_text(text: str) -> str:
 
 
 def _bound_diagnostic_preview(text: str, max_chars: int) -> str:
+    """Bound preview text and append a marker when the body exceeds the limit."""
     if len(text) <= max_chars:
         return text
     marker = "… [truncated]"
@@ -318,18 +363,57 @@ def _bound_diagnostic_preview(text: str, max_chars: int) -> str:
 
 
 def _decode_diagnostic_body(body: bytes, content_encoding: str) -> Optional[bytes]:
+    """Decode bounded gzip/deflate bodies, including raw deflate payloads."""
     encoding = content_encoding.split(",", 1)[0].strip().lower()
     if encoding not in {"gzip", "deflate"}:
         return body
-    try:
-        window_bits = 16 + zlib.MAX_WBITS if encoding == "gzip" else zlib.MAX_WBITS
+
+    def _decompress(window_bits: int) -> bytes:
         decoder = zlib.decompressobj(window_bits)
         decoded = decoder.decompress(body, _RAW_RESPONSE_BODY_LIMIT)
         if len(decoded) < _RAW_RESPONSE_BODY_LIMIT:
             decoded += decoder.flush()[: _RAW_RESPONSE_BODY_LIMIT - len(decoded)]
         return decoded
+
+    try:
+        window_bits = 16 + zlib.MAX_WBITS if encoding == "gzip" else zlib.MAX_WBITS
+        return _decompress(window_bits)
     except zlib.error:
-        return None
+        if encoding != "deflate":
+            return None
+        try:
+            return _decompress(-zlib.MAX_WBITS)
+        except zlib.error:
+            return None
+
+
+def _decode_diagnostic_bytes(body: bytes, encoding: Optional[str]) -> str:
+    """Decode diagnostic bytes, falling back to UTF-8 for unknown charsets."""
+    try:
+        return body.decode(encoding or "utf-8", errors="replace")
+    except LookupError:
+        return body.decode("utf-8", errors="replace")
+
+
+def _find_chave_acesso_in_text(text: str) -> Optional[str]:
+    """Extract a valid access key from JSON or a plain response body."""
+    text = text.strip()
+    try:
+        data = loads(text)
+    except (ValueError, RecursionError):
+        return text if _CHAVE_RE.fullmatch(text) else None
+
+    if isinstance(data, dict):
+        for key in ("chaveAcesso", "chave_acesso", "chNFSe", "chave"):
+            value = data.get(key)
+            if isinstance(value, str) and _CHAVE_RE.fullmatch(value):
+                return value
+
+    if isinstance(data, str) and _CHAVE_RE.fullmatch(data.strip()):
+        return data.strip()
+
+    # Keep bare numeric JSON literals compatible with plain-text responses.
+    return text if _CHAVE_RE.fullmatch(text) else None
 
 
 def _detach_response(
@@ -346,7 +430,7 @@ def _detach_response(
     headers = getattr(response, "headers", {})
     header_items = headers.items() if hasattr(headers, "items") else ()
     safe_headers = {
-        str(key): str(value)[:1024]
+        str(key): str(value)[:_RAW_RESPONSE_HEADER_LIMIT]
         for key, value in header_items
         if str(key).lower() in _SAFE_RESPONSE_HEADERS
     }
@@ -372,29 +456,7 @@ def _extract_chave_acesso_from_raw_response(
     )
     if body is None:
         return None
-
-    try:
-        text = body.decode(response.encoding or "utf-8", errors="replace").strip()
-    except LookupError:
-        text = body.decode("utf-8", errors="replace").strip()
-    try:
-        data = loads(text)
-    except Exception:
-        return text if _CHAVE_RE.fullmatch(text) else None
-
-    if isinstance(data, dict):
-        for key in ("chaveAcesso", "chave_acesso", "chNFSe", "chave"):
-            value = data.get(key)
-            if isinstance(value, str) and _CHAVE_RE.fullmatch(value):
-                return value
-
-    if isinstance(data, str) and _CHAVE_RE.fullmatch(data.strip()):
-        return data.strip()
-
-    if _CHAVE_RE.fullmatch(text):
-        return text
-
-    return None
+    return _find_chave_acesso_in_text(_decode_diagnostic_bytes(body, response.encoding))
 
 
 def _validate_chave_acesso(chave: str) -> None:
@@ -439,23 +501,15 @@ def _extract_chave_acesso_from_dps_response(
     response: httpx.Response,
 ) -> Optional[str]:
     """Extract the NFSe access key from a DPS lookup response."""
-
     try:
         data = response.json()
-    except Exception:
-        text = response.text.strip()
-        return text if _CHAVE_RE.fullmatch(text) else None
+    except ValueError:
+        return _find_chave_acesso_in_text(response.text)
 
-    if isinstance(data, dict):
-        for key in ("chaveAcesso", "chave_acesso", "chNFSe", "chave"):
-            value = data.get(key)
-            if isinstance(value, str) and _CHAVE_RE.fullmatch(value):
-                return value
-
-    if isinstance(data, str) and _CHAVE_RE.fullmatch(data.strip()):
-        return data.strip()
-
-    return None
+    try:
+        return _find_chave_acesso_in_text(dumps(data))
+    except (TypeError, ValueError):
+        return _find_chave_acesso_in_text(response.text)
 
 
 def _error_payload(response: httpx.Response) -> dict[str, object]:
@@ -573,6 +627,11 @@ def _require_json_object(
         )
 
     return data
+
+
+def _sanitized_transport_cause(exc: httpx.RequestError) -> RuntimeError:
+    """Describe a transport failure without retaining request-bearing data."""
+    return RuntimeError(f"SEFIN transport failure ({type(exc).__name__})")
 
 
 try:
@@ -748,17 +807,17 @@ class NFSeClient:
                 response = self._post_submit_dps(client, url, payload)
                 return self._parse_dps_response(response)
 
-        except httpx.TimeoutException:
+        except httpx.TimeoutException as exc:
             raise NFSeAPIError(
                 "Tempo esgotado ao comunicar com a SEFIN.",
                 code=ErrorCode.COMMUNICATION_TIMEOUT,
-            )
+            ) from _sanitized_transport_cause(exc)
 
-        except httpx.RequestError as e:
+        except httpx.RequestError as exc:
             raise NFSeAPIError(
                 "Erro de comunicação com a SEFIN.",
                 code=ErrorCode.COMMUNICATION_ERROR,
-            ) from e
+            ) from _sanitized_transport_cause(exc)
 
     def _build_submit_request(self, dps: DPS) -> tuple[str, dict[str, str]]:
         """Build the canonical URL and payload used by submit operations."""
@@ -796,17 +855,13 @@ class NFSeClient:
             raise NFSeAPIError(
                 timeout_message,
                 code=ErrorCode.COMMUNICATION_TIMEOUT,
-            ) from RuntimeError(
-                f"SEFIN diagnostic transport failure ({type(exc).__name__})"
-            )
+            ) from _sanitized_transport_cause(exc)
 
         except httpx.RequestError as exc:
             raise NFSeAPIError(
                 "Erro de comunicação com a SEFIN.",
                 code=ErrorCode.COMMUNICATION_ERROR,
-            ) from RuntimeError(
-                f"SEFIN diagnostic transport failure ({type(exc).__name__})"
-            )
+            ) from _sanitized_transport_cause(exc)
 
     @staticmethod
     def _stream_raw_response(
@@ -1018,17 +1073,17 @@ class NFSeClient:
         except NFSeAPIError:
             raise
 
-        except httpx.TimeoutException:
+        except httpx.TimeoutException as exc:
             raise NFSeAPIError(
                 "Tempo esgotado ao consultar NFSe.",
                 code=ErrorCode.COMMUNICATION_TIMEOUT,
-            )
+            ) from _sanitized_transport_cause(exc)
 
-        except httpx.RequestError as e:
+        except httpx.RequestError as exc:
             raise NFSeAPIError(
                 "Erro de comunicação com a SEFIN.",
                 code=ErrorCode.COMMUNICATION_ERROR,
-            ) from e
+            ) from _sanitized_transport_cause(exc)
 
     def query_nfse_by_dps(self, id_dps: str) -> NFSeQueryResult:
         """Recover an NFSe by DPS identifier, then fetch the full invoice."""
@@ -1061,17 +1116,17 @@ class NFSeClient:
         except NFSeAPIError:
             raise
 
-        except httpx.TimeoutException:
+        except httpx.TimeoutException as exc:
             raise NFSeAPIError(
                 "Tempo esgotado ao consultar DPS.",
                 code=ErrorCode.COMMUNICATION_TIMEOUT,
-            )
+            ) from _sanitized_transport_cause(exc)
 
-        except httpx.RequestError as e:
+        except httpx.RequestError as exc:
             raise NFSeAPIError(
                 "Erro de comunicação com a SEFIN.",
                 code=ErrorCode.COMMUNICATION_ERROR,
-            ) from e
+            ) from _sanitized_transport_cause(exc)
 
     def _get_dps_response(
         self, client: httpx.Client, id_dps: str
@@ -1155,17 +1210,17 @@ class NFSeClient:
         except NFSeAPIError:
             raise
 
-        except httpx.TimeoutException:
+        except httpx.TimeoutException as exc:
             raise NFSeAPIError(
                 "Tempo esgotado ao consultar DPS.",
                 code=ErrorCode.COMMUNICATION_TIMEOUT,
-            )
+            ) from _sanitized_transport_cause(exc)
 
-        except httpx.RequestError as e:
+        except httpx.RequestError as exc:
             raise NFSeAPIError(
                 "Erro de comunicação com a SEFIN.",
                 code=ErrorCode.COMMUNICATION_ERROR,
-            ) from e
+            ) from _sanitized_transport_cause(exc)
 
     def recover_nfse_by_dps(self, id_dps: str) -> RecoveryOutcome:
         """Recover an NFSe by DPS identifier when submit may have already succeeded.
@@ -1240,17 +1295,17 @@ class NFSeClient:
         except NFSeAPIError:
             raise
 
-        except httpx.TimeoutException:
+        except httpx.TimeoutException as exc:
             raise NFSeAPIError(
                 "Tempo esgotado ao baixar DANFSe.",
                 code=ErrorCode.COMMUNICATION_TIMEOUT,
-            )
+            ) from _sanitized_transport_cause(exc)
 
-        except httpx.RequestError as e:
+        except httpx.RequestError as exc:
             raise NFSeAPIError(
                 "Erro de comunicação com o convênio municipal.",
                 code=ErrorCode.COMMUNICATION_ERROR,
-            ) from e
+            ) from _sanitized_transport_cause(exc)
 
     def substitute_nfse(
         self,
@@ -1330,17 +1385,17 @@ class NFSeClient:
                 response = client.post(url, json=payload)
                 return self._parse_event_response(response)
 
-        except httpx.TimeoutException:
+        except httpx.TimeoutException as exc:
             raise NFSeAPIError(
                 "Tempo esgotado ao cancelar NFSe.",
                 code=ErrorCode.COMMUNICATION_TIMEOUT,
-            )
+            ) from _sanitized_transport_cause(exc)
 
-        except httpx.RequestError as e:
+        except httpx.RequestError as exc:
             raise NFSeAPIError(
                 "Erro de comunicação ao cancelar NFSe.",
                 code=ErrorCode.COMMUNICATION_ERROR,
-            ) from e
+            ) from _sanitized_transport_cause(exc)
 
     def _parse_event_response(self, response: httpx.Response) -> EventResponse:
         """Parse API response for event registration.
@@ -1459,14 +1514,14 @@ class NFSeClient:
         except NFSeAPIError:
             raise
 
-        except httpx.TimeoutException:
+        except httpx.TimeoutException as exc:
             raise NFSeAPIError(
                 "Tempo esgotado ao consultar convênio.",
                 code=ErrorCode.COMMUNICATION_TIMEOUT,
-            )
+            ) from _sanitized_transport_cause(exc)
 
-        except httpx.RequestError as e:
+        except httpx.RequestError as exc:
             raise NFSeAPIError(
                 "Erro de comunicação ao consultar convênio municipal.",
                 code=ErrorCode.COMMUNICATION_ERROR,
-            ) from e
+            ) from _sanitized_transport_cause(exc)
