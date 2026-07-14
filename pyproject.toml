@@ -53,11 +53,27 @@ Homepage = "https://roberto-mello.github.io/pynfse-nacional/"
 Repository = "https://github.com/roberto-mello/pynfse-nacional"
 Documentation = "https://roberto-mello.github.io/pynfse-nacional/"
 
+[tool.pynfse_nacional.docs]
+copyright_year = 2026
+
 [project.scripts]
 release = "pynfse_nacional.release:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/pynfse_nacional"]
+
+[tool.hatch.build.targets.sdist]
+exclude = [
+    "/.agents",
+    "/.beads",
+    "/.codex",
+    "/.github",
+    "/.lavra",
+    "/AGENTS.md",
+    "/RELEASE_CHECKLIST.md",
+    "/tests",
+    "/util",
+]
 
 [tool.ruff]
 target-version = "py310"
@@ -87,4 +103,5 @@ docs = [
     "sphinx-design>=0.6.1",
     "sphinx-copybutton>=0.5.2",
     "sphinx>=8.0.0",
+    "tomli>=2.0.0; python_version < '3.11'",
 ]

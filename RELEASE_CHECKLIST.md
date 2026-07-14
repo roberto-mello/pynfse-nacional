@@ -13,6 +13,9 @@ package metadata in the repository.
 - Run the test suite, or at minimum the affected tests for the release scope.
 - Run the linter on the touched files, or the repo-wide lint command when the
   change is broad.
+- Build both artifacts with `uv build` and inspect their file lists. Confirm
+  that the sdist and wheel contain no `.beads`, `.lavra`, `.codex`, `.agents`,
+  tests, certificates, or other repository-internal state before publishing.
 - Run the manual homologacao issuance test with a valid certificate. This test
   is intentionally not part of CI/CD because it requires mTLS credentials and
   calls the external SEFIN service:
@@ -35,6 +38,8 @@ package metadata in the repository.
   number. A business-rule rejection such as `E0116` is not a passing result.
 - Check `git status --short --branch` and confirm there are no unexpected files.
 - Confirm the release tag does not already exist.
+- Confirm the annotated tag uses the `vMAJOR.MINOR.PATCH` format consumed by
+  the versioned documentation workflow.
 
 ## Release Steps
 
@@ -68,6 +73,8 @@ and upload flow against TestPyPI.
 
 - Confirm the tag exists locally and remotely.
 - Confirm downstream consumers can reference the new tag or package version.
+- Confirm the documentation workflow completed for the tag and that the root,
+  `/latest/`, release-version, and `/development/` pages are available.
 - If a package index release is part of the workflow, publish the artifact after
   the tag is pushed.
 

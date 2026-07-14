@@ -85,9 +85,19 @@ O site será publicado como conteúdo estático via GitHub Pages.
 
 Fluxo previsto:
 
-1. `uv sync --extra dev --group docs`
-2. `uv run sphinx-build -b html docs site`
-3. upload do artefato do site no GitHub Actions
-4. deploy para Pages a partir do artefato gerado
+1. o workflow faz checkout com as tags completas disponíveis
+2. `util/build_versioned_docs.py` seleciona as cinco tags anotadas
+   `vMAJOR.MINOR.PATCH` mais recentes
+3. cada tag é extraída para um diretório temporário e construída com seu
+   próprio `uv.lock`; a configuração e o seletor de versão atuais são
+   sobrepostos para manter a navegação consistente
+4. a versão estável mais recente é construída também para o canal `latest` e
+   copiada para a raiz; `master` é construído separadamente para
+   `development`
+5. o workflow verifica os índices gerados, faz upload do artefato completo e
+   faz o deploy para Pages
 
-O ponto de entrada do site fica em `https://roberto-mello.github.io/pynfse-nacional/`.
+O ponto de entrada do site fica em
+`https://roberto-mello.github.io/pynfse-nacional/`. Os caminhos estáveis e o
+canal de desenvolvimento estão descritos em
+[Release e versionamento](appendix/release-versioning).

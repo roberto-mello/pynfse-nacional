@@ -1,0 +1,18 @@
+<nav class="docs-version-switcher" aria-label="Documentation versions">
+  <p class="docs-version-switcher__title">Documentation version</p>
+  <ul class="docs-version-switcher__list">
+    {% for item in docs_versions %}
+    <li>
+      <a
+        href="{{ item.url }}"
+        {% if item.label == docs_current_label %}aria-current="page"{% endif %}
+      >
+        {{ item.label }}{% if item.label == docs_current_label %} <span class="visually-hidden">(current)</span>{% endif %}
+      </a>
+    </li>
+    {% endfor %}
+  </ul>
+  {% if docs_channel == "development" %}
+  <p class="docs-version-switcher__note">Unreleased documentation from <code>master</code>.</p>
+  {% endif %}
+</nav>
