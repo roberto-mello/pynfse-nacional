@@ -20,6 +20,7 @@ VERSIONING_FILES = (
     Path("docs/conf.py"),
     Path("docs/_templates/version-switcher.html"),
     Path("docs/_static/version-switcher.css"),
+    Path("docs/appendix/changelog.md"),
 )
 RELEASE_TAG_PATTERN = re.compile(
     r"^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$"
@@ -149,6 +150,30 @@ def build_environment(
     return environment
 
 
+def ensure_changelog_navigation(checkout: Path) -> None:
+    """Add the shared changelog page to older appendix indexes."""
+
+    index = checkout / "docs/appendix/index.md"
+    if not index.exists():
+        return
+
+    content = index.read_text(encoding="utf-8")
+    if re.search(r"(?m)^changelog\s*$", content):
+        return
+
+    toctree = "```{toctree}"
+    toctree_start = content.index(toctree)
+    toctree_end = content.index("```", toctree_start + len(toctree))
+    content = content[:toctree_end] + "changelog\n" + content[toctree_end:]
+    content = content.replace(
+        toctree,
+        "- [Changelog](changelog) - mudanças desta versão e das versões anteriores\n\n"
+        + toctree,
+        1,
+    )
+    index.write_text(content, encoding="utf-8")
+
+
 def build_ref(
     repo: Path,
     ref: str,
@@ -177,6 +202,7 @@ def build_ref(
             destination = checkout / relative_path
             destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(versioning_source / relative_path, destination)
+        ensure_changelog_navigation(checkout)
         run(["uv", "sync", "--group", "docs", "--frozen"], cwd=checkout)
         run(
             [

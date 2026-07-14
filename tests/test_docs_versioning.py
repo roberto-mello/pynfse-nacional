@@ -29,18 +29,21 @@ def test_docs_conf_reads_project_and_docs_metadata(monkeypatch):
     assert config["DOCS_SITE_URL"] == "https://roberto-mello.github.io"
     assert config["DOCS_PROJECT_PATH"] == "/pynfse-nacional"
     assert config["DOCS_VERSION"] == "0.9.4"
+    assert config["docs_changelog_url"] == "/pynfse-nacional/appendix/changelog.html"
 
 
 def test_docs_conf_environment_overrides_metadata(monkeypatch):
     monkeypatch.setenv("DOCS_SITE_URL", "https://docs.example.test")
     monkeypatch.setenv("DOCS_PROJECT_PATH", "/project-docs")
     monkeypatch.setenv("DOCS_VERSION", "9.9.9")
+    monkeypatch.setenv("DOCS_CURRENT_PATH", "9.9.9")
 
     config = runpy.run_path("docs/conf.py")
 
     assert config["DOCS_SITE_URL"] == "https://docs.example.test"
     assert config["DOCS_PROJECT_PATH"] == "/project-docs"
     assert config["DOCS_VERSION"] == "9.9.9"
+    assert config["docs_changelog_url"] == "/project-docs/9.9.9/appendix/changelog.html"
 
 
 def test_docs_conf_supports_historical_pyproject_without_docs_metadata(
@@ -144,6 +147,28 @@ def test_build_manifest_orders_latest_releases_and_development():
         {"label": "0.9.2", "url": "/pynfse-nacional/0.9.2/"},
         {"label": "development", "url": "/pynfse-nacional/development/"},
     ]
+
+
+def test_ensure_changelog_navigation_updates_historical_appendix(tmp_path):
+    appendix = tmp_path / "docs/appendix"
+    appendix.mkdir(parents=True)
+    index = appendix / "index.md"
+    index.write_text(
+        """# Apêndice
+
+```{toctree}
+
+troubleshooting
+```
+""",
+        encoding="utf-8",
+    )
+
+    build_versioned_docs.ensure_changelog_navigation(tmp_path)
+
+    updated = index.read_text(encoding="utf-8")
+    assert "[Changelog](changelog)" in updated
+    assert "\nchangelog\n" in updated
 
 
 def test_build_site_assembles_channels_and_aliases(tmp_path, monkeypatch):

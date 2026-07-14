@@ -10,6 +10,7 @@ on:
     paths:
       - "docs/**"
       - "docs/conf.py"
+      - "CHANGELOG.md"
       - "pyproject.toml"
       - "uv.lock"
       - "src/**"

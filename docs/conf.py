@@ -85,6 +85,20 @@ def _load_docs_versions() -> list[dict[str, str]]:
 
 docs_versions = _load_docs_versions()
 
+
+def _docs_changelog_url() -> str:
+    """Return the changelog URL for the current published channel."""
+
+    suffix = (
+        f"{DOCS_CURRENT_PATH}/appendix/changelog"
+        if DOCS_CURRENT_PATH
+        else "appendix/changelog"
+    )
+    return f"{public_path(suffix).rstrip('/')}.html"
+
+
+docs_changelog_url = _docs_changelog_url()
+
 extensions = [
     "myst_parser",
     "sphinx.ext.autodoc",
@@ -125,6 +139,7 @@ html_sidebars = {
 
 html_context = {
     "docs_channel": DOCS_CHANNEL,
+    "docs_changelog_url": docs_changelog_url,
     "docs_current_label": DOCS_CURRENT_LABEL,
     "docs_version": DOCS_VERSION,
     "docs_versions": docs_versions,
