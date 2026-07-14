@@ -298,7 +298,7 @@ def _redact_diagnostic_text(text: str) -> str:
             ):
                 return redacted_json
             text = redacted_json
-        except (TypeError, ValueError):
+        except (RecursionError, TypeError, ValueError):
             pass
 
     field_names = "|".join(sorted(_SENSITIVE_DIAGNOSTIC_FIELDS))
