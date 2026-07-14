@@ -8,6 +8,7 @@ memory/knowledge.db-shm
 memory/session-state.md
 
 # Curated local knowledge cache (rebuilt from append-only JSONL)
+memory/knowledge.jsonl
 memory/knowledge.active.jsonl
 memory/knowledge.audit.jsonl
 memory/knowledge.active.db
