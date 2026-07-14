@@ -17,6 +17,7 @@ from typing import Iterable
 
 PROJECT_PATH = "/pynfse-nacional"
 VERSIONING_FILES = (
+    Path("CHANGELOG.md"),
     Path("docs/conf.py"),
     Path("docs/_templates/version-switcher.html"),
     Path("docs/_static/version-switcher.css"),
@@ -167,11 +168,35 @@ def ensure_changelog_navigation(checkout: Path) -> None:
     content = content[:toctree_end] + "changelog\n" + content[toctree_end:]
     content = content.replace(
         toctree,
-        "- [Changelog](changelog) - mudanças desta versão e das versões anteriores\n\n"
-        + toctree,
+        "- [Registro de alterações](changelog) - mudanças desta versão e das "
+        "versões anteriores\n\n" + toctree,
         1,
     )
     index.write_text(content, encoding="utf-8")
+
+
+def trim_changelog_for_release(checkout: Path, version: str | None) -> None:
+    """Keep the selected release and its predecessors in a release changelog."""
+
+    if version is None:
+        return
+
+    changelog = checkout / "CHANGELOG.md"
+    content = changelog.read_text(encoding="utf-8")
+    release_heading = re.compile(
+        rf"(?m)^## (?:\[{re.escape(version)}\]|{re.escape(version)}) - "
+    ).search(content)
+    if release_heading is None:
+        raise ValueError(f"release {version} is missing from {changelog}")
+
+    first_release = re.search(r"(?m)^## ", content)
+    footer = re.search(r"(?m)^\[[0-9]+\.[0-9]+\.[0-9]+\]: ", content)
+    intro = content[: first_release.start()] if first_release else ""
+    body_end = footer.start() if footer else len(content)
+    trimmed = intro + content[release_heading.start() : body_end].rstrip() + "\n\n"
+    if footer:
+        trimmed += content[footer.start() :]
+    changelog.write_text(trimmed, encoding="utf-8")
 
 
 def build_ref(
@@ -182,6 +207,7 @@ def build_ref(
     environment: dict[str, str],
     worktree_root: Path,
     versioning_source: Path,
+    changelog_version: str | None = None,
 ) -> None:
     """Build one Git ref from an isolated archive and lockfile."""
 
@@ -203,6 +229,7 @@ def build_ref(
             destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(versioning_source / relative_path, destination)
         ensure_changelog_navigation(checkout)
+        trim_changelog_for_release(checkout, changelog_version)
         run(["uv", "sync", "--group", "docs", "--frozen"], cwd=checkout)
         run(
             [
@@ -286,6 +313,7 @@ def build_site(
                 ),
                 worktree_root=worktree_root,
                 versioning_source=repo,
+                changelog_version=release.label,
             )
             copy_build(rendered, output / release.label)
 
@@ -304,6 +332,7 @@ def build_site(
             ),
             worktree_root=worktree_root,
             versioning_source=repo,
+            changelog_version=latest.label,
         )
         copy_build(latest_rendered, output / "latest")
         copy_build(latest_rendered, output)

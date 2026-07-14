@@ -1,274 +1,325 @@
-# Changelog
+# Registro de alterações
 
-All notable changes to this project will be documented in this file.
+Todas as mudanças relevantes deste projeto serão registradas neste arquivo.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+O formato segue o [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+e este projeto segue o [Versionamento Semântico](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## 0.9.5 - 2026-07-14
 
-### Added
+Versão com algumas adições de qualidade de vida para auxiliar desenvolvedores quando
+precisarem inspecionar o que é enviado à SEFIN.
 
-- Public diagnostic operations on `NFSeClient` return detached, immutable
-  `RawNFSeResponse` data for submit, NFSe-by-key, DPS lookup, and two-step DPS
-  recovery probes without exposing the live mTLS client or transport response.
--  `RawNFSeResponse.redacted_preview()` provides a bounded, best-effort
-  redacted preview for diagnostic logging; callers should review it before
-  sending it to an external log service.
+### Adicionado
+
+- Operações públicas de diagnóstico em `NFSeClient` que retornam dados
+  `RawNFSeResponse` desacoplados e imutáveis para envio, tais como consulta de NFSe por
+  chave, consulta de DPS e sondagens de recuperação em duas etapas. Não expõem
+  o cliente mTLS ativo nem a resposta de transporte.
+- `RawNFSeResponse.redacted_preview()` fornece uma prévia limitada, com melhor
+  esforço para ocultar dados sensíveis, para diagnóstico; os
+  consumidores devem revisá-la antes de enviá-la a um serviço externo de logs.
 
 ## 0.9.4 - 2026-07-12
 
-### Added
-- Official NFSe v1.01 XSD fixtures, annex fixtures, and schema-fidelity tests
-  that detect upstream schema drift and bound downloaded archive sizes.
-- Integration safeguards that fail homologacao tests on E1xxx schema
-  rejections instead of treating them as acceptable business errors.
-- Validation requiring `x_tipo_chave_dfe` when `tipo_chave_dfe="9"`.
+### Adicionado
 
-### Changed
-- `DPS.op_simp_nac` now accepts only official `TSOpSimpNac` values `"1"`,
-  `"2"`, and `"3"`; Simples Nacional fields now follow the official
-  `TCRegTrib` structure.
-- Numeric `Prestador.inscricao_municipal` values are normalized to 15 digits
-  in submitted DPS XML, matching CNC identifiers and preventing applicable
-  `E0116` rejections.
-- `verAplic` continues to derive from the installed package version, now
-  reporting `pynfse-0.9.4`.
+- Fixtures oficiais do XSD NFSe v1.01, fixtures de anexos e testes de
+  fidelidade de schema que detectam alterações no schema upstream e limitam o
+  tamanho dos arquivos baixados.
+- Mecanismos de verificação na integração que fazem os testes de homologação falharem diante
+  de rejeições de schema E1xxx, em vez de tratá-las como erros aceitáveis.
+- Validação que exige `x_tipo_chave_dfe` quando `tipo_chave_dfe="9"`.
 
-### Fixed
-- DPS XML no longer emits invented `regApIBSCBSSN` under `regTrib` (SEFIN
-  E1235 schema rejection).
-- DPS submission parsing now handles SEFIN `erro`/`erros` arrays, top-level JSON
-  lists, and capitalized response keys while preserving provider error details.
-- NFSe and DANFSe parsing now share the 50-digit access-key validation rule.
-- XML response and PDF parsing now use `defusedxml`.
-- IBSCBS document references now emit the official element names and enforce
-  the required `tipo_chave_dfe` companion field.
-- Simples Nacional labels in DANFSe output now match the official enum:
-  `1`=Não Optante, `2`=MEI, `3`=ME/EPP.
+### Alterado
 
-### Security
-- Added `defusedxml` protections against entity-expansion attacks.
-- Schema-fidelity downloads are size-bounded before archive extraction.
-- GitHub Actions references are pinned to immutable commit SHAs.
+- `DPS.op_simp_nac` agora aceita apenas os valores oficiais de `TSOpSimpNac`,
+  `"1"`, `"2"` e `"3"`; os campos do Simples Nacional agora seguem a
+  estrutura oficial de `TCRegTrib`.
+- Os valores numéricos de `Prestador.inscricao_municipal` são normalizados
+  para 15 dígitos no XML da DPS enviada, em conformidade com os identificadores
+  do CNC e evitando rejeições `E0116` aplicáveis.
+- `verAplic` continua sendo derivado da versão instalada do pacote e agora
+  informa `pynfse-0.9.4`.
 
-### Removed
-- `DPS.reg_ap_ibs_cbs_sn` and
-  `REGIME_TO_SIMPLES_NACIONAL["regApIbsCbsSn"]`, which were not present in the
-  official schema.
+### Corrigido
 
-### Migration
-- Drop `reg_ap_ibs_cbs_sn=...`; it is now rejected as an extra field.
-- Replace `op_simp_nac="4"` with `"1"`, `"2"`, or `"3"`.
-- For ME/EPP (`op_simp_nac="3"`), provide `reg_ap_trib_sn` only.
-- Use the manual homologacao issuance gate in `RELEASE_CHECKLIST.md`; live
-  SEFIN issuance is run as part of our pre-release process. It's intentionally
-  not part of automated CI/CD to avoid having to need certificates in GH.
+- O XML da DPS não emite mais `regApIBSCBSSN` inventado dentro de `regTrib`
+  (rejeição de schema E1235 da SEFIN).
+- O parsing do envio de DPS agora trata arrays `erro`/`erros` da SEFIN, listas
+  JSON no nível superior e chaves de resposta com letras maiúsculas,
+  preservando os detalhes do erro informado pelo provedor.
+- O parsing de NFSe e DANFSe agora compartilha a regra de validação da chave de
+  acesso com 50 dígitos.
+- O parsing de respostas XML e PDFs agora usa `defusedxml`.
+- As referências de documentos IBSCBS agora emitem os nomes oficiais dos
+  elementos e exigem o campo complementar `tipo_chave_dfe`.
+- Os rótulos do Simples Nacional na saída do DANFSe agora correspondem ao enum
+  oficial: `1`=Não Optante, `2`=MEI, `3`=ME/EPP.
+
+### Segurança
+
+- Adicionadas proteções do `defusedxml` contra ataques de expansão de entidades.
+- Downloads de arquivos de fidelidade de schema agora têm o tamanho limitado
+  antes da extração dos arquivos compactados.
+- Referências do GitHub Actions são fixadas em SHAs de commits imutáveis.
+
+### Removido
+
+- `DPS.reg_ap_ibs_cbs_sn` e
+  `REGIME_TO_SIMPLES_NACIONAL["regApIbsCbsSn"]`, que não estavam presentes no
+  schema oficial.
+
+### Migração
+
+- Remova `reg_ap_ibs_cbs_sn=...`; o campo agora é rejeitado como extra.
+- Substitua `op_simp_nac="4"` por `"1"`, `"2"` ou `"3"`.
+- Para ME/EPP (`op_simp_nac="3"`), informe apenas `reg_ap_trib_sn`.
+- Use a etapa manual de emissão em homologação descrita em
+  `RELEASE_CHECKLIST.md`; a emissão real na SEFIN faz parte do nosso processo
+  de pré-lançamento. Ela intencionalmente não faz parte do CI/CD automatizado,
+  pois exigiria certificados no GitHub.
 
 ## 0.9.3 - 2026-07-07
 
-### Fixed
-- `submit_dps()` now normalizes SEFIN error payloads that arrive as `erro`
-  arrays or top-level JSON lists, preserving the provider message instead of
-  failing on the response shape.
+### Corrigido
+
+- `submit_dps()` agora normaliza payloads de erro da SEFIN que chegam como
+  arrays `erro` ou listas JSON no nível superior, preservando a mensagem do
+  provedor em vez de falhar por causa do formato da resposta.
 
 ## 0.9.2 - 2026-07-04
 
-The star-spangled-banner release. It became clear we didn't want to replicate
-the regime mapping in clients, so we made this small addition.
+A versão "star-spangled banner". Ficou claro que não queríamos duplicar o
+mapeamento de regimes nos clientes, então fizemos esta pequena adição.
 
-### Added
-- Exported `REGIME_TO_SIMPLES_NACIONAL` from the top-level package so callers
-  can reuse the canonical Simples Nacional mapping without duplicating it.
+### Adicionado
+
+- Exportado `REGIME_TO_SIMPLES_NACIONAL` no pacote de nível superior para que os
+  consumidores possam reutilizar o mapeamento canônico do Simples Nacional sem
+  duplicá-lo.
 
 ## 0.9.1 - 2026-07-03
 
-### Added
-- Centralized stable numeric error codes in `error_codes.py` and PT-BR error
-  messages in `error_messages.py`.
-- Standardized library-generated error messages to Brazilian Portuguese with
-  accents while preserving the numeric `ErrorCode` values for programmatic
-  handling.
+### Adicionado
+
+- Códigos numéricos de erro estáveis centralizados em `error_codes.py` e
+  mensagens de erro em PT-BR em `error_messages.py`.
+- Mensagens de erro geradas pela biblioteca padronizadas em português
+  brasileiro, com acentuação, preservando os valores numéricos de `ErrorCode`
+  para tratamento programático.
 
 ## [0.9.0] - 2026-07-02
 
-### Fixed
-- Hardened gzipped NFSe decoding against oversized payloads, switched XML parsing
-  in the signer and response-number extraction paths to a safer parser config,
-  and removed raw sensitive values from validation errors.
+### Corrigido
 
-### Added
-- IBSCBS support for DPS payloads and XML emission, including the widened `opSimpNac`
-  model and `regApIBSCBSSN` handling for Simples Nacional providers.
-- Response-side IBSCBS parsing now populates `NFSe`, `NFSeQueryResult`, and the
-  PDF parser data model from the response XML with a single XML parse.
-- DANFSe PDF rendering now shows an optional IBSCBS totals lane when `totCIBS`
-  is present, and leaves the layout unchanged when it is absent.
-- `NFSeClient` now supports recovering an NFSe by DPS identifier with
-  `query_nfse_by_dps(id_dps)` and checking availability with
-  `has_nfse_by_dps(id_dps)`, using the official `GET /dps/{id}` and
-  `HEAD /dps/{id}` endpoints.
-- `NFSeClient.recover_nfse_by_dps(id_dps)` high-level helper that combines
-  `has_nfse_by_dps` and `query_nfse_by_dps` for the duplicate / lost
-  `chave_acesso` recovery path. Returns a frozen `RecoveryOutcome` dataclass
-  (`status="success" | "processing" | "error"`) so consumers do not have to
-  re-derive SEFIN `202 / 404 / 409` semantics themselves. Exported from the
-  top-level package as `RecoveryOutcome`.
-- Vendored NFSe XSD v1.01-20260209 fixtures plus IBSCBS golden XML samples for
-  schema validation coverage.
+- O decoding de NFSe compactadas com gzip foi endurecido contra payloads
+  grandes demais; o parsing XML nos caminhos do assinador e da extração do
+  número da resposta passou a usar uma configuração de parser mais segura; e
+  valores sensíveis brutos foram removidos dos erros de validação.
 
-### Changed
-- `DPS.optante_simples` (`bool`) was removed and replaced by
-  `DPS.op_simp_nac` (`Literal['1', '2', '3', '4']`) to match the official
-  NFSe schema. Old `optante_simples` inputs now fail fast because `DPS`
-  forbids extra fields. Migration: `optante_simples=True` maps to
-  `op_simp_nac='3'` and `False` maps to `op_simp_nac='1'`. For
-  `op_simp_nac='3'` or `'4'`, also provide `reg_ap_trib_sn` and
-  `reg_ap_ibs_cbs_sn`; for `'1'` or `'2'`, leave those fields unset.
-- `verAplic` is now derived from the installed package version instead of using a
-  hardcoded release string.
-- Bumped the supported floors for `lxml` and `signxml` to match the current
-  secure/runtime baseline.
-- Updated project documentation and official schema references to the current
-  2026-02-09 NFSe XSD package.
+### Adicionado
+
+- Suporte a IBSCBS para payloads de DPS e emissão de XML, incluindo o modelo
+  `opSimpNac` ampliado e o tratamento de `regApIBSCBSSN` para prestadores do
+  Simples Nacional.
+- O parsing de IBSCBS no lado da resposta agora preenche `NFSe`,
+  `NFSeQueryResult` e o modelo de dados do parser de PDF a partir do XML da
+  resposta com um único parsing XML.
+- A renderização do PDF DANFSe agora exibe uma faixa opcional com os totais de
+  IBSCBS quando `totCIBS` está presente, mantendo o layout inalterado quando
+  ele está ausente.
+- `NFSeClient` agora permite recuperar uma NFSe pelo identificador da DPS com
+  `query_nfse_by_dps(id_dps)` e verificar sua disponibilidade com
+  `has_nfse_by_dps(id_dps)`, usando os endpoints oficiais `GET /dps/{id}` e
+  `HEAD /dps/{id}`.
+- O helper de alto nível `NFSeClient.recover_nfse_by_dps(id_dps)` combina
+  `has_nfse_by_dps` e `query_nfse_by_dps` para o fluxo de recuperação de
+  `chave_acesso` duplicada ou perdida. Ele retorna um dataclass imutável
+  `RecoveryOutcome` (`status="success" | "processing" | "error"`), para que
+  os consumidores não precisem rederivar a semântica dos status `202 / 404 /
+  409` da SEFIN. `RecoveryOutcome` é exportado no pacote de nível superior.
+- Fixtures versionadas do XSD NFSe v1.01-20260209 e amostras XML golden de
+  IBSCBS para cobertura de validação de schema.
+
+### Alterado
+
+- `DPS.optante_simples` (`bool`) foi removido e substituído por
+  `DPS.op_simp_nac` (`Literal['1', '2', '3', '4']`) para corresponder ao schema
+  oficial da NFSe. Entradas antigas com `optante_simples` agora falham
+  rapidamente porque `DPS` rejeita campos extras. Migração:
+  `optante_simples=True` corresponde a `op_simp_nac='3'` e `False` corresponde
+  a `op_simp_nac='1'`. Para `op_simp_nac='3'` ou `'4'`, informe também
+  `reg_ap_trib_sn` e `reg_ap_ibs_cbs_sn`; para `'1'` ou `'2'`, deixe esses
+  campos sem valor.
+- `verAplic` agora é derivado da versão instalada do pacote, em vez de usar
+  uma string de lançamento fixa.
+- Os limites mínimos suportados de `lxml` e `signxml` foram atualizados para
+  corresponder à base segura e ao runtime atuais.
+- A documentação do projeto e as referências ao schema oficial foram
+  atualizadas para o pacote de XSD NFSe de 2026-02-09.
 
 ## [0.4.7] - 2026-06-15
 
-### Fixed
-- `_get_client()` context manager no longer swallows httpx network errors
-  (`RemoteProtocolError`, `ConnectError`, etc.) from the yield body and
-  misclassifies them as `NFSeCertificateError`. Only `httpx.Client()`
-  construction errors are wrapped as `NFSeCertificateError`; errors during
-  request execution now propagate to the correct `except httpx.TimeoutException`
-  / `except httpx.RequestError` handlers in `submit_dps()`, `cancel_nfse()`,
-  `query_nfse()`, `download_danfse()`, and `query_convenio_municipal()`.
-- `Prestador.inscricao_municipal` is now optional and the DPS XML builder
-  omits `<IM>` when the field is not provided, matching the official NFSe
-  layout.
+### Corrigido
 
-### Changed
-- All E501 line-length violations in `client.py` resolved for ruff compliance.
-- Imports sorted for isort/ruff compliance.
-- Added a dedicated release checklist in `RELEASE_CHECKLIST.md` and linked it
-  from `AGENTS.md` and `CLAUDE.md` so release steps stay centralized.
-- Cleaned lint debt in the touched release files without changing NFSe
-  transport behavior.
+- O gerenciador de contexto `_get_client()` não engole mais erros de rede do
+  httpx (`RemoteProtocolError`, `ConnectError` etc.) ocorridos no corpo do
+  `yield`, classificando-os incorretamente como `NFSeCertificateError`. Apenas
+  erros na construção de `httpx.Client()` são encapsulados como
+  `NFSeCertificateError`; erros durante a execução da requisição agora seguem
+  para os handlers corretos `except httpx.TimeoutException` /
+  `except httpx.RequestError` em `submit_dps()`, `cancel_nfse()`,
+  `query_nfse()`, `download_danfse()` e `query_convenio_municipal()`.
+- `Prestador.inscricao_municipal` agora é opcional e o builder de XML da DPS
+  omite `<IM>` quando o campo não é informado, em conformidade com o layout
+  oficial da NFSe.
+
+### Alterado
+
+- Todas as violações E501 de limite de linha em `client.py` foram corrigidas
+  para conformidade com o Ruff.
+- Imports organizados para conformidade com isort/Ruff.
+- Adicionado um checklist de lançamento dedicado em `RELEASE_CHECKLIST.md`,
+  vinculado a `AGENTS.md` e `CLAUDE.md`, para manter os passos de lançamento
+  centralizados.
+- Reduzido o débito de lint nos arquivos de lançamento alterados sem modificar
+  o comportamento de transporte da NFSe.
 
 ## [0.4.6] - 2026-03-11
 
-### Fixed
-- `cancel_nfse()`, `query_nfse()`, and `download_danfse()` now validate that
-  `chave_acesso` is exactly 50 numeric digits before URL interpolation, raising
-  `ValueError` on invalid input.
-- `_parse_event_response()` correctly distinguishes a confirmed `retEvento.cStat=144`
-  success from a legacy `{protocolo: "..."}` response — previously both fell through
-  the same code path, producing `success=True` with `protocolo=None` when `retEvento`
-  was absent.
-- `_parse_event_response()` now aggregates all entries in the SEFIN `erro` array into
-  a single joined error message, rather than silently discarding all but the first.
-- `descricao` and `complemento` fields from SEFIN error responses are capped at 255
-  characters to prevent unbounded log entries.
-- `_get_client()` initialises temp file paths to `None` before writing, preventing a
-  potential `NameError` in the `finally` cleanup block if a write fails mid-way.
+### Corrigido
 
-### Changed
-- Removed unused internal constants `REGIME_SIMPLES_NACIONAL`, `REGIME_SIMPLES_EXCESSO`,
-  `REGIME_NORMAL`, `REGIME_MEI`, `STATUS_EMITIDA`, `STATUS_CANCELADA`, `STATUS_SUBSTITUIDA`
-  from `constants.py` — these were never exported and not referenced anywhere in the library.
+- `cancel_nfse()`, `query_nfse()` e `download_danfse()` agora validam que
+  `chave_acesso` contém exatamente 50 dígitos numéricos antes de interpolá-la
+  na URL, lançando `ValueError` para entradas inválidas.
+- `_parse_event_response()` agora distingue corretamente um sucesso confirmado
+  por `retEvento.cStat=144` de uma resposta legada `{protocolo: "..."}` — antes,
+  ambos seguiam pelo mesmo caminho e produziam `success=True` com
+  `protocolo=None` quando `retEvento` estava ausente.
+- `_parse_event_response()` agora agrega todas as entradas do array `erro` da
+  SEFIN em uma única mensagem de erro, em vez de descartar silenciosamente
+  todas menos a primeira.
+- Os campos `descricao` e `complemento` das respostas de erro da SEFIN são
+  limitados a 255 caracteres para evitar entradas de log sem limite.
+- `_get_client()` agora inicializa os caminhos dos arquivos temporários como
+  `None` antes da escrita, evitando um `NameError` no cleanup de `finally` se a
+  escrita falhar no meio do processo.
+
+### Alterado
+
+- Removidas as constantes internas não utilizadas `REGIME_SIMPLES_NACIONAL`,
+  `REGIME_SIMPLES_EXCESSO`, `REGIME_NORMAL`, `REGIME_MEI`, `STATUS_EMITIDA`,
+  `STATUS_CANCELADA` e `STATUS_SUBSTITUIDA` de `constants.py`; elas nunca foram
+  exportadas nem referenciadas pela biblioteca.
 
 ## [0.4.5] - 2026-03-12
 
-### Fixed
-- `cancel_nfse()` now posts to the correct endpoint `/nfse/{chave}/eventos` instead
-  of `/eventos`, which returned HTTP 404 (resource not found).
-- `infPedReg` `Id` attribute now follows XSD type `TSIdPedRegEvt` pattern
-  `PRE[0-9]{56}`: `PRE` + 50-digit chave + 6-digit event code `101101`. Previously
-  used `PRE{chave}1` (54 chars) which failed SEFIN schema validation with RNG6110.
-- Removed `nPedRegEvento` element from `infPedReg` — it is not part of the schema
-  and caused RNG6110 "invalid child element" errors.
-- `_parse_event_response()` now parses SEFIN's `erro` array format
-  (`[{codigo, descricao, complemento}]`) for proper error messages on 4xx responses.
+### Corrigido
+
+- `cancel_nfse()` agora publica no endpoint correto `/nfse/{chave}/eventos`, em
+  vez de `/eventos`, que retornava HTTP 404 (recurso não encontrado).
+- O atributo `Id` de `infPedReg` agora segue o tipo XSD `TSIdPedRegEvt` com o
+  padrão `PRE[0-9]{56}`: `PRE` + chave de 50 dígitos + código de evento de 6
+  dígitos `101101`. Antes, era usado `PRE{chave}1` (54 caracteres), o que
+  falhava na validação do schema com RNG6110.
+- Removido o elemento `nPedRegEvento` de `infPedReg`; ele não faz parte do
+  schema e causava o erro RNG6110 "invalid child element".
+- `_parse_event_response()` agora interpreta o formato do array `erro` da SEFIN
+  (`[{codigo, descricao, complemento}]`) para produzir mensagens de erro
+  corretas em respostas 4xx.
 
 ## [0.4.4] - 2026-03-11
 
-### Fixed
-- `cancel_nfse()` now accepts and forwards `cnpj_prestador` to `build_cancel_event()`,
-  populating the `CNPJAutor` field in the `pedRegEvento` XML. SEFIN requires this field
-  to identify the cancellation author; omitting it caused HTTP 404 on the `/eventos`
-  endpoint even when the NFS-e existed.
+### Corrigido
+
+- `cancel_nfse()` agora aceita e encaminha `cnpj_prestador` para
+  `build_cancel_event()`, preenchendo o campo `CNPJAutor` no XML
+  `pedRegEvento`. A SEFIN exige esse campo para identificar o autor do
+  cancelamento; sua ausência causava HTTP 404 no endpoint `/eventos`, mesmo
+  quando a NFS-e existia.
 
 ## [0.4.2] - 2026-03-11
 
-### Fixed
-- `cancel_nfse()` was sending plain JSON to `/eventos`, causing HTTP 404 in
-  production. It now builds a signed `pedRegEvento` XML document (event type
-  `e101101`), compresses it with gzip, base64-encodes it, and POSTs it as
-  `{"pedidoRegistroEventoXmlGZipB64": ...}` — the same pattern used by
-  `submit_dps()`.
-- `_parse_event_response()` updated to handle the SEFIN `retEvento` response
-  shape (`cStat: 144` = success, `idEvento` as protocolo).
-- Stale tests referenced `subst1` XML element name that was renamed to `subst`
-  in 0.4.1 to match the NFSe schema.
+### Corrigido
 
-### Added
-- `XMLBuilder.build_cancel_event()` — produces the `pedRegEvento/infPedReg`
-  XML required by the SEFIN cancellation endpoint.
-- `cancel_nfse()` now accepts an optional `codigo_motivo: int = 1` parameter
+- `cancel_nfse()` não envia mais JSON simples para `/eventos`, o que causava
+  HTTP 404 em produção. Agora ele constrói um documento XML `pedRegEvento`
+  assinado (tipo de evento `e101101`), compacta-o com gzip, codifica-o em
+  base64 e o envia como `{"pedidoRegistroEventoXmlGZipB64": ...}` — o mesmo
+  padrão usado por `submit_dps()`.
+- `_parse_event_response()` foi atualizado para tratar o formato de resposta
+  `retEvento` da SEFIN (`cStat: 144` = sucesso, `idEvento` como protocolo).
+- Testes obsoletos referenciavam o elemento XML `subst1`, renomeado para
+  `subst` na versão 0.4.1.
+
+### Adicionado
+
+- `XMLBuilder.build_cancel_event()` — produz o XML `pedRegEvento/infPedReg`
+  exigido pelo endpoint de cancelamento da SEFIN.
+- `cancel_nfse()` agora aceita o parâmetro opcional `codigo_motivo: int = 1`
   (1 = erro na emissão, 2 = serviço não prestado, 4 = duplicidade).
-- `XMLSignerService.sign()` now handles both DPS documents (`infDPS`) and
-  event documents (`infPedReg`) without separate methods.
+- `XMLSignerService.sign()` agora trata tanto documentos DPS (`infDPS`) quanto
+  documentos de evento (`infPedReg`) sem métodos separados.
 
 ## [0.4.1] - 2026-02-03
 
-### Fixed
-- NFSe substitution XML element renamed from `subst1` to `subst` to match
-  the official schema.
+### Corrigido
+
+- O elemento XML de substituição da NFSe foi renomeado de `subst1` para
+  `subst`, em conformidade com o schema oficial.
 
 ## [0.4.0] - 2026-01-28
 
-### Added
-- NFSe substitution support via `substitute_nfse()` and `SubstituicaoNFSe`
-  model.
+### Adicionado
 
-### Changed
-- License changed from MIT to AGPL-3.0.
+- Suporte à substituição de NFSe por meio de `substitute_nfse()` e do modelo
+  `SubstituicaoNFSe`.
+
+### Alterado
+
+- A licença foi alterada de MIT para AGPL-3.0.
 
 ## [0.3.2] - 2026-01-20
 
-### Fixed
-- PDF generator now extracts and renders tomador address in DANFSe.
-- `nfse_number` extraction now reads from the NFSe XML rather than
-  deriving it from the `chave_acesso`.
+### Corrigido
+
+- O gerador de PDF agora extrai e renderiza o endereço do tomador no DANFSe.
+- A extração de `nfse_number` agora lê o número do XML da NFSe, em vez de
+  derivá-lo de `chave_acesso`.
 
 ## [0.3.0] - 2026-01-10
 
-### Added
-- Local DANFSe PDF generator (`pdf_generator.py`) as an alternative to the
-  official DANFSE API (which is unreliable in production).
-- Comprehensive unit tests for client and PDF generator.
+### Adicionado
+
+- Gerador local de PDF DANFSe (`pdf_generator.py`) como alternativa à API
+  oficial do DANFSe, que é pouco confiável em produção.
+- Cobertura abrangente de testes unitários para o cliente e o gerador de PDF.
 
 ## [0.2.0] - 2025-12-20
 
-### Added
-- `query_convenio_municipal()` — check whether a municipality has joined the
-  national NFSe system.
-- Comprehensive field validation with Portuguese error messages for CNPJ, CPF,
-  CEP, UF, and service codes.
-- CLI utility for issuing NFSe.
+### Adicionado
+
+- `query_convenio_municipal()` — verifica se um município aderiu ao sistema
+  nacional de NFSe.
+- Validação abrangente de campos com mensagens de erro em português para CNPJ,
+  CPF, CEP, UF e códigos de serviço.
+- Utilitário de linha de comando para emitir NFSe.
 
 ## [0.1.0] - 2025-12-01
 
-### Added
-- Initial release.
-- `NFSeClient` with mTLS support for PKCS12 certificates.
-- `submit_dps()` — build, sign, and submit a DPS to receive an NFSe.
-- `query_nfse()` — query NFSe by access key.
-- `download_danfse()` — download DANFSe PDF from the official API.
-- `cancel_nfse()` — register a cancellation event.
-- Pydantic models: `DPS`, `Prestador`, `Tomador`, `Servico`, `NFSeResponse`,
+### Adicionado
+
+- Lançamento inicial.
+- `NFSeClient` com suporte a mTLS para certificados PKCS12.
+- `submit_dps()` — cria, assina e envia uma DPS para receber uma NFSe.
+- `query_nfse()` — consulta uma NFSe pela chave de acesso.
+- `download_danfse()` — baixa o PDF DANFSe da API oficial.
+- `cancel_nfse()` — registra um evento de cancelamento.
+- Modelos Pydantic: `DPS`, `Prestador`, `Tomador`, `Servico`, `NFSeResponse`,
   `EventResponse`.
-- XML builder and XML signer using `lxml` and `signxml`.
-- Support for homologação and produção environments.
+- Builder de XML e assinador de XML usando `lxml` e `signxml`.
+- Suporte aos ambientes de homologação e produção.
 
 [0.9.1]: https://github.com/roberto-mello/pynfse-nacional/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/roberto-mello/pynfse-nacional/compare/v0.5.0...v0.9.0

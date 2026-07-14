@@ -28,7 +28,7 @@ def test_docs_conf_reads_project_and_docs_metadata(monkeypatch):
     assert config["copyright"] == "2026, Project Maintainer"
     assert config["DOCS_SITE_URL"] == "https://roberto-mello.github.io"
     assert config["DOCS_PROJECT_PATH"] == "/pynfse-nacional"
-    assert config["DOCS_VERSION"] == "0.9.4"
+    assert config["DOCS_VERSION"] == "0.9.5"
     assert config["docs_changelog_url"] == "/pynfse-nacional/appendix/changelog.html"
 
 
@@ -167,8 +167,39 @@ troubleshooting
     build_versioned_docs.ensure_changelog_navigation(tmp_path)
 
     updated = index.read_text(encoding="utf-8")
-    assert "[Changelog](changelog)" in updated
+    assert "[Registro de alterações](changelog)" in updated
     assert "\nchangelog\n" in updated
+
+
+def test_trim_changelog_for_release_keeps_selected_release_and_predecessors(tmp_path):
+    changelog = tmp_path / "CHANGELOG.md"
+    changelog.write_text(
+        """# Registro de alterações
+
+## 0.9.5 - 2026-07-14
+
+- Mudanças mais recentes.
+
+## 0.9.4 - 2026-07-12
+
+- Mudanças da versão selecionada.
+
+## [0.9.0] - 2026-07-02
+
+- Mudanças anteriores.
+
+[0.9.0]: https://example.test/0.9.0
+""",
+        encoding="utf-8",
+    )
+
+    build_versioned_docs.trim_changelog_for_release(tmp_path, "0.9.4")
+
+    trimmed = changelog.read_text(encoding="utf-8")
+    assert "## 0.9.5 -" not in trimmed
+    assert "## 0.9.4 -" in trimmed
+    assert "## [0.9.0] -" in trimmed
+    assert "[0.9.0]: https://example.test/0.9.0" in trimmed
 
 
 def test_build_site_assembles_channels_and_aliases(tmp_path, monkeypatch):
@@ -185,8 +216,9 @@ def test_build_site_assembles_channels_and_aliases(tmp_path, monkeypatch):
         environment: dict[str, str],
         worktree_root: Path,
         versioning_source: Path,
+        changelog_version: str | None = None,
     ) -> None:
-        del repo, worktree_root, versioning_source
+        del repo, worktree_root, versioning_source, changelog_version
         calls.append((ref, environment["DOCS_CURRENT_LABEL"]))
         output.mkdir(parents=True)
         manifest = json.loads(environment["DOCS_VERSIONS_JSON"])

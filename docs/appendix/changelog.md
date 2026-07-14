@@ -1,8 +1,9 @@
-# Release changelog
+# Registro de alterações das versões
 
-The first release heading below is the version represented by this documentation
-build. Continue down the page to review changes from earlier releases.
+A primeira seção de versão abaixo corresponde à versão representada por esta
+documentação. As seções seguintes registram as alterações das versões
+anteriores.
 
 ```{include} ../../CHANGELOG.md
-:start-after: "# Changelog"
+:start-after: "# Registro de alterações"
 ```

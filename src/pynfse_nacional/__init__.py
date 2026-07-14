@@ -81,7 +81,7 @@ try:
 except ImportError:
     _PDF_AVAILABLE = False
 
-__version__ = "0.9.4"
+__version__ = "0.9.5"
 
 __all__ = [
     # Client

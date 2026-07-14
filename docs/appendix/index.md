@@ -8,7 +8,7 @@ Material de apoio para operar o projeto sem adivinhar nada no escuro.
 - [Códigos de erro](error-codes) - catálogo central de códigos numéricos e mensagens
 - [Matriz de ambiente](environment-matrix) - Python, PDF, mTLS e perfis suportados
 - [Release e versionamento](release-versioning) - versão, docs, CI e publicação
-- [Changelog](changelog) - mudanças desta versão e das versões anteriores
+- [Registro de alterações](changelog) - mudanças desta versão e das versões anteriores
 
 ```{toctree}
 :maxdepth: 1
