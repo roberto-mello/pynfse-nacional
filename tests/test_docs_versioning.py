@@ -43,6 +43,46 @@ def test_docs_conf_environment_overrides_metadata(monkeypatch):
     assert config["DOCS_VERSION"] == "9.9.9"
 
 
+def test_docs_conf_supports_historical_pyproject_without_docs_metadata(
+    tmp_path, monkeypatch
+):
+    docs_dir = tmp_path / "docs"
+    docs_dir.mkdir()
+    (tmp_path / "pyproject.toml").write_text(
+        """
+[project]
+name = "historical-project"
+version = "0.1.0"
+authors = [{name = "Historical Maintainer"}]
+
+[project.urls]
+Documentation = "https://docs.example.test/historical-project/"
+""".lstrip(),
+        encoding="utf-8",
+    )
+    conf_path = docs_dir / "conf.py"
+    conf_path.write_text(
+        Path("docs/conf.py").read_text(encoding="utf-8"), encoding="utf-8"
+    )
+
+    for name in (
+        "DOCS_SITE_URL",
+        "DOCS_PROJECT_PATH",
+        "DOCS_CHANNEL",
+        "DOCS_VERSION",
+        "DOCS_CURRENT_PATH",
+        "DOCS_CURRENT_LABEL",
+        "DOCS_VERSIONS_JSON",
+    ):
+        monkeypatch.delenv(name, raising=False)
+
+    config = runpy.run_path(str(conf_path))
+
+    assert config["project"] == "historical-project"
+    assert config["author"] == "Historical Maintainer"
+    assert config["copyright"] == "2026, Historical Maintainer"
+
+
 def test_parse_release_tag_accepts_only_stable_semver_tags():
     release = build_versioned_docs.parse_release_tag("v1.2.3")
 

@@ -18,10 +18,12 @@ with (root / "pyproject.toml").open("rb") as metadata_file:
     pyproject = tomllib.load(metadata_file)
 
 project_metadata = pyproject["project"]
-docs_metadata = pyproject["tool"]["pynfse_nacional"]["docs"]
+docs_metadata = pyproject.get("tool", {}).get("pynfse_nacional", {}).get("docs", {})
 project = project_metadata["name"]
 author = project_metadata["authors"][0]["name"]
-copyright = f"{docs_metadata['copyright_year']}, {author}"
+# Historical release tags predate the custom docs metadata section.
+copyright_year = docs_metadata.get("copyright_year", 2026)
+copyright = f"{copyright_year}, {author}"
 package_version = project_metadata["version"]
 documentation_url = urlsplit(project_metadata["urls"]["Documentation"])
 default_docs_site_url = f"{documentation_url.scheme}://{documentation_url.netloc}"
